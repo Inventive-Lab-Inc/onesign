@@ -10,6 +10,7 @@ import {
   GripVertical,
   Image as ImageIcon,
   Monitor,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -24,7 +25,7 @@ import { Label } from "@/components/ui/label";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatPlaylistClockLabel } from "@/lib/playlist-timing";
-import { cn } from "@/lib/utils";
+import { cn, mediaLibraryAddButtonClassName } from "@/lib/utils";
 import { PlaylistPreviewButton } from "@/components/playlist-preview";
 import { ReadonlyVideoDuration } from "@/components/readonly-video-duration";
 import { useConsoleDataStore } from "@/stores/console-data-store";
@@ -95,6 +96,7 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
   const [name, setName] = useState(initialName);
   const [items, setItems] = useState<PlaylistItemWithMedia[]>(cachedItems);
   const [savingName, setSavingName] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryResetKey, setLibraryResetKey] = useState(0);
 
@@ -118,26 +120,38 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
     return allMedia.filter((m) => (m.original_filename ?? m.storage_path).toLowerCase().includes(q));
   }, [allMedia, librarySearch]);
 
-  async function saveName() {
+  const saveName = useCallback(async () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error("Enter a playlist name.");
+      return;
+    }
+    if (trimmed === initialName.trim()) {
+      setIsEditingName(false);
+      return;
+    }
     setSavingName(true);
     try {
-      const { error } = await supabase
-        .from("playlists")
-        .update({ name: name.trim() || "Untitled playlist" })
-        .eq("id", playlistId);
+      const { error } = await supabase.from("playlists").update({ name: trimmed }).eq("id", playlistId);
       if (error) {
         toast.error(error.message);
         return;
       }
-      toast.success("Playlist name saved");
+      toast.success("Playlist name updated");
       await reloadFromServer();
+      setIsEditingName(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to save";
+      const message = err instanceof Error ? err.message : "Unable to save name";
       toast.error(message);
     } finally {
       setSavingName(false);
     }
-  }
+  }, [initialName, name, playlistId, reloadFromServer, supabase]);
+
+  const cancelEditingName = useCallback(() => {
+    setName(initialName);
+    setIsEditingName(false);
+  }, [initialName]);
 
   const persistOrder = useCallback(
     async (next: PlaylistItemWithMedia[]) => {
@@ -266,41 +280,78 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
     <DragDropContext onDragEnd={(r) => void onDragEnd(r)}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
         <div className="min-w-0 flex-1 space-y-4">
-        <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
-          <ol className="flex flex-wrap items-center gap-1.5">
-            <li>
-              <Link href="/playlists" className="hover:text-foreground">
-                Home
-              </Link>
-            </li>
-            <li aria-hidden className="text-muted-foreground/70">
-              /
-            </li>
-            <li className="font-medium text-foreground">{name || "Playlist"}</li>
-          </ol>
-        </nav>
-
-        <div className="space-y-2">
-          <Label htmlFor="playlist-title" className="sr-only">
-            Playlist name
-          </Label>
-          <Input
-            id="playlist-title"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="h-11 max-w-xl border-transparent bg-white text-xl font-semibold tracking-tight shadow-sm ring-1 ring-border focus-visible:ring-brand-faint30 dark:bg-card"
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="rounded-full"
-              disabled={savingName || name.trim() === initialName.trim()}
-              onClick={() => void saveName()}
+        <div className="space-y-4">
+          {!isEditingName ? (
+            <div className="flex max-w-full flex-wrap items-center gap-1.5">
+              <h1 className="min-w-0 w-fit max-w-full text-balance text-2xl font-semibold tracking-tight text-foreground leading-snug">
+                <span className="break-words [overflow-wrap:anywhere]">{initialName}</span>
+              </h1>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="inline-flex h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setName(initialName);
+                  setIsEditingName(true);
+                }}
+                aria-label="Edit playlist name"
+              >
+                <Pencil className="h-4 w-4" strokeWidth={2} />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex min-w-0 max-w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <Input
+                id="playlist-title"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="h-11 min-w-0 flex-1 text-lg font-semibold sm:max-w-xl"
+                aria-label="Playlist name"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void saveName();
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelEditingName();
+                  }
+                }}
+              />
+              <div className="flex shrink-0 gap-2">
+                <Button type="button" variant="secondary" disabled={savingName || !name.trim()} onClick={() => void saveName()}>
+                  {savingName ? "Saving…" : "Save"}
+                </Button>
+                <Button type="button" variant="ghost" disabled={savingName} onClick={cancelEditingName}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+          <div
+            className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 overflow-x-auto py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            role="list"
+            aria-label="Playlist summary"
+          >
+            <span
+              role="listitem"
+              className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/80 bg-muted/35 px-2.5 py-0.5 text-[0.6875rem] leading-tight tabular-nums"
             >
-              {savingName ? "Saving…" : "Save name"}
-            </Button>
+              <span className="shrink-0 text-muted-foreground">Items</span>
+              <span className="min-w-0 font-medium text-foreground">
+                {items.length} {items.length === 1 ? "clip" : "clips"}
+              </span>
+            </span>
+            <span
+              role="listitem"
+              className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/80 bg-muted/35 px-2.5 py-0.5 text-[0.6875rem] leading-tight tabular-nums"
+            >
+              <Clock className="h-3 w-3 shrink-0 text-muted-foreground" strokeWidth={2} />
+              <span className="shrink-0 text-muted-foreground">Duration</span>
+              <span className="min-w-0 font-medium text-foreground">{playlistTimingLabel}</span>
+            </span>
           </div>
         </div>
 
@@ -314,20 +365,10 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:pt-0.5">
-                  <span className="inline-flex items-center rounded-full border border-border bg-white px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm dark:bg-card">
-                    {items.length} {items.length === 1 ? "item" : "items"}
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-white px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm dark:bg-card">
-                    <Clock className="h-3.5 w-3.5" />
-                    {playlistTimingLabel}
-                  </span>
-                  <PlaylistPreviewButton items={items} playlistName={name} publicBaseUrl={publicBaseUrl} />
+                  <PlaylistPreviewButton items={items} playlistName={isEditingName ? name : initialName} publicBaseUrl={publicBaseUrl} />
                   <Link
                     href="/devices"
-                    className={cn(
-                      buttonVariants({ size: "sm" }),
-                      "inline-flex gap-2 rounded-full bg-primary font-semibold text-primary-foreground hover:bg-brand-hover hover:opacity-100",
-                    )}
+                    className={cn(buttonVariants({ size: "sm" }), "gap-2 font-semibold")}
                   >
                     <Monitor className="h-4 w-4" />
                     Assign to screens
@@ -512,7 +553,7 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
                               type="button"
                               size="sm"
                               variant="secondary"
-                              className="h-8 shrink-0 gap-1 px-2 text-xs"
+                              className={mediaLibraryAddButtonClassName}
                               onClick={() => void addMediaAtIndex(m.id, items.length)}
                             >
                               <Plus className="h-3 w-3" />

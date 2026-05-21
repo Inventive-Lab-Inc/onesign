@@ -167,6 +167,8 @@ export default function DashboardHomePage() {
     );
   }
 
+  const statCardAccent = "from-brand-faint30 to-transparent";
+
   const stats = [
     {
       href: "/devices",
@@ -174,7 +176,6 @@ export default function DashboardHomePage() {
       description: "Linked TV players & assignments",
       count: storeDeviceCount,
       icon: Monitor,
-      accent: "from-brand-faint20 to-transparent",
     },
     {
       href: "/playlists",
@@ -182,7 +183,6 @@ export default function DashboardHomePage() {
       description: "Loops assigned to screens",
       count: playlistCount,
       icon: ListVideo,
-      accent: "from-brand-faint25 to-transparent",
     },
     {
       href: "/media",
@@ -190,47 +190,44 @@ export default function DashboardHomePage() {
       description: "Library in storage",
       count: mediaCount,
       icon: ImageIcon,
-      accent: "from-brand-soft to-transparent",
     },
   ] as const;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 pb-4">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {stats.map(({ href, label, description, count, icon: Icon, accent }) => (
-          <Card
+        {stats.map(({ href, label, description, count, icon: Icon }) => (
+          <Link
             key={href}
-            className="group relative overflow-hidden border-border/90 bg-card shadow-sm transition-shadow hover:shadow-md"
+            href={href}
+            className="group block cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <div
-              className={cn("pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b opacity-90", accent)}
-              aria-hidden
-            />
-            <CardHeader className="relative space-y-2 pb-2">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                  <div className="shrink-0 rounded-lg bg-background/90 p-2 shadow-sm ring-1 ring-border/60 dark:bg-card/90">
+            <Card className="relative overflow-hidden border-border/90 bg-card shadow-sm transition-[border-color,box-shadow] duration-200 group-hover:border-brand-faint25 group-hover:shadow-md">
+              <div
+                className={cn(
+                  "pointer-events-none absolute inset-x-0 top-0 z-0 h-20 bg-gradient-to-b opacity-90 transition-opacity duration-200 group-hover:opacity-0",
+                  statCardAccent,
+                )}
+                aria-hidden
+              />
+              <div
+                className="pointer-events-none absolute inset-0 z-0 bg-brand-faint20 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                aria-hidden
+              />
+              <CardHeader className="relative z-[1] space-y-2 pb-2">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="shrink-0 rounded-lg bg-background/90 p-2 shadow-sm ring-1 ring-border/60 transition-colors duration-200 group-hover:bg-card/95 dark:bg-card/90">
                     <Icon className="h-4 w-4 text-brand-strong dark:text-brand-onDarkSoft" aria-hidden />
                   </div>
                   <CardTitle className="truncate text-base font-semibold leading-tight">{label}</CardTitle>
                 </div>
-                <Link
-                  href={href}
-                  className={cn(
-                    buttonVariants({ variant: "ghost", size: "sm" }),
-                    "h-8 shrink-0 gap-1 px-2 text-xs font-semibold text-muted-foreground opacity-80 transition group-hover:opacity-100",
-                  )}
-                >
-                  Open
-                  <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-                </Link>
-              </div>
-              <CardDescription className="text-xs leading-relaxed">{description}</CardDescription>
-            </CardHeader>
-            <CardContent className="relative pt-0">
-              <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">{count}</p>
-            </CardContent>
-          </Card>
+                <CardDescription className="text-xs leading-relaxed">{description}</CardDescription>
+              </CardHeader>
+              <CardContent className="relative z-[1] pt-0">
+                <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">{count}</p>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 

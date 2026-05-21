@@ -1,14 +1,12 @@
-import { Image as ImageIcon, LayoutDashboard, ListVideo, Monitor } from "lucide-react";
+import { Image as ImageIcon, LayoutDashboard, ListVideo, Monitor, Tv } from "lucide-react";
 import type { AppLayoutConfig } from "@/components/shell/types";
-import { assets } from "./assets";
 
 export const layoutConfig: Omit<AppLayoutConfig, "getPageTitle"> = {
   brand: {
     name: "Signage",
     subtitle: "Console",
-    icon: LayoutDashboard,
+    icon: Tv,
     logoColor: "var(--theme)",
-    logoUrl: assets.logoUrl || undefined,
   },
   navItems: [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },

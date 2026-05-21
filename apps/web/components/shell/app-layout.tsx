@@ -121,8 +121,30 @@ export function AppLayout({
             minWidth: 0,
             display: "flex",
             flexDirection: "column",
+            gap: isMobile ? 0 : "0.5rem",
           }}
         >
+          <TopBar
+            title={title}
+            titleIcon={titleIcon}
+            pendingPath={pendingPath}
+            brand={brand}
+            navItems={navItems}
+            bottomNavItem={bottomNavItem}
+            mobileNavOpen={isMobileNavOpen}
+            onMobileNavClose={() => setIsMobileNavOpen(false)}
+            userName={userName}
+            profileSubtext={profileSubtext}
+            onSignOut={onSignOut}
+            centerSlot={topBarCenterSlot}
+            searchPlaceholder={searchPlaceholder}
+            rightSlot={topBarRightSlot}
+            syncControl={topBarSyncControl}
+            languageLabel={languageLabel}
+            onLanguageClick={onLanguageClick}
+            onMobileMenuOpen={() => setIsMobileNavOpen(true)}
+            isMobile={isMobile}
+          />
           <div
             style={{
               flex: 1,
@@ -134,27 +156,6 @@ export function AppLayout({
               flexDirection: "column",
             }}
           >
-            <TopBar
-              title={title}
-              titleIcon={titleIcon}
-              pendingPath={pendingPath}
-              brand={brand}
-              navItems={navItems}
-              bottomNavItem={bottomNavItem}
-              mobileNavOpen={isMobileNavOpen}
-              onMobileNavClose={() => setIsMobileNavOpen(false)}
-              userName={userName}
-              profileSubtext={profileSubtext}
-              onSignOut={onSignOut}
-              centerSlot={topBarCenterSlot}
-              searchPlaceholder={searchPlaceholder}
-              rightSlot={topBarRightSlot}
-              syncControl={topBarSyncControl}
-              languageLabel={languageLabel}
-              onLanguageClick={onLanguageClick}
-              onMobileMenuOpen={() => setIsMobileNavOpen(true)}
-              isMobile={isMobile}
-            />
             <main
               style={{
                 flex: 1,

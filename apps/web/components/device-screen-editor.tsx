@@ -27,7 +27,7 @@ import type { DeviceWithAssignments } from "@/lib/console-sync";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
 import { formatPlaylistClockLabel } from "@/lib/playlist-timing";
-import { cn } from "@/lib/utils";
+import { cn, mediaLibraryAddButtonClassName } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { DevicePlaybackToggle } from "@/components/device-playback-toggle";
@@ -817,7 +817,7 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
                                     type="button"
                                     size="sm"
                                     variant="secondary"
-                                    className="h-8 shrink-0 gap-1 px-2 text-xs"
+                                    className={mediaLibraryAddButtonClassName}
                                     onClick={() => addMediaByClick(m.id)}
                                   >
                                     <Plus className="h-3 w-3" />

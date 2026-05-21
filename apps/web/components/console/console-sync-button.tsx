@@ -3,7 +3,7 @@
 import { RefreshCw } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { assets } from "@/lib/config/assets";
+import { shellChrome } from "@/components/shell/shell-chrome";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { useConsoleSync } from "./console-sync-provider";
 
@@ -43,12 +43,34 @@ export function ConsoleSyncButton() {
       disabled={!cacheReady || isSyncing}
       title={hoverTitle}
       aria-label={ariaLabel}
-      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[#E8ECF0] bg-white px-2.5 text-xs font-semibold text-[#374151] disabled:cursor-not-allowed disabled:opacity-60"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.375rem",
+        height: "2rem",
+        padding: "0 0.625rem",
+        borderRadius: "0.4375rem",
+        border: shellChrome.border,
+        background: shellChrome.background,
+        fontSize: "0.75rem",
+        fontWeight: 600,
+        color: shellChrome.text,
+        cursor: !cacheReady || isSyncing ? "not-allowed" : "pointer",
+        flexShrink: 0,
+        opacity: !cacheReady || isSyncing ? 0.6 : 1,
+      }}
+      onMouseEnter={(e) => {
+        if (!cacheReady || isSyncing) return;
+        e.currentTarget.style.background = shellChrome.backgroundHover;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = shellChrome.background;
+      }}
     >
       <RefreshCw
-        className={isSyncing ? "animate-spin" : ""}
+        className={isSyncing ? "animate-spin" : undefined}
         size={14}
-        color={assets.themePrimary}
+        color={shellChrome.icon}
         strokeWidth={2}
         aria-hidden
       />

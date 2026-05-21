@@ -12,6 +12,7 @@ import type { BrandConfig, NavItem } from "./types";
 import { NavRadialSpinner } from "@/components/ui/nav-radial-spinner";
 import { assets } from "@/lib/config/assets";
 import { ConfirmModal } from "./confirm-modal";
+import { shellChrome } from "./shell-chrome";
 
 function formatNotificationTime(ts: number) {
   const d = new Date(ts);
@@ -24,6 +25,111 @@ function formatNotificationTime(ts: number) {
 }
 
 const HOVER_CLOSE_DELAY_MS = 150;
+const SEARCH_EXPANDED_WIDTH = "11.25rem";
+
+function ExpandableSearch({ placeholder }: { placeholder: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!expanded) return;
+    inputRef.current?.focus();
+  }, [expanded]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      if (containerRef.current?.contains(e.target as Node)) return;
+      const value = inputRef.current?.value ?? "";
+      if (!value.trim()) setExpanded(false);
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpanded(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [expanded]);
+
+  const shellStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    background: shellChrome.background,
+    border: shellChrome.border,
+    borderRadius: "0.5rem",
+    flexShrink: 0,
+    overflow: "hidden",
+  };
+
+  if (!expanded) {
+    return (
+      <div ref={containerRef}>
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          aria-label="Search"
+          aria-expanded={false}
+          className="topbar-expandable-search"
+          style={{
+            ...shellStyle,
+            width: "2rem",
+            height: "2rem",
+            justifyContent: "center",
+            cursor: "pointer",
+            padding: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = shellChrome.backgroundHover;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = shellChrome.background;
+          }}
+        >
+          <Search size={14} color={shellChrome.icon} strokeWidth={1.75} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="topbar-expandable-search"
+      style={{
+        ...shellStyle,
+        gap: "0.5rem",
+        padding: "0 0.75rem",
+        height: "2.125rem",
+        width: SEARCH_EXPANDED_WIDTH,
+      }}
+      role="search"
+    >
+      <Search size={13} color={shellChrome.textMuted} style={{ flexShrink: 0 }} aria-hidden />
+      <input
+        ref={inputRef}
+        placeholder={placeholder}
+        className="topbar-shell-search"
+        aria-label={placeholder}
+        style={{
+          border: "none",
+          background: "transparent",
+          outline: "none",
+          fontSize: "0.75rem",
+          color: shellChrome.text,
+          width: "100%",
+          minWidth: 0,
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setExpanded(false);
+        }}
+      />
+    </div>
+  );
+}
 
 function NotificationBellDropdown() {
   const [open, setOpen] = useState(false);
@@ -60,8 +166,8 @@ function NotificationBellDropdown() {
     width: "2rem",
     height: "2rem",
     borderRadius: "0.4375rem",
-    border: "0.0625rem solid #E8ECF0",
-    background: "#fff",
+    border: shellChrome.border,
+    background: shellChrome.background,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -77,7 +183,7 @@ function NotificationBellDropdown() {
     height: "0.375rem",
     borderRadius: "50%",
     background: "#EF4444",
-    border: "0.09375rem solid #fff",
+    border: "0.09375rem solid rgba(255,255,255,0.25)",
   };
 
   const panelStyle: React.CSSProperties = {
@@ -111,7 +217,7 @@ function NotificationBellDropdown() {
       >
         <Bell
           size={14}
-          color={iconHovered || open ? assets.themePrimary : "#6B7280"}
+          color={iconHovered || open ? "#fff" : shellChrome.icon}
           strokeWidth={iconHovered || open ? 2.5 : 1.75}
           fill={iconHovered || open ? assets.themePrimary : "none"}
         />
@@ -333,8 +439,8 @@ function ProfileDropdown({
         cursor: "pointer",
         padding: "0.1875rem 0.5rem 0.1875rem 0.1875rem",
         borderRadius: "0.5rem",
-        border: "0.0625rem solid #E8ECF0",
-        background: "#fff",
+        border: shellChrome.border,
+        background: shellChrome.background,
         height: "2rem",
       };
 
@@ -414,7 +520,7 @@ function ProfileDropdown({
                 style={{
                   fontSize: "0.75rem",
                   fontWeight: 500,
-                  color: "#1F2937",
+                  color: shellChrome.text,
                   whiteSpace: "nowrap",
                 }}
               >
@@ -423,7 +529,7 @@ function ProfileDropdown({
             )}
             <ChevronDown
               size={12}
-              color="#9CA3AF"
+              color={shellChrome.textMuted}
               strokeWidth={2}
               style={{ flexShrink: 0, transform: open ? "rotate(180deg)" : "none" }}
             />
@@ -529,8 +635,7 @@ export function TopBar({
         />
       <header
         style={{
-          background: "#FFFFFF",
-          borderBottom: "0.0625rem solid #E8ECF0",
+          background: "transparent",
           height: "3.25rem",
           display: "flex",
           alignItems: "center",
@@ -546,8 +651,8 @@ export function TopBar({
             width: "2.125rem",
             height: "2.125rem",
             borderRadius: "0.5rem",
-            border: "0.0625rem solid #E8ECF0",
-            background: "#fff",
+            border: "0.0625rem solid rgba(255,255,255,0.18)",
+            background: "rgba(255,255,255,0.08)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -555,7 +660,7 @@ export function TopBar({
             flexShrink: 0,
           }}
         >
-          <Menu size={16} color="#374151" strokeWidth={2} />
+          <Menu size={16} color="rgba(255,255,255,0.85)" strokeWidth={2} />
         </button>
         <span
           style={{
@@ -565,7 +670,7 @@ export function TopBar({
             gap: "0.5rem",
             fontSize: "1rem",
             fontWeight: 700,
-            color: "#111827",
+            color: "#fff",
             overflow: "hidden",
             minWidth: 0,
           }}
@@ -573,12 +678,12 @@ export function TopBar({
           {pendingPath != null ? (
             <NavRadialSpinner
               size={18}
-              style={{ color: "#374151" }}
+              style={{ color: "rgba(255,255,255,0.85)" }}
               aria-label="Loading page"
               aria-hidden={false}
             />
           ) : (
-            TitleIcon && <TitleIcon size={18} strokeWidth={1.75} style={{ flexShrink: 0, color: "#374151" }} />
+            TitleIcon && <TitleIcon size={18} strokeWidth={1.75} style={{ flexShrink: 0, color: "rgba(255,255,255,0.85)" }} />
           )}
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleText}</span>
         </span>
@@ -590,11 +695,11 @@ export function TopBar({
               height: "2rem",
               padding: "0 0.5rem",
               borderRadius: "0.4375rem",
-              border: "0.0625rem solid #E8ECF0",
-              background: "#fff",
+              border: shellChrome.border,
+              background: shellChrome.background,
               fontSize: "0.6875rem",
               fontWeight: 600,
-              color: "#374151",
+              color: shellChrome.text,
               cursor: "pointer",
               flexShrink: 0,
             }}
@@ -604,6 +709,7 @@ export function TopBar({
         )}
         {rightSlot ?? (
           <>
+            {searchPlaceholder != null && <ExpandableSearch placeholder={searchPlaceholder} />}
             {syncControl}
             <NotificationBellDropdown />
             <ProfileDropdown userName={userName} profileSubtext={profileSubtext} onSignOut={onSignOut} isMobile />
@@ -614,43 +720,11 @@ export function TopBar({
     );
   }
 
-  const centerContent =
-    centerSlot ??
-    (searchPlaceholder != null && (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          background: "#F4F7FB",
-          border: "0.0625rem solid #E8ECF0",
-          borderRadius: "0.5rem",
-          padding: "0 0.75rem",
-          height: "2.125rem",
-          width: "11.25rem",
-          flexShrink: 0,
-        }}
-      >
-        <Search size={13} color="#9CA3AF" style={{ flexShrink: 0 }} />
-        <input
-          placeholder={searchPlaceholder}
-          style={{
-            border: "none",
-            background: "transparent",
-            outline: "none",
-            fontSize: "0.75rem",
-            color: "#6B7280",
-            width: "100%",
-          }}
-        />
-      </div>
-    ));
-
   return (
     <header
       style={{
-        background: "#FFFFFF",
-        borderBottom: "0.0625rem solid #E8ECF0",
+        position: "relative",
+        background: "transparent",
         minHeight: "3.5rem",
         display: "flex",
         alignItems: "center",
@@ -659,9 +733,23 @@ export function TopBar({
         flexShrink: 0,
       }}
     >
-      <TopNavBar brand={brand} navItems={navItems} bottomNavItem={bottomNavItem} pendingPath={pendingPath} />
-      {centerContent}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <TopNavBar
+        brand={brand}
+        navItems={navItems}
+        bottomNavItem={bottomNavItem}
+        pendingPath={pendingPath}
+        centerNav
+      />
+      {centerSlot}
+      <div
+        style={{
+          marginLeft: "auto",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          flexShrink: 0,
+        }}
+      >
         {languageLabel != null && onLanguageClick && (
           <button
             type="button"
@@ -673,11 +761,11 @@ export function TopBar({
               height: "2rem",
               padding: "0 0.625rem",
               borderRadius: "0.4375rem",
-              border: "0.0625rem solid #E8ECF0",
-              background: "#fff",
+              border: shellChrome.border,
+              background: shellChrome.background,
               fontSize: "0.6875rem",
               fontWeight: 600,
-              color: "#374151",
+              color: shellChrome.text,
               cursor: "pointer",
             }}
           >
@@ -686,6 +774,7 @@ export function TopBar({
         )}
         {rightSlot ?? (
           <>
+            {searchPlaceholder != null && <ExpandableSearch placeholder={searchPlaceholder} />}
             {syncControl}
             <NotificationBellDropdown />
             <ProfileDropdown userName={userName} profileSubtext={profileSubtext} onSignOut={onSignOut} />

@@ -26,6 +26,8 @@
   --theme-foreground-on-dark: color-mix(in srgb, var(--theme) 62%, #ffffff);
   --theme-foreground-on-dark-soft: color-mix(in srgb, var(--theme) 78%, #ffffff);
   --theme-foreground-on-light-heading: color-mix(in srgb, var(--theme) 58%, #000000);
+  --theme-shell-dark: color-mix(in srgb, var(--theme) 28%, #000000);
+  --theme-shell-light: color-mix(in srgb, var(--theme) 52%, #000000);
 
   --background: 220 23% 97%;
   --foreground: 222 47% 11%;
@@ -88,6 +90,24 @@ optgroup,
   display: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .top-nav-slide-indicator {
+    transition: none !important;
+  }
+
+  .topbar-expandable-search {
+    transition: none !important;
+  }
+}
+
+.topbar-shell-search::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.topbar-expandable-search {
+  transition: width 0.2s ease, height 0.2s ease, padding 0.2s ease, gap 0.2s ease;
+}
+
 .auth-card input::placeholder {
   color: #9ca3af;
 }
@@ -98,4 +118,22 @@ optgroup,
 }
 .auth-right-panel::-webkit-scrollbar {
   display: none;
+}
+
+.media-library-add-btn {
+  flex-shrink: 0;
+  gap: 0.25rem;
+  border-color: hsl(var(--border) / 0.85);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.media-library-add-btn:hover:not(:disabled),
+.media-library-add-btn:focus-visible:not(:disabled) {
+  border-color: var(--theme);
+  background-color: var(--theme);
+  color: var(--theme-contrast);
 }

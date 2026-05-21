@@ -1,17 +1,49 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { NavRadialSpinner } from "@/components/ui/nav-radial-spinner";
 import type { BrandConfig, NavItem } from "./types";
-import { assets } from "@/lib/config/assets";
 
 const HOME_PATH = "/dashboard";
 const NAV_ICON_SIZE = 15;
 const NAV_ICON_STROKE = 1.75;
+const NAV_SLIDE_MS = 220;
+const NAV_SLIDE_TRANSITION = `left ${NAV_SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1), width ${NAV_SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+
+function getNavHighlightIndex(
+  items: NavItem[],
+  pathname: string,
+  pendingPath: string | null | undefined,
+): number {
+  if (pendingPath) {
+    const pendingIndex = items.findIndex((item) => navItemMatchesDestination(item, pendingPath));
+    if (pendingIndex >= 0) return pendingIndex;
+  }
+  return items.findIndex((item) => navMatches(item.path, pathname, item.end ?? item.path === "/"));
+}
+
+function BrandMark({ icon: Icon, logoColor, iconSize }: { icon: LucideIcon; logoColor: string; iconSize: number }) {
+  return (
+    <div
+      style={{
+        background: logoColor,
+        borderRadius: "0.375rem",
+        width: "2.125rem",
+        height: "2rem",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <Icon size={iconSize} color="var(--theme-contrast)" strokeWidth={2.5} />
+    </div>
+  );
+}
 
 function navMatches(path: string, pathname: string, end?: boolean): boolean {
   const useEnd = end ?? path === "/";
@@ -35,28 +67,259 @@ interface TopNavBarProps {
   navItems: NavItem[];
   bottomNavItem?: NavItem;
   pendingPath?: string | null;
+  /** Center nav links in the header bar (parent should be `position: relative`). */
+  centerNav?: boolean;
 }
 
-export function TopNavBar({ brand, navItems, bottomNavItem, pendingPath }: TopNavBarProps) {
+export function TopNavBar({ brand, navItems, bottomNavItem, pendingPath, centerNav = false }: TopNavBarProps) {
   const pathname = usePathname();
-  const { name, subtitle, icon: BrandIcon, logoColor = "var(--theme)", logoUrl } = brand;
+  const { name, subtitle, icon: BrandIcon, logoColor = "var(--theme)" } = brand;
+  const items = useMemo(
+    () => (bottomNavItem ? [...navItems, bottomNavItem] : navItems),
+    [navItems, bottomNavItem],
+  );
+  const navRef = useRef<HTMLElement>(null);
+  const linkRefs = useRef<(HTMLAnchorElement | null)[]>([]);
+  const slideLockRef = useRef(false);
+  const [indicator, setIndicator] = useState<{ left: number; width: number; height: number } | null>(
+    null,
+  );
+
+  const highlightIndex = getNavHighlightIndex(items, pathname, pendingPath);
+
+  const measureIndicator = useCallback(() => {
+    const nav = navRef.current;
+    if (!nav || highlightIndex < 0) {
+      setIndicator(null);
+      return;
+    }
+    const link = linkRefs.current[highlightIndex];
+    if (!link) {
+      setIndicator(null);
+      return;
+    }
+    const navRect = nav.getBoundingClientRect();
+    const linkRect = link.getBoundingClientRect();
+    setIndicator({
+      left: linkRect.left - navRect.left + nav.scrollLeft,
+      width: linkRect.width,
+      height: linkRect.height,
+    });
+  }, [highlightIndex]);
+
+  const updateIndicator = useCallback(
+    (force = false) => {
+      if (slideLockRef.current && !force) return;
+      measureIndicator();
+    },
+    [measureIndicator],
+  );
+
+  useLayoutEffect(() => {
+    measureIndicator();
+  }, [items, measureIndicator]);
+
+  useLayoutEffect(() => {
+    slideLockRef.current = true;
+    measureIndicator();
+    const unlockTimer = window.setTimeout(() => {
+      slideLockRef.current = false;
+      measureIndicator();
+    }, NAV_SLIDE_MS);
+    return () => window.clearTimeout(unlockTimer);
+  }, [highlightIndex, measureIndicator]);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const ro = new ResizeObserver(() => updateIndicator());
+    ro.observe(nav);
+    for (const link of linkRefs.current) {
+      if (link) ro.observe(link);
+    }
+    const onScroll = () => updateIndicator(true);
+    nav.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      ro.disconnect();
+      nav.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [updateIndicator, items, highlightIndex]);
 
   const linkStyle = (active: boolean) =>
     ({
+      position: "relative",
+      zIndex: 1,
       display: "flex",
       alignItems: "center",
       gap: "0.375rem",
-      padding: "0.375rem 0.625rem",
+      padding: "0 0.875rem",
+      minHeight: "2.5rem",
       borderRadius: "0.5rem",
       textDecoration: "none",
       fontSize: "0.8125rem",
       fontWeight: active ? 600 : 500,
-      color: active ? assets.themePrimary : "#4B5563",
-      background: active ? "rgba(4, 13, 49, 0.06)" : "transparent",
+      color: active ? "#fff" : "rgba(255,255,255,0.72)",
+      background: "transparent",
       whiteSpace: "nowrap",
       flexShrink: 0,
-      transition: "background 0.12s, color 0.12s",
+      transition: "color 0.15s",
     }) as const;
+
+  const brandLink = (
+    <Link
+      prefetch
+      href={HOME_PATH}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.5rem",
+        textDecoration: "none",
+        flexShrink: 0,
+        paddingRight: centerNav ? 0 : "0.25rem",
+      }}
+    >
+      <BrandMark icon={BrandIcon} logoColor={logoColor} iconSize={17} />
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            color: "#fff",
+            fontSize: "0.9375rem",
+            fontWeight: 700,
+            lineHeight: 1.15,
+            letterSpacing: "-0.01em",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {name}
+        </div>
+        {subtitle && (
+          <div
+            style={{
+              color: "rgba(255,255,255,0.45)",
+              fontSize: "0.5625rem",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              marginTop: "0.0625rem",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {subtitle}
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+
+  const navLinks = (
+    <nav
+      ref={navRef}
+      style={{
+        position: centerNav ? "absolute" : "relative",
+        display: "flex",
+        alignItems: "center",
+        gap: "0.125rem",
+        minWidth: 0,
+        flex: centerNav ? "none" : 1,
+        overflowX: centerNav ? "visible" : "auto",
+        scrollbarWidth: "none",
+        msOverflowStyle: "none",
+        ...(centerNav
+          ? {
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 1,
+            }
+          : {}),
+      }}
+      className="top-nav-scroll"
+      aria-label="Main"
+    >
+        {indicator && (
+          <div
+            aria-hidden
+            className="top-nav-slide-indicator"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: indicator.left,
+              width: indicator.width,
+              height: indicator.height,
+              borderRadius: "0.5rem",
+              background: logoColor,
+              transition: NAV_SLIDE_TRANSITION,
+              pointerEvents: "none",
+              zIndex: 0,
+            }}
+          />
+        )}
+        {items.map((item, index) => {
+          const { icon: Icon, label, path, end } = item;
+          const active = index === highlightIndex;
+          const showLoader = navItemMatchesDestination(item, pendingPath);
+          return (
+            <Link
+              prefetch
+              href={path}
+              key={path}
+              ref={(el) => {
+                linkRefs.current[index] = el;
+              }}
+              style={linkStyle(active)}
+              title={label}
+            >
+              <span
+                style={{
+                  position: "relative",
+                  width: NAV_ICON_SIZE,
+                  height: NAV_ICON_SIZE,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+                aria-hidden={showLoader}
+              >
+                <Icon
+                  size={NAV_ICON_SIZE}
+                  strokeWidth={NAV_ICON_STROKE}
+                  style={{ visibility: showLoader ? "hidden" : "visible" }}
+                />
+                {showLoader && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <NavRadialSpinner
+                      size={NAV_ICON_SIZE}
+                      style={{ color: "rgba(255,255,255,0.95)" }}
+                      aria-hidden
+                    />
+                  </span>
+                )}
+              </span>
+              {label}
+            </Link>
+          );
+        })}
+    </nav>
+  );
+
+  if (centerNav) {
+    return (
+      <>
+        {brandLink}
+        {navLinks}
+      </>
+    );
+  }
 
   return (
     <div
@@ -68,125 +331,17 @@ export function TopNavBar({ brand, navItems, bottomNavItem, pendingPath }: TopNa
         flex: 1,
       }}
     >
-      <Link
-        prefetch
-        href={HOME_PATH}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          textDecoration: "none",
-          flexShrink: 0,
-          paddingRight: "0.25rem",
-        }}
-      >
-        <div
-          style={{
-            background: logoUrl ? "transparent" : logoColor,
-            borderRadius: "0.5rem",
-            width: "2rem",
-            height: "2rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          {logoUrl ? (
-            <Image src={logoUrl} alt="" width={32} height={32} className="object-contain" unoptimized />
-          ) : (
-            <BrandIcon size={17} color="#fff" strokeWidth={2.5} />
-          )}
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              color: "#111827",
-              fontSize: "0.9375rem",
-              fontWeight: 700,
-              lineHeight: 1.15,
-              letterSpacing: "-0.01em",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {name}
-          </div>
-          {subtitle && (
-            <div
-              style={{
-                color: "#9CA3AF",
-                fontSize: "0.5625rem",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                marginTop: "0.0625rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {subtitle}
-            </div>
-          )}
-        </div>
-      </Link>
+      {brandLink}
       <div
         style={{
           width: "0.0625rem",
           height: "1.5rem",
-          background: "#E8ECF0",
+          background: "rgba(255,255,255,0.15)",
           flexShrink: 0,
         }}
         aria-hidden
       />
-      <nav
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.125rem",
-          minWidth: 0,
-          flex: 1,
-          overflowX: "auto",
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
-        }}
-        className="top-nav-scroll"
-        aria-label="Main"
-      >
-        {navItems.map((item) => {
-          const { icon: Icon, label, path, end } = item;
-          const active = navMatches(path, pathname, end ?? path === "/");
-          const showLoader = navItemMatchesDestination(item, pendingPath);
-          return (
-            <Link prefetch href={path} key={path} style={linkStyle(active)} title={label}>
-              {showLoader ? (
-                <NavRadialSpinner
-                  size={NAV_ICON_SIZE}
-                  style={{ color: assets.themePrimary }}
-                  aria-hidden
-                />
-              ) : (
-                <Icon size={NAV_ICON_SIZE} strokeWidth={NAV_ICON_STROKE} style={{ flexShrink: 0 }} />
-              )}
-              {label}
-            </Link>
-          );
-        })}
-        {bottomNavItem && (
-          <Link
-            prefetch
-            href={bottomNavItem.path}
-            style={linkStyle(
-              navMatches(bottomNavItem.path, pathname, bottomNavItem.end ?? bottomNavItem.path === "/"),
-            )}
-            title={bottomNavItem.label}
-          >
-            {navItemMatchesDestination(bottomNavItem, pendingPath) ? (
-              <NavRadialSpinner size={NAV_ICON_SIZE} style={{ color: assets.themePrimary }} aria-hidden />
-            ) : (
-              <bottomNavItem.icon size={NAV_ICON_SIZE} strokeWidth={NAV_ICON_STROKE} style={{ flexShrink: 0 }} />
-            )}
-            {bottomNavItem.label}
-          </Link>
-        )}
-      </nav>
+      {navLinks}
     </div>
   );
 }
@@ -203,7 +358,7 @@ interface MobileNavDrawerProps {
 export function MobileNavDrawer({ brand, navItems, bottomNavItem, open, onClose, pendingPath }: MobileNavDrawerProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { name, subtitle, icon: BrandIcon, logoColor = "var(--theme)", logoUrl } = brand;
+  const { name, subtitle, icon: BrandIcon, logoColor = "var(--theme)" } = brand;
 
   useEffect(() => {
     if (!open) return;
@@ -225,7 +380,7 @@ export function MobileNavDrawer({ brand, navItems, bottomNavItem, open, onClose,
       fontSize: "0.875rem",
       fontWeight: active ? 600 : 500,
       color: active ? "#fff" : "rgba(255,255,255,0.72)",
-      background: active ? "rgba(255,255,255,0.14)" : "transparent",
+      background: active ? logoColor : "transparent",
     }) as const;
 
   return (
@@ -287,24 +442,7 @@ export function MobileNavDrawer({ brand, navItems, bottomNavItem, open, onClose,
               textAlign: "left",
             }}
           >
-            <div
-              style={{
-                background: logoUrl ? "transparent" : logoColor,
-                borderRadius: "0.5rem",
-                width: "2.125rem",
-                height: "2.125rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              {logoUrl ? (
-                <Image src={logoUrl} alt="" width={34} height={34} className="object-contain" unoptimized />
-              ) : (
-                <BrandIcon size={18} color="#fff" strokeWidth={2.5} />
-              )}
-            </div>
+            <BrandMark icon={BrandIcon} logoColor={logoColor} iconSize={18} />
             <div>
               <div style={{ color: "#fff", fontSize: "0.9375rem", fontWeight: 700 }}>{name}</div>
               {subtitle && (

@@ -4,6 +4,7 @@ import { ListVideo, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import type { Playlist } from "@signage/types";
+import { CreatePlaylistForm } from "@/components/create-playlist-form";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 
 export default function PlaylistsPage() {
@@ -27,26 +28,26 @@ export default function PlaylistsPage() {
   }
 
   return (
-    <div className="flex min-h-[min(420px,60vh)] flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-gradient-to-b from-muted/30 to-transparent px-6 py-16 text-center">
+    <div className="flex min-h-[min(360px,50vh)] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand-strong dark:text-brand-onDark">
         <ListVideo className="h-7 w-7" />
       </div>
       <h1 className="text-xl font-semibold tracking-tight text-foreground">Playlist workspace</h1>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-        Build loops of images and video, set how long each image shows (videos always play in full), then assign playlists to screens. Use the sidebar to open a
-        playlist or create a new one.
+        Build loops of images and video, set how long each image shows (videos always play in full), then assign playlists to screens.
       </p>
-      {latestPlaylist ? (
-        <Link
-          href={`/playlists/${latestPlaylist.id}`}
-          className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-brand-hover"
-        >
-          Open latest playlist
-          <Sparkles className="h-4 w-4 opacity-90" />
-        </Link>
-      ) : (
-        <p className="mt-6 text-xs text-muted-foreground">Create your first playlist with the button in the left sidebar.</p>
-      )}
+      <div className="mt-8 flex flex-col items-center gap-3">
+        <CreatePlaylistForm ownerId={ownerId} variant="empty" />
+        {latestPlaylist ? (
+          <Link
+            href={`/playlists/${latestPlaylist.id}`}
+            className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+          >
+            Open latest playlist
+            <Sparkles className="h-4 w-4 opacity-80" />
+          </Link>
+        ) : null}
+      </div>
     </div>
   );
 }

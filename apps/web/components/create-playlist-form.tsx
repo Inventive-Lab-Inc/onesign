@@ -1,5 +1,6 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -14,7 +15,7 @@ export function CreatePlaylistForm({
   variant = "default",
 }: {
   ownerId: string;
-  variant?: "default" | "cta";
+  variant?: "default" | "cta" | "empty";
 }) {
   const router = useRouter();
   const { syncNow } = useConsoleSync();
@@ -49,11 +50,25 @@ export function CreatePlaylistForm({
     return (
       <Button
         type="button"
-        className="h-10 w-full gap-2 rounded-lg bg-primary font-semibold text-primary-foreground shadow-sm hover:bg-brand-hover"
+        className="h-10 w-full gap-2 font-semibold shadow-sm"
         onClick={() => void createPlaylist()}
         disabled={creating}
       >
         {creating ? "Creating…" : "+ Create playlist"}
+      </Button>
+    );
+  }
+
+  if (variant === "empty") {
+    return (
+      <Button
+        type="button"
+        className="h-11 gap-2 px-6 font-semibold shadow-sm"
+        onClick={() => void createPlaylist()}
+        disabled={creating}
+      >
+        <Plus className="h-4 w-4" strokeWidth={2.25} />
+        {creating ? "Creating…" : "Create playlist"}
       </Button>
     );
   }
