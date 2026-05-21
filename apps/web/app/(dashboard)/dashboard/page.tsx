@@ -98,31 +98,6 @@ function DeviceStatusChip({ status }: { status: DeviceStatus }) {
 
 const publicBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
-/** Illustrative table rows (always appended after real paired devices); not persisted. */
-const DUMMY_ACTIVE_ROWS = [
-  {
-    id: "__demo__lobby-east",
-    name: "Lobby East (sample)",
-    status: "offline" as const,
-    playlistLabel: "Store promos",
-    lastSeenLabel: "2d ago",
-  },
-  {
-    id: "__demo__checkout-2",
-    name: "Checkout line (sample)",
-    status: "offline" as const,
-    playlistLabel: "Weekend specials",
-    lastSeenLabel: "Never",
-  },
-  {
-    id: "__demo__window-3",
-    name: "Window display (sample)",
-    status: "offline" as const,
-    playlistLabel: "Brand reel",
-    lastSeenLabel: "6h ago",
-  },
-] as const;
-
 function DashboardRowPlaylistPreview({
   device,
   activePlaylistId,
@@ -176,19 +151,8 @@ export default function DashboardHomePage() {
       playlistLabel: activePlaylistLabel(d, playlists),
       lastSeenLabel: formatDeviceLastSeen(d.last_seen),
       activePlaylistId: activePlaylistId(d),
-      isDummy: false as const,
     }));
   }, [devices, playlists]);
-
-  const tableRows = useMemo(() => {
-    const real = pairedDeviceRows.map((r) => ({ ...r, isDummy: false as const }));
-    const demo = DUMMY_ACTIVE_ROWS.map((r) => ({
-      ...r,
-      activePlaylistId: null as string | null,
-      isDummy: true as const,
-    }));
-    return [...real, ...demo];
-  }, [pairedDeviceRows]);
 
   if (!ready) {
     return (
@@ -275,7 +239,6 @@ export default function DashboardHomePage() {
           <h2 className="text-sm font-semibold tracking-tight text-foreground">Paired devices</h2>
           <p className="text-xs text-muted-foreground">
             All linked screens; status reflects reachability (offline when the player has not checked in recently).
-            Sample rows are illustrative only.
           </p>
         </div>
         <div className="rounded-xl border border-border/90 bg-card shadow-sm">
@@ -291,73 +254,63 @@ export default function DashboardHomePage() {
                 </tr>
               </thead>
               <tbody>
-                {tableRows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className={cn(
-                      "border-b border-border/80 last:border-0 transition-colors",
-                      row.isDummy ? "bg-muted/15" : "hover:bg-muted/30",
-                    )}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex min-w-0 flex-col gap-0.5">
+                {pairedDeviceRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                      No paired screens yet.{" "}
+                      <Link href="/devices" className="font-medium text-foreground underline-offset-4 hover:underline">
+                        Link a device
+                      </Link>{" "}
+                      to see it here.
+                    </td>
+                  </tr>
+                ) : (
+                  pairedDeviceRows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="border-b border-border/80 transition-colors last:border-0 hover:bg-muted/30"
+                    >
+                      <td className="px-4 py-3">
                         <span className="truncate font-medium text-foreground">{row.name}</span>
-                        {row.isDummy && (
-                          <span className="text-[0.625rem] font-medium uppercase tracking-wider text-muted-foreground">
-                            Sample
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <DeviceStatusChip status={row.status} />
-                    </td>
-                    <td className="min-w-0 px-4 py-3">
-                      <div className="flex min-w-0 max-w-[20rem] items-center gap-2.5">
-                        {row.isDummy ? (
-                          <PlaylistPreviewButton
-                            items={[]}
-                            playlistName={row.playlistLabel}
-                            publicBaseUrl={publicBaseUrl || ""}
-                            iconOnly
-                            className="rounded-lg border-2 border-dashed border-border bg-muted/30 text-muted-foreground shadow-sm"
-                          />
-                        ) : row.activePlaylistId && publicBaseUrl ? (
-                          <DashboardRowPlaylistPreview
-                            device={devices.find((d) => d.id === row.id)}
-                            activePlaylistId={row.activePlaylistId}
-                            playlistLabel={row.playlistLabel}
-                            playlistItemsByPlaylistId={playlistItemsByPlaylistId}
-                            publicBaseUrl={publicBaseUrl}
-                          />
-                        ) : row.activePlaylistId && !publicBaseUrl ? (
-                          <span
-                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/40 text-muted-foreground"
-                            title="Set NEXT_PUBLIC_SUPABASE_URL to preview media"
-                          >
-                            <ListVideo className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} aria-hidden />
-                          </span>
-                        ) : (
-                          <Link
-                            prefetch
-                            href={`/devices/${row.id}`}
-                            className={cn(
-                              "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-border bg-muted/60 text-muted-foreground shadow-sm transition hover:border-primary/35 hover:bg-primary/8 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                            )}
-                            aria-label="No active playlist — open device to assign"
-                            title="No active playlist — open device"
-                          >
-                            <ListVideo className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} aria-hidden />
-                          </Link>
-                        )}
-                        <span className="min-w-0 flex-1 truncate text-muted-foreground">{row.playlistLabel}</span>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">{row.lastSeenLabel}</td>
-                    <td className="px-4 py-3 text-right">
-                      {row.isDummy ? (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      ) : (
+                      </td>
+                      <td className="px-4 py-3">
+                        <DeviceStatusChip status={row.status} />
+                      </td>
+                      <td className="min-w-0 px-4 py-3">
+                        <div className="flex min-w-0 max-w-[20rem] items-center gap-2.5">
+                          {row.activePlaylistId && publicBaseUrl ? (
+                            <DashboardRowPlaylistPreview
+                              device={devices.find((d) => d.id === row.id)}
+                              activePlaylistId={row.activePlaylistId}
+                              playlistLabel={row.playlistLabel}
+                              playlistItemsByPlaylistId={playlistItemsByPlaylistId}
+                              publicBaseUrl={publicBaseUrl}
+                            />
+                          ) : row.activePlaylistId && !publicBaseUrl ? (
+                            <span
+                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/40 text-muted-foreground"
+                              title="Set NEXT_PUBLIC_SUPABASE_URL to preview media"
+                            >
+                              <ListVideo className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} aria-hidden />
+                            </span>
+                          ) : (
+                            <Link
+                              prefetch
+                              href={`/devices/${row.id}`}
+                              className={cn(
+                                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-border bg-muted/60 text-muted-foreground shadow-sm transition hover:border-primary/35 hover:bg-primary/8 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                              )}
+                              aria-label="No active playlist — open device to assign"
+                              title="No active playlist — open device"
+                            >
+                              <ListVideo className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} aria-hidden />
+                            </Link>
+                          )}
+                          <span className="min-w-0 flex-1 truncate text-muted-foreground">{row.playlistLabel}</span>
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">{row.lastSeenLabel}</td>
+                      <td className="px-4 py-3 text-right">
                         <Link
                           href={`/devices/${row.id}`}
                           className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "inline-flex h-8 gap-1 px-2 text-xs")}
@@ -365,10 +318,10 @@ export default function DashboardHomePage() {
                           Screen
                           <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                         </Link>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
