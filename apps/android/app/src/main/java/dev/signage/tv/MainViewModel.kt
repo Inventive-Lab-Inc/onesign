@@ -114,6 +114,8 @@ private data class TvDeviceReportTelemetryParams(
     val pDeviceId: String,
     @SerialName("p_telemetry")
     val pTelemetry: JsonObject,
+    @SerialName("p_playback_secret")
+    val pPlaybackSecret: String? = null,
 )
 
 @Serializable
@@ -244,6 +246,7 @@ class MainViewModel(
 ) : AndroidViewModel(application) {
     private val dataStore = application.deviceDataStore
     private var playbackObserveJob: Job? = null
+    private var heartbeatJob: Job? = null
     private var playbackHealthMonitorJob: Job? = null
     private var telemetryJob: Job? = null
     private var telemetryDeviceId: String? = null
@@ -442,18 +445,45 @@ class MainViewModel(
         return POLL_INTERVAL_MS
     }
 
+    private suspend fun storedPlaybackSecretOrNull(): String? =
+        dataStore.data.first()[DeviceKeys.PLAYBACK_SECRET]?.takeIf { it.isNotBlank() }
+
     private suspend fun sendDeviceHeartbeat(deviceId: String) {
-        val storedPlaybackSecret = dataStore.data.first()[DeviceKeys.PLAYBACK_SECRET]
+        val storedPlaybackSecret = storedPlaybackSecretOrNull()
         withAuthRefreshOnExpiry("tv_device_heartbeat") {
             supabase.postgrest.rpc(
                 "tv_device_heartbeat",
                 TvGetPlaybackParams(
                     pDeviceId = deviceId,
-                    pPlaybackSecret = storedPlaybackSecret?.takeIf { it.isNotBlank() },
+                    pPlaybackSecret = storedPlaybackSecret,
                 ),
             )
         }.onFailure { e ->
-            Log.d(LOG_TAG, "tv_device_heartbeat failed", e)
+            Log.w(LOG_TAG, "tv_device_heartbeat failed", e)
+        }
+    }
+
+    private fun startDeviceHeartbeatLoop(deviceId: String) {
+        heartbeatJob?.cancel()
+        heartbeatJob =
+            viewModelScope.launch {
+                sendDeviceHeartbeat(deviceId)
+                while (isActive) {
+                    delay(HEARTBEAT_INTERVAL_MS)
+                    sendDeviceHeartbeat(deviceId)
+                }
+            }
+    }
+
+    private fun stopDeviceHeartbeatLoop() {
+        heartbeatJob?.cancel()
+        heartbeatJob = null
+    }
+
+    private fun pulseDeviceHeartbeat() {
+        val deviceId = telemetryDeviceId ?: return
+        viewModelScope.launch {
+            sendDeviceHeartbeat(deviceId)
         }
     }
 
@@ -545,6 +575,7 @@ class MainViewModel(
                 runCatching { refreshSessionIfNearExpiry(reason = "foreground") }
             }
         }
+        pulseDeviceHeartbeat()
         signageExo?.onActivityResume()
     }
 
@@ -1090,6 +1121,7 @@ class MainViewModel(
         playbackHealthMonitorJob?.cancel()
         playbackRealtime?.disconnect()
         startDeviceTelemetryLoop(deviceId)
+        startDeviceHeartbeatLoop(deviceId)
         ensureSignageExo()
         signalPlaybackHealthy()
         playbackHealthMonitorJob =
@@ -1114,16 +1146,7 @@ class MainViewModel(
             }
         playbackObserveJob =
             viewModelScope.launch {
-                val heartbeatLoop =
-                    launch {
-                        sendDeviceHeartbeat(deviceId)
-                        while (isActive) {
-                            delay(HEARTBEAT_INTERVAL_MS)
-                            sendDeviceHeartbeat(deviceId)
-                        }
-                    }
-                try {
-                    manifestNeedsQuickFollowUp.set(true)
+                manifestNeedsQuickFollowUp.set(true)
                     playbackRealtime = PlaybackRealtimeCoordinator(supabase, viewModelScope)
                     val onStale: () -> Unit = {
                         playbackSyncHintsPollFast.set(true)
@@ -1219,9 +1242,6 @@ class MainViewModel(
                             onTimeout(computePlaybackPollTimeoutMs()) { }
                         }
                     }
-                } finally {
-                    heartbeatLoop.cancel()
-                }
             }
     }
 
@@ -1263,16 +1283,18 @@ class MainViewModel(
                             )
                         }.getOrNull()
                     if (payload != null) {
+                        val storedPlaybackSecret = storedPlaybackSecretOrNull()
                         withAuthRefreshOnExpiry("tv_device_report_telemetry") {
                             supabase.postgrest.rpc(
                                 "tv_device_report_telemetry",
                                 TvDeviceReportTelemetryParams(
                                     pDeviceId = deviceId,
                                     pTelemetry = payload,
+                                    pPlaybackSecret = storedPlaybackSecret,
                                 ),
                             )
                         }.onFailure { e ->
-                            Log.d(LOG_TAG, "tv_device_report_telemetry failed", e)
+                            Log.w(LOG_TAG, "tv_device_report_telemetry failed", e)
                         }
                     }
                     delay(TELEMETRY_INTERVAL_MS)
@@ -1382,6 +1404,7 @@ class MainViewModel(
         val deviceIdSnapshot = telemetryDeviceId
         telemetryJob?.cancel()
         telemetryJob = null
+        stopDeviceHeartbeatLoop()
         playbackObserveJob?.cancel()
         playbackObserveJob = null
         playbackHealthMonitorJob?.cancel()
@@ -1422,6 +1445,7 @@ class MainViewModel(
         super.onCleared()
         ProcessLifecycleOwner.get().lifecycle.removeObserver(playbackProcessLifecycleObserver)
         telemetryJob?.cancel()
+        stopDeviceHeartbeatLoop()
         playbackObserveJob?.cancel()
         playbackHealthMonitorJob?.cancel()
         playbackRealtime?.disconnect()

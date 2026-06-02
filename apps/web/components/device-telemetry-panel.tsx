@@ -225,15 +225,9 @@ export function deviceTelemetrySummaryLine(device: Device): string | null {
   const t = device.telemetry;
   if (!t || typeof t !== "object") return null;
   const hw = t.hardware;
-  const app = t.app;
   const model = hw && typeof hw === "object" && "model" in hw ? String((hw as { model?: string }).model ?? "") : "";
-  const ver =
-    app && typeof app === "object" && "version_name" in app
-      ? String((app as { version_name?: string }).version_name ?? "")
-      : "";
-  const parts = [model, ver].filter(Boolean);
-  if (parts.length === 0) return null;
-  return parts.join(" · ");
+  if (!model) return null;
+  return model;
 }
 
 function telemetryString(v: unknown): string | null {

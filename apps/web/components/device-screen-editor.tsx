@@ -39,6 +39,8 @@ import {
   deviceScreenBasics,
   getDeviceDisplayDimensionsPx,
 } from "@/components/device-telemetry-panel";
+import { DeviceAppUpdateNotice, DeviceAppVersionChip } from "@/components/device-app-version-chip";
+import { useActiveAppRelease } from "@/hooks/use-active-app-release";
 
 /** Stable fallback so Zustand selectors don’t return a new [] every run (avoids render loops). */
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
@@ -95,6 +97,7 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
   useStaleOnlineTick();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const { syncNow } = useConsoleSync();
+  const activeAppRelease = useActiveAppRelease();
 
   const storeDevices = useConsoleDataStore((s) => s.devices) as DeviceWithAssignments[];
   const device = useMemo(
@@ -533,6 +536,7 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
                     <span className="shrink-0 text-muted-foreground">Last seen</span>
                     <span className="min-w-0 font-medium text-foreground">{formatDeviceLastSeen(device.last_seen)}</span>
                   </span>
+                  <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} />
                 </div>
                 {(screenHardwareBasics.brand || screenHardwareBasics.model || screenHardwareBasics.screenSize) && (
                   <div
@@ -579,6 +583,8 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
             </div>
           </div>
         </div>
+
+      <DeviceAppUpdateNotice device={device} activeRelease={activeAppRelease} />
 
       {device.playback_disabled ? (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">

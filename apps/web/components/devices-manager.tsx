@@ -17,6 +17,9 @@ import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { deviceTelemetrySummaryLine } from "@/components/device-telemetry-panel";
+import { DeviceAppVersionChip } from "@/components/device-app-version-chip";
+import { useActiveAppRelease, type ActiveAppRelease } from "@/hooks/use-active-app-release";
+import { deviceAppUpdateStatus, getDeviceInstalledApp } from "@/lib/device-app-version";
 
 type StatusFilter = "all" | DeviceStatus;
 
@@ -59,6 +62,7 @@ export function DevicesManager() {
   useStaleOnlineTick();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const devices = useConsoleDataStore((s) => s.devices) as DeviceWithAssignments[];
+  const activeAppRelease = useActiveAppRelease();
 
   const { syncNow } = useConsoleSync();
 
@@ -139,6 +143,12 @@ export function DevicesManager() {
     () => devices.filter((d) => effectiveDeviceStatus(d) === "online").length,
     [devices],
   );
+
+  const updatePendingCount = useMemo(() => {
+    if (!activeAppRelease) return 0;
+    return devices.filter((d) => deviceAppUpdateStatus(getDeviceInstalledApp(d), activeAppRelease) === "update_available")
+      .length;
+  }, [activeAppRelease, devices]);
 
   return (
     <div className="flex min-h-[min(70vh,720px)] flex-col gap-6 lg:flex-row lg:gap-8">
@@ -239,6 +249,12 @@ export function DevicesManager() {
                   <>
                     {" "}
                     · {onlineCount} online
+                    {updatePendingCount > 0 ? (
+                      <>
+                        {" "}
+                        · {updatePendingCount} update{updatePendingCount === 1 ? "" : "s"} pending
+                      </>
+                    ) : null}
                   </>
                 )}
               </p>
@@ -291,13 +307,23 @@ export function DevicesManager() {
             ) : view === "grid" ? (
               <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {filtered.map((device) => (
-                  <DeviceCard key={device.id} device={device} onRequestDelete={() => setDevicePendingDelete(device)} />
+                  <DeviceCard
+                    key={device.id}
+                    device={device}
+                    activeAppRelease={activeAppRelease}
+                    onRequestDelete={() => setDevicePendingDelete(device)}
+                  />
                 ))}
               </ul>
             ) : (
               <ul className="divide-y divide-border rounded-lg border border-border bg-card">
                 {filtered.map((device) => (
-                  <DeviceListRow key={device.id} device={device} onRequestDelete={() => setDevicePendingDelete(device)} />
+                  <DeviceListRow
+                    key={device.id}
+                    device={device}
+                    activeAppRelease={activeAppRelease}
+                    onRequestDelete={() => setDevicePendingDelete(device)}
+                  />
                 ))}
               </ul>
             )}
@@ -318,7 +344,15 @@ export function DevicesManager() {
   );
 }
 
-function DeviceCard({ device, onRequestDelete }: { device: Device; onRequestDelete: () => void }) {
+function DeviceCard({
+  device,
+  activeAppRelease,
+  onRequestDelete,
+}: {
+  device: Device;
+  activeAppRelease: ActiveAppRelease | null;
+  onRequestDelete: () => void;
+}) {
   const deviceSummary = deviceTelemetrySummaryLine(device);
   return (
     <li className="relative flex flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm transition-shadow hover:shadow-md">
@@ -334,6 +368,7 @@ function DeviceCard({ device, onRequestDelete }: { device: Device; onRequestDele
           </div>
           <div className="flex flex-col items-end gap-1">
             <StatusBadge status={effectiveDeviceStatus(device)} />
+            <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} compact />
           </div>
         </div>
         <p className="mt-3 line-clamp-2 text-sm font-semibold leading-snug text-foreground" title={device.name}>
@@ -378,7 +413,15 @@ function DeviceCard({ device, onRequestDelete }: { device: Device; onRequestDele
   );
 }
 
-function DeviceListRow({ device, onRequestDelete }: { device: Device; onRequestDelete: () => void }) {
+function DeviceListRow({
+  device,
+  activeAppRelease,
+  onRequestDelete,
+}: {
+  device: Device;
+  activeAppRelease: ActiveAppRelease | null;
+  onRequestDelete: () => void;
+}) {
   const deviceSummary = deviceTelemetrySummaryLine(device);
   return (
     <li className="relative flex flex-row items-center justify-between gap-3 px-3 py-4 transition-colors hover:bg-muted/40">
@@ -395,6 +438,7 @@ function DeviceListRow({ device, onRequestDelete }: { device: Device; onRequestD
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-semibold text-foreground">{device.name}</p>
             <StatusBadge status={effectiveDeviceStatus(device)} />
+            <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} />
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">Last seen · {formatDeviceLastSeen(device.last_seen)}</p>
           {deviceSummary && (
