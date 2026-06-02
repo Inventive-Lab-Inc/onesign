@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import dev.signage.tv.ui.AppUpdateOverlay
+import dev.signage.tv.ui.DeviceSetupScreen
 import dev.signage.tv.ui.SignageBrandHeaderTv
 import dev.signage.tv.ui.SignageBrandMark
 import dev.signage.tv.ui.SignageShellBackground
@@ -90,6 +92,8 @@ class MainActivity : ComponentActivity() {
             SignageTvTheme {
                 val state by viewModel.state.collectAsState()
                 val updateState by viewModel.appUpdateState.collectAsState()
+                val installPermissionGranted by viewModel.installPermissionGranted.collectAsState()
+                val deviceSetupSettingsError by viewModel.deviceSetupSettingsError.collectAsState()
                 LaunchedEffect(updateState) {
                     if (updateState is AppUpdateState.ReadyToInstall) {
                         viewModel.installPendingUpdate(this@MainActivity)
@@ -106,6 +110,31 @@ class MainActivity : ComponentActivity() {
                                 message = stringResource(R.string.setup_config_needed),
                                 hint = stringResource(R.string.setup_config_hint),
                             )
+
+                        MainUiState.DeviceSetup ->
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                DeviceSetupScreen(
+                                    installPermissionGranted = installPermissionGranted,
+                                    onOpenSettingsClick = {
+                                        viewModel.openInstallPermissionSettings(this@MainActivity)
+                                    },
+                                    onContinueClick = { viewModel.continueAfterDeviceSetup() },
+                                )
+                                if (deviceSetupSettingsError) {
+                                    Text(
+                                        text = stringResource(R.string.device_setup_settings_failed),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = SignageColors.ThemeForegroundOnDarkSoft,
+                                        textAlign = TextAlign.Center,
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 48.dp)
+                                                .padding(bottom = 32.dp)
+                                                .widthIn(max = 720.dp),
+                                    )
+                                }
+                            }
 
                         is MainUiState.Error -> {
                             when (ui.code) {
@@ -219,7 +248,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.onPlaybackForegroundEvent()
-        viewModel.onActivityResumedForUpdate(this)
+        viewModel.onActivityResumed(this)
     }
 
     override fun onPause() {

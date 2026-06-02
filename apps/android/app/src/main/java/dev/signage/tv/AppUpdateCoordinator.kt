@@ -206,16 +206,10 @@ class AppUpdateCoordinator(
                     ?: (_state.value as? AppUpdateState.AwaitingUserApproval)?.versionName
                     ?: ""
             _state.value = AppUpdateState.AwaitingUserApproval(versionName)
-            val settingsIntent =
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                    data = Uri.parse("package:${activity.packageName}")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            runCatching { activity.startActivity(settingsIntent) }
-                .onFailure { e ->
-                    Log.e(UPDATE_LOG_TAG, "could not open unknown-sources settings", e)
-                    _state.value = AppUpdateState.Error("Allow installs from this app in Settings, then try again.")
-                }
+            if (!DeviceSetupRequirements.openInstallPermissionSettings(activity)) {
+                Log.e(UPDATE_LOG_TAG, "could not open unknown-sources settings")
+                _state.value = AppUpdateState.Error("Allow installs from this app in Settings, then try again.")
+            }
             return
         }
 

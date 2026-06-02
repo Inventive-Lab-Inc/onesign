@@ -47,13 +47,14 @@ Paired TVs poll Supabase for a newer active build (`00026_app_releases.sql`), do
 1. Apply migration `packages/database/migrations/00026_app_releases.sql`.
 2. Build a signed release APK: `./gradlew :app:assembleRelease`
 3. In the web console → **Settings** → **TV app updates (OTA)**, upload the APK with matching `versionCode` / `versionName` and click **Publish and activate**.
-4. On each TV, allow **Install unknown apps** for OneSign TV once (Android 8+). The app re-checks every ~6 hours and on cold start.
+4. On first launch (before the pairing code), the TV shows a **one-time setup** screen: open **Install unknown apps** → turn on **Allow** for OneSign TV → press Back. Pairing starts automatically. Later OTA updates only need a tap on **Install** in the system prompt.
+5. The app re-checks for updates every ~6 hours and on cold start.
 
 Device telemetry already reports installed `version_code` so you can spot stragglers in the dashboard.
 
 ## MVP behavior
 
-- On first launch the app signs in **anonymously**, generates a **six-digit pairing code**, inserts a `devices` row (`registered_session_id` = anonymous user id), and shows the code full-screen.
+- On first launch the app runs **one-time TV setup** (install permission for OTA on Android 8+), then signs in **anonymously**, generates a **six-digit pairing code**, inserts a `devices` row (`registered_session_id` = anonymous user id), and shows the code full-screen.
 - It polls the `devices` row until an admin links it from the web dashboard (`owner_id` set via `link_device_by_pairing_code`). **Realtime** nudges manifest refresh when assignments or playlist items change.
 - Cached playback JSON allows a cold start with the last known slides when the network is down (best-effort).
 - Use **Reset registration** during development to clear local pairing state.

@@ -302,6 +302,16 @@ class MainViewModel(
     private val appUpdateCoordinator = AppUpdateCoordinator(application)
     val appUpdateState: StateFlow<AppUpdateState> = appUpdateCoordinator.state
 
+    private val appServicesStarted = AtomicBoolean(false)
+
+    /** Shown on [MainUiState.DeviceSetup] when settings could not be opened. */
+    private val _deviceSetupSettingsError = MutableStateFlow(false)
+    val deviceSetupSettingsError: StateFlow<Boolean> = _deviceSetupSettingsError.asStateFlow()
+
+    private val _installPermissionGranted =
+        MutableStateFlow(!DeviceSetupRequirements.needsInstallPermissionGrant(application))
+    val installPermissionGranted: StateFlow<Boolean> = _installPermissionGranted.asStateFlow()
+
     init {
         if (BuildConfig.SUPABASE_URL.isBlank() || BuildConfig.SUPABASE_ANON_KEY.isBlank()) {
             Log.e(LOG_TAG, "TvUserFacingError ${TvUserFacingError.CONFIG_INCOMPLETE}: SUPABASE_URL or SUPABASE_ANON_KEY is blank in build")
@@ -309,14 +319,59 @@ class MainViewModel(
         } else {
             ProcessLifecycleOwner.get().lifecycle.addObserver(playbackProcessLifecycleObserver)
             viewModelScope.launch {
-                appUpdateCoordinator.runUpdateLoop(supabase) {
-                    supabase.auth.awaitInitialization()
+                if (DeviceSetupRequirements.needsInstallPermissionGrant(getApplication())) {
+                    _state.value = MainUiState.DeviceSetup
+                } else {
+                    startAppServices()
                 }
             }
-            viewModelScope.launch {
-                runStartupUntilConnected()
+        }
+    }
+
+    private fun startAppServices() {
+        if (!appServicesStarted.compareAndSet(false, true)) {
+            return
+        }
+        viewModelScope.launch {
+            appUpdateCoordinator.runUpdateLoop(supabase) {
+                supabase.auth.awaitInitialization()
             }
         }
+        viewModelScope.launch {
+            runStartupUntilConnected()
+        }
+    }
+
+    fun hasInstallPermissionGrant(): Boolean =
+        !DeviceSetupRequirements.needsInstallPermissionGrant(getApplication())
+
+    private fun refreshInstallPermissionState() {
+        _installPermissionGranted.value = hasInstallPermissionGrant()
+    }
+
+    fun openInstallPermissionSettings(activity: ComponentActivity) {
+        _deviceSetupSettingsError.value = false
+        if (!DeviceSetupRequirements.openInstallPermissionSettings(activity)) {
+            _deviceSetupSettingsError.value = true
+        }
+    }
+
+    fun continueAfterDeviceSetup() {
+        if (!hasInstallPermissionGrant()) {
+            return
+        }
+        if (_state.value is MainUiState.DeviceSetup) {
+            _state.value = MainUiState.Initializing
+        }
+        startAppServices()
+    }
+
+    fun onActivityResumed(activity: ComponentActivity) {
+        refreshInstallPermissionState()
+        if (_state.value is MainUiState.DeviceSetup && hasInstallPermissionGrant()) {
+            continueAfterDeviceSetup()
+        }
+        onActivityResumedForUpdate(activity)
     }
 
     fun onActivityResumedForUpdate(activity: ComponentActivity) {

@@ -6,6 +6,9 @@ sealed interface MainUiState {
 
     data object MissingConfig : MainUiState
 
+    /** One-time permission setup before pairing or playback (remote TVs). */
+    data object DeviceSetup : MainUiState
+
     data class AwaitingLink(
         val pairingCode: String,
         val deviceId: String,
