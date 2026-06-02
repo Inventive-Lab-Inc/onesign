@@ -1,11 +1,13 @@
 "use client";
 
 import type { AppRelease } from "@signage/types";
-import { CheckCircle2, Package, Upload } from "lucide-react";
+import { CheckCircle2, Download, FileUp, History, Package, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 async function sha256Hex(file: File): Promise<string> {
@@ -26,7 +28,81 @@ function formatReleaseDate(iso: string): string {
   });
 }
 
+function releaseApkPublicUrl(publicBaseUrl: string, storagePath: string): string {
+  const base = publicBaseUrl.replace(/\/$/, "");
+  const path = storagePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `${base}/storage/v1/object/public/releases/${path}`;
+}
+
+function releaseApkDownloadName(release: AppRelease): string {
+  const safeVersion = release.version_name.replace(/[^\w.-]+/g, "-");
+  return `onesign-tv-v${safeVersion}.apk`;
+}
+
+function ReleaseRow({
+  release,
+  publicBaseUrl,
+  onActivate,
+  onDelete,
+  showDownload,
+}: {
+  release: AppRelease;
+  publicBaseUrl: string;
+  onActivate: (id: string) => void;
+  onDelete: (release: AppRelease) => void;
+  showDownload?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold text-foreground">
+            v{release.version_name}
+            <span className="ml-1.5 font-normal text-muted-foreground">({release.version_code})</span>
+          </span>
+          {release.is_active ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-brand-badge dark:text-brand-onDark">
+              <CheckCircle2 className="h-3 w-3" aria-hidden />
+              Active
+            </span>
+          ) : null}
+        </div>
+        <p className="text-xs text-muted-foreground">{formatReleaseDate(release.created_at)}</p>
+        {release.release_notes ? (
+          <p className="text-sm text-muted-foreground">{release.release_notes}</p>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {showDownload && release.is_active && publicBaseUrl ? (
+          <a
+            href={releaseApkPublicUrl(publicBaseUrl, release.storage_path)}
+            download={releaseApkDownloadName(release)}
+            className={cn(buttonVariants({ variant: "default", size: "sm" }), "gap-1.5")}
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden />
+            Download APK
+          </a>
+        ) : null}
+        {!release.is_active ? (
+          <>
+            <Button type="button" variant="outline" size="sm" onClick={() => onActivate(release.id)}>
+              Activate
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => onDelete(release)}>
+              Delete
+            </Button>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function AppReleasesManager({ userId }: { userId: string }) {
+  const publicBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [releases, setReleases] = useState<AppRelease[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +111,9 @@ export function AppReleasesManager({ userId }: { userId: string }) {
   const [versionName, setVersionName] = useState("");
   const [releaseNotes, setReleaseNotes] = useState("");
   const [apkFile, setApkFile] = useState<File | null>(null);
+
+  const activeRelease = useMemo(() => releases.find((r) => r.is_active) ?? null, [releases]);
+  const previousReleases = useMemo(() => releases.filter((r) => !r.is_active), [releases]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -160,127 +239,143 @@ export function AppReleasesManager({ userId }: { userId: string }) {
   );
 
   return (
-    <section style={{ marginBottom: "1.75rem", paddingBottom: "1.75rem", borderBottom: "1px solid #e5e7eb" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
-        <Package size={18} strokeWidth={2} aria-hidden />
-        <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#111827" }}>TV app updates (OTA)</h2>
-      </div>
-      <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "#4b5563", lineHeight: 1.5 }}>
-        Upload a signed release APK here. Paired TVs check every few hours, download the active build, and prompt to
-        install when a newer <code style={{ fontSize: "0.8125rem" }}>versionCode</code> is available.
-      </p>
-
-      <div style={{ display: "grid", gap: "0.75rem", maxWidth: "28rem", marginBottom: "1.25rem" }}>
-        <label style={{ display: "grid", gap: "0.35rem" }}>
-          <span style={{ fontSize: "0.8125rem", color: "#374151" }}>Version code (integer, must increase)</span>
-          <Input
-            type="number"
-            min={1}
-            value={versionCode}
-            onChange={(e) => setVersionCode(e.target.value)}
-            placeholder="2"
-            disabled={uploading}
-          />
-        </label>
-        <label style={{ display: "grid", gap: "0.35rem" }}>
-          <span style={{ fontSize: "0.8125rem", color: "#374151" }}>Version name</span>
-          <Input
-            value={versionName}
-            onChange={(e) => setVersionName(e.target.value)}
-            placeholder="0.2.0"
-            disabled={uploading}
-          />
-        </label>
-        <label style={{ display: "grid", gap: "0.35rem" }}>
-          <span style={{ fontSize: "0.8125rem", color: "#374151" }}>Release notes (optional)</span>
-          <Input
-            value={releaseNotes}
-            onChange={(e) => setReleaseNotes(e.target.value)}
-            placeholder="Bug fixes and performance improvements"
-            disabled={uploading}
-          />
-        </label>
-        <label style={{ display: "grid", gap: "0.35rem" }}>
-          <span style={{ fontSize: "0.8125rem", color: "#374151" }}>Release APK</span>
-          <input
-            type="file"
-            accept=".apk,application/vnd.android.package-archive"
-            disabled={uploading}
-            onChange={(e) => setApkFile(e.target.files?.[0] ?? null)}
-          />
-        </label>
-        <Button type="button" onClick={() => void onPublish()} disabled={uploading}>
-          <Upload size={16} style={{ marginRight: "0.35rem" }} aria-hidden />
-          {uploading ? "Publishing…" : "Publish and activate"}
-        </Button>
+    <section className="mb-7 space-y-6 border-b border-border pb-7">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <Package className="h-[1.125rem] w-[1.125rem] text-brand" strokeWidth={2} aria-hidden />
+          <h2 className="text-base font-semibold text-foreground">TV app updates (OTA)</h2>
+        </div>
+        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          Paired TVs check for updates on startup and every few hours. They download the{" "}
+          <span className="font-medium text-foreground">active</span> build and prompt to install when a newer{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">versionCode</code> is available.
+        </p>
       </div>
 
-      <div>
-        <h3 style={{ margin: "0 0 0.75rem", fontSize: "0.9375rem", fontWeight: 600, color: "#111827" }}>
-          Published builds
-        </h3>
+      {/* Active release */}
+      <div className="rounded-xl border border-border bg-muted/30">
+        <div className="border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold text-foreground">Active release</h3>
+          <p className="text-xs text-muted-foreground">What TVs and new installs receive today.</p>
+        </div>
         {loading ? (
-          <p style={{ margin: 0, fontSize: "0.875rem", color: "#6b7280" }}>Loading releases…</p>
-        ) : releases.length === 0 ? (
-          <p style={{ margin: 0, fontSize: "0.875rem", color: "#6b7280" }}>No releases yet.</p>
+          <div className="px-4 py-6 text-sm text-muted-foreground">Loading…</div>
+        ) : activeRelease ? (
+          <ReleaseRow
+            release={activeRelease}
+            publicBaseUrl={publicBaseUrl}
+            onActivate={(id) => void onActivate(id)}
+            onDelete={(r) => void onDelete(r)}
+            showDownload
+          />
         ) : (
-          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: "0.65rem" }}>
-            {releases.map((release) => (
-              <li
-                key={release.id}
-                style={{
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "0.5rem",
-                  padding: "0.75rem 0.875rem",
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "0.75rem",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                    <strong style={{ color: "#111827" }}>
-                      v{release.version_name} ({release.version_code})
-                    </strong>
-                    {release.is_active ? (
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "0.25rem",
-                          fontSize: "0.75rem",
-                          color: "#047857",
-                          fontWeight: 600,
-                        }}
-                      >
-                        <CheckCircle2 size={14} aria-hidden />
-                        Active
-                      </span>
-                    ) : null}
-                  </div>
-                  <p style={{ margin: "0.25rem 0 0", fontSize: "0.8125rem", color: "#6b7280" }}>
-                    {formatReleaseDate(release.created_at)}
-                    {release.release_notes ? ` · ${release.release_notes}` : ""}
-                  </p>
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  {!release.is_active ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => void onActivate(release.id)}>
-                      Activate
-                    </Button>
-                  ) : null}
-                  {!release.is_active ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => void onDelete(release)}>
-                      Delete
-                    </Button>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="px-4 py-6 text-sm text-muted-foreground">No active release yet. Publish one below.</div>
         )}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Publish form */}
+        <div className="rounded-xl border border-border bg-card">
+          <div className="border-b border-border px-4 py-3">
+            <h3 className="text-sm font-semibold text-foreground">Publish new release</h3>
+            <p className="text-xs text-muted-foreground">Upload a signed APK and make it the active rollout.</p>
+          </div>
+          <div className="space-y-4 p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="release-version-code">Version code</Label>
+                <Input
+                  id="release-version-code"
+                  type="number"
+                  min={1}
+                  value={versionCode}
+                  onChange={(e) => setVersionCode(e.target.value)}
+                  placeholder="5"
+                  disabled={uploading}
+                />
+                <p className="text-xs text-muted-foreground">Integer — must increase every release.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="release-version-name">Version name</Label>
+                <Input
+                  id="release-version-name"
+                  value={versionName}
+                  onChange={(e) => setVersionName(e.target.value)}
+                  placeholder="0.5.0"
+                  disabled={uploading}
+                />
+                <p className="text-xs text-muted-foreground">Display label, e.g. 0.5.0</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="release-notes">Release notes</Label>
+              <Input
+                id="release-notes"
+                value={releaseNotes}
+                onChange={(e) => setReleaseNotes(e.target.value)}
+                placeholder="Bug fixes and performance improvements"
+                disabled={uploading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="release-apk">Release APK</Label>
+              <label
+                htmlFor="release-apk"
+                className={cn(
+                  "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 text-center transition-colors",
+                  uploading ? "pointer-events-none opacity-60" : "hover:border-brand/40 hover:bg-muted/40",
+                )}
+              >
+                <FileUp className="h-8 w-8 text-muted-foreground" aria-hidden />
+                <span className="text-sm font-medium text-foreground">
+                  {apkFile ? apkFile.name : "Choose APK file"}
+                </span>
+                <span className="text-xs text-muted-foreground">Signed Android package (.apk)</span>
+                <input
+                  id="release-apk"
+                  type="file"
+                  accept=".apk,application/vnd.android.package-archive"
+                  disabled={uploading}
+                  className="sr-only"
+                  onChange={(e) => setApkFile(e.target.files?.[0] ?? null)}
+                />
+              </label>
+            </div>
+            <Button type="button" className="w-full gap-2" disabled={uploading} onClick={() => void onPublish()}>
+              <Upload className="h-4 w-4" aria-hidden />
+              {uploading ? "Publishing…" : "Publish and activate"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Previous releases */}
+        <div className="rounded-xl border border-border bg-card">
+          <div className="border-b border-border px-4 py-3">
+            <div className="flex items-center gap-2">
+              <History className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <h3 className="text-sm font-semibold text-foreground">Previous releases</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">Reactivate or remove older builds.</p>
+          </div>
+          {loading ? (
+            <div className="px-4 py-6 text-sm text-muted-foreground">Loading…</div>
+          ) : previousReleases.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-muted-foreground">No previous releases.</div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {previousReleases.map((release) => (
+                <li key={release.id}>
+                  <ReleaseRow
+                    release={release}
+                    publicBaseUrl={publicBaseUrl}
+                    onActivate={(id) => void onActivate(id)}
+                    onDelete={(r) => void onDelete(r)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </section>
   );

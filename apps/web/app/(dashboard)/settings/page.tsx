@@ -2,6 +2,7 @@
 
 import { AppReleasesManager } from "@/components/app-releases-manager";
 import { useSettings } from "@/components/shell/settings-context";
+import { Label } from "@/components/ui/label";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 
 export default function SettingsPage() {
@@ -9,44 +10,45 @@ export default function SettingsPage() {
   const ownerId = useConsoleDataStore((s) => s.ownerId);
 
   return (
-    <div style={{ padding: "0.25rem 0", maxWidth: "42rem" }}>
-      <h1 style={{ margin: "0 0 0.5rem", fontSize: "1.125rem", fontWeight: 700, color: "#111827" }}>Settings</h1>
+    <div className="mx-auto max-w-4xl space-y-1 py-1">
+      <h1 className="text-lg font-bold text-foreground">Settings</h1>
 
       {ownerId ? <AppReleasesManager userId={ownerId} /> : null}
 
-      <section style={{ marginBottom: "1.75rem", paddingBottom: "1.75rem", borderBottom: "1px solid #e5e7eb" }}>
-        <p style={{ margin: "0 0 0.75rem", fontSize: "0.875rem", color: "#4b5563" }}>
-          Show in-app notifications and updates.
-        </p>
-        <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+      <section className="mb-7 space-y-3 border-b border-border pb-7">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Notifications</h2>
+          <p className="text-sm text-muted-foreground">Show in-app notifications and updates.</p>
+        </div>
+        <label className="inline-flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"
             checked={settings.notifications}
             onChange={(e) => setNotifications(e.target.checked)}
-            style={{ width: "1.125rem", height: "1.125rem", accentColor: "#111827" }}
+            className="h-[1.125rem] w-[1.125rem] accent-brand"
           />
-          <span style={{ fontSize: "0.9375rem", color: "#111827" }}>Enable in-app notifications</span>
+          <span className="text-sm text-foreground">Enable in-app notifications</span>
         </label>
       </section>
 
-      <section style={{ marginBottom: "1.75rem", paddingBottom: "1.75rem", borderBottom: "1px solid #e5e7eb" }}>
-        <p style={{ margin: "0 0 0.75rem", fontSize: "0.875rem", color: "#4b5563" }}>Preferred language for the interface.</p>
-        <select
-          value={settings.language}
-          onChange={(e) => setLanguage(e.target.value)}
-          style={{
-            padding: "0.5rem 0.75rem",
-            fontSize: "0.9375rem",
-            color: "#111827",
-            background: "#fff",
-            border: "1px solid #e5e7eb",
-            borderRadius: "0.375rem",
-            minWidth: "10rem",
-          }}
-          aria-label="Language"
-        >
-          <option value="en">English</option>
-        </select>
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Language</h2>
+          <p className="text-sm text-muted-foreground">Preferred language for the interface.</p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="settings-language" className="sr-only">
+            Language
+          </Label>
+          <select
+            id="settings-language"
+            value={settings.language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="h-9 min-w-40 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+          >
+            <option value="en">English</option>
+          </select>
+        </div>
       </section>
     </div>
   );
