@@ -5,8 +5,8 @@ import "@fontsource-variable/google-sans/wght.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Signage Console",
-  description: "Digital signage dashboard",
+  title: "OneSign Console",
+  description: "OneSign admin dashboard — manage screens, playlists, and media.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

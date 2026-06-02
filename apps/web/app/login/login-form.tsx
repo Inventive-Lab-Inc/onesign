@@ -7,6 +7,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { assets, getBackgroundStyle } from "@/lib/config/assets";
+import { AuthBrandHeader } from "@/components/auth-brand-header";
 
 const AUTH_PANEL_CSS = `.auth-card input::placeholder { color: #9ca3af; }
 .auth-right-panel { overflow: auto; scrollbar-width: none; -ms-overflow-style: none; }
@@ -73,17 +74,24 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#fff",
     display: "flex",
     flexDirection: "column",
+    justifyContent: "center",
     overflow: "auto",
     borderRadius: "0.5rem",
     borderTopLeftRadius: 0,
     borderBottomLeftRadius: 0,
   },
-  rightPanelInner: {
-    flex: 1,
-    minHeight: "100%",
+  authContent: {
+    width: "100%",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "center",
+    alignItems: "center",
+    gap: "2.5rem",
+  },
+  brandMarkOffset: {
+    transform: "translateY(-3rem)",
+  },
+  formStack: {
+    width: "100%",
   },
   formTitle: {
     margin: "0 0 1rem",
@@ -204,9 +212,13 @@ export function LoginForm() {
         <p style={styles.leftSubtitle}>Sign in to manage screens, playlists, and media.</p>
       </div>
       <div className="auth-right-panel" style={styles.rightPanel}>
-        <div style={styles.rightPanelInner}>
-          <h2 style={styles.formTitle}>Login</h2>
-          <form onSubmit={onSubmit} style={styles.form}>
+        <div style={styles.authContent}>
+          <div style={styles.brandMarkOffset}>
+            <AuthBrandHeader variant="hero-light" />
+          </div>
+          <div style={styles.formStack}>
+            <h2 style={styles.formTitle}>Login</h2>
+            <form onSubmit={onSubmit} style={styles.form}>
             {error && (
               <div style={styles.error} role="alert">
                 {error}
@@ -260,6 +272,7 @@ export function LoginForm() {
               Sign Up
             </Link>
           </p>
+          </div>
         </div>
       </div>
     </div>

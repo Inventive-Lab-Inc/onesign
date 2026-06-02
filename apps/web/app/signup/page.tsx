@@ -217,7 +217,7 @@ export default function SignupPage() {
       <style>{AUTH_PANEL_CSS}</style>
       <div style={styles.leftPanel}>
         <h1 style={styles.leftTitle}>Get started</h1>
-        <p style={styles.leftSubtitle}>Create your console account to manage signage.</p>
+        <p style={styles.leftSubtitle}>Create your OneSign account to manage screens and playlists.</p>
       </div>
       <div className="auth-right-panel" style={styles.rightPanel}>
         <div style={styles.rightPanelInner}>

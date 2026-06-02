@@ -3,7 +3,7 @@ import type { AppLayoutConfig } from "@/components/shell/types";
 
 export const layoutConfig: Omit<AppLayoutConfig, "getPageTitle"> = {
   brand: {
-    name: "Signage",
+    name: "OneSign",
     subtitle: "Console",
     icon: Tv,
     logoColor: "var(--theme)",

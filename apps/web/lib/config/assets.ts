@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
  */
 export const assets = {
   loginBackgroundValue:
-    "https://i.pinimg.com/736x/21/16/59/21165977ebcdc14db9ac23044c721820.jpg",
+    "https://i.pinimg.com/736x/b5/4c/21/b54c21c8af7a6fa61357f121c5515246.jpg",
   layoutBackgroundValue:
     "linear-gradient(145deg, var(--theme-shell-dark) 0%, var(--theme-shell-light) 100%)",
   /** Must match `:root { --theme }` in app/globals.css (use CSS var so one hex drives the app). */

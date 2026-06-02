@@ -1,5 +1,7 @@
 <resources>
-    <string name="app_name">Signage TV</string>
+    <string name="app_name">OneSign TV</string>
+    <string name="brand_name">OneSign</string>
+    <string name="brand_subtitle">Console</string>
     <string name="device_disabled_by_admin">Device disabled by admin</string>
     <string name="standby_no_playlist">No playlist assigned yet.</string>
     <string name="standby_no_playlist_hint">Assign one to this display in the web app.</string>

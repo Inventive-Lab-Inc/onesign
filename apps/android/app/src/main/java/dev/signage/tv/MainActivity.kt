@@ -16,16 +16,17 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -37,6 +38,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import dev.signage.tv.ui.SignageBrandHeaderTv
+import dev.signage.tv.ui.SignageBrandMark
+import dev.signage.tv.ui.SignageShellBackground
+import dev.signage.tv.ui.theme.SignageColors
 import dev.signage.tv.ui.theme.SignageTvTheme
 
 class MainActivity : ComponentActivity() {
@@ -82,7 +87,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             SignageTvTheme {
                 val state by viewModel.state.collectAsState()
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                SignageShellBackground {
                     when (val ui = state) {
                         MainUiState.Initializing ->
                             TvLoadingScreen(message = stringResource(R.string.startup_loading))
@@ -215,11 +220,22 @@ private fun TvLoadingScreen(message: String) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        CircularProgressIndicator(modifier = Modifier.size(48.dp))
+        SignageBrandMark(
+            boxWidth = 102.dp,
+            boxHeight = 96.dp,
+            cornerRadius = 9.dp,
+            iconSize = 54.dp,
+        )
+        Spacer(modifier = Modifier.height(28.dp))
+        CircularProgressIndicator(
+            modifier = Modifier.size(48.dp),
+            color = SignageColors.Theme,
+        )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
             text = message,
             style = MaterialTheme.typography.bodyLarge,
+            color = SignageColors.ThemeForegroundOnDark,
             textAlign = TextAlign.Center,
         )
     }
@@ -229,17 +245,37 @@ private fun TvLoadingScreen(message: String) {
 private fun PairingScreen(state: MainUiState.AwaitingLink) {
     Column(
         modifier = Modifier.fillMaxSize().padding(48.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(text = "Pair this screen", style = MaterialTheme.typography.titleLarge)
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = state.pairingCode,
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = state.message, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            SignageBrandHeaderTv()
+        }
+        Spacer(modifier = Modifier.height(40.dp))
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "Pair this screen",
+                style = MaterialTheme.typography.titleLarge,
+                color = SignageColors.ThemeForegroundOnDark,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = state.pairingCode,
+                style = MaterialTheme.typography.displayLarge,
+                color = SignageColors.Theme,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = state.message,
+                style = MaterialTheme.typography.bodyLarge,
+                color = SignageColors.ThemeForegroundOnDarkSoft,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }

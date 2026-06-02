@@ -16,7 +16,7 @@ data class DeviceRow(
     val id: String,
     @SerialName("owner_id") val ownerId: String? = null,
     @SerialName("pairing_code") val pairingCode: String,
-    val name: String,
+    val name: String? = null,
     val status: String,
     @SerialName("screen_orientation") val screenOrientation: String = "landscape",
 )

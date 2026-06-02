@@ -4,6 +4,8 @@ Kotlin + Jetpack Compose TV primitives, **Media3 ExoPlayer** (disk cache + stall
 
 HTTPS uses the **platform TLS stack** (system trust store) for Supabase, Coil, and ExoPlayer. If images or video fail while the API still works, check **system date/time**, OS updates for root CAs, and captive portals / TLS-inspecting networks.
 
+Typography uses **Google Sans** (same `@fontsource-variable/google-sans` latin file as the web app), bundled at `app/src/main/res/font/google_sans.ttf`.
+
 ## Configure
 
 1. Copy `local.properties.example` → `local.properties` at this directory (`apps/android/`), **or** put the same keys in `local.properties` at the **repository root** (Gradle merges both; values in `apps/android/` override the root file).
@@ -13,6 +15,19 @@ HTTPS uses the **platform TLS stack** (system trust store) for Supabase, Coil, a
 ## Run
 
 Open this folder in Android Studio and run on an Android TV / emulator with a landscape display.
+
+### TV emulator DNS (macOS)
+
+If the app stays on **Starting…** and logcat shows `HttpRequestTimeoutException` for `*.supabase.co`, the emulator often has **broken DNS** (ping to `8.8.8.8` works, but `ping google.com` fails). Cold-boot with explicit DNS:
+
+```bash
+chmod +x scripts/start-tv-emulator.sh
+./scripts/start-tv-emulator.sh TV_1
+```
+
+Or manually: `emulator -avd TV_1 -dns-server 8.8.8.8,8.8.4.4 -no-snapshot-load`
+
+Verify: `adb shell ping -c 1 nlkjbfwhzzpebsunmzrw.supabase.co` should resolve.
 
 ## Tests
 

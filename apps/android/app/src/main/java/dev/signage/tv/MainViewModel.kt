@@ -692,7 +692,7 @@ class MainViewModel(
                 if (visible != null) {
                     persistDeviceMetadata()
                     if (visible.ownerId != null) {
-                        startPlaybackObservation(storedDeviceId, visible.name)
+                        startPlaybackObservation(storedDeviceId, visible.name.orEmpty())
                         return
                     }
                     _state.value =
@@ -995,7 +995,7 @@ class MainViewModel(
             }
 
             if (row.ownerId != null) {
-                startPlaybackObservation(deviceId, row.name)
+                startPlaybackObservation(deviceId, row.name.orEmpty())
                 return
             }
 

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavRadialSpinner } from "@/components/ui/nav-radial-spinner";
+import { BrandMark } from "@/components/brand-mark";
 import type { BrandConfig, NavItem } from "./types";
 
 const HOME_PATH = "/dashboard";
@@ -24,25 +25,6 @@ function getNavHighlightIndex(
     if (pendingIndex >= 0) return pendingIndex;
   }
   return items.findIndex((item) => navMatches(item.path, pathname, item.end ?? item.path === "/"));
-}
-
-function BrandMark({ icon: Icon, logoColor, iconSize }: { icon: LucideIcon; logoColor: string; iconSize: number }) {
-  return (
-    <div
-      style={{
-        background: logoColor,
-        borderRadius: "0.375rem",
-        width: "2.125rem",
-        height: "2rem",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      <Icon size={iconSize} color="var(--theme-contrast)" strokeWidth={2.5} />
-    </div>
-  );
 }
 
 function navMatches(path: string, pathname: string, end?: boolean): boolean {
