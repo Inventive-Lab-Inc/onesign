@@ -46,7 +46,7 @@ Paired TVs poll Supabase for a newer active build (`00026_app_releases.sql`), do
 
 1. Apply migration `packages/database/migrations/00026_app_releases.sql`.
 2. Build a signed release APK: `./gradlew :app:assembleRelease`
-3. In the web console → **Settings** → **TV app updates (OTA)**, upload the APK with matching `versionCode` / `versionName` and click **Publish and activate**.
+3. Publish the APK via Supabase (storage bucket `releases` + `app_releases` row, then `activate_app_release`). The web console **Settings** → **TV app updates (OTA)** is read-only.
 4. On first launch (before the pairing code), the TV shows a **one-time setup** screen: open **Install unknown apps** → turn on **Allow** for OneSign TV → press Back. Pairing starts automatically. Later OTA updates only need a tap on **Install** in the system prompt.
 5. The app re-checks for updates every ~6 hours and on cold start.
 

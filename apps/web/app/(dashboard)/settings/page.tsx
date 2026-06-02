@@ -3,17 +3,13 @@
 import { AppReleasesManager } from "@/components/app-releases-manager";
 import { useSettings } from "@/components/shell/settings-context";
 import { Label } from "@/components/ui/label";
-import { useConsoleDataStore } from "@/stores/console-data-store";
-
 export default function SettingsPage() {
   const { settings, setNotifications, setLanguage } = useSettings();
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
-
   return (
     <div className="mx-auto max-w-4xl space-y-1 py-1">
       <h1 className="text-lg font-bold text-foreground">Settings</h1>
 
-      {ownerId ? <AppReleasesManager userId={ownerId} /> : null}
+      <AppReleasesManager />
 
       <section className="mb-7 space-y-3 border-b border-border pb-7">
         <div>
