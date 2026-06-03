@@ -1,5 +1,26 @@
 import type { PlaylistItemWithMedia } from "@signage/types";
 
+/** Row payload for inserting a playlist item (videos omit dwell; images default 10s). */
+export function buildPlaylistItemInsertRow(params: {
+  playlistId: string;
+  mediaId: string;
+  sortOrder: number;
+  fileType?: string;
+}): {
+  playlist_id: string;
+  media_id: string;
+  sort_order: number;
+  duration_seconds?: number;
+} {
+  const row = {
+    playlist_id: params.playlistId,
+    media_id: params.mediaId,
+    sort_order: params.sortOrder,
+  };
+  if (params.fileType === "video") return row;
+  return { ...row, duration_seconds: 10 };
+}
+
 /** Seconds for timed summary; videos play in full and are counted separately. */
 export function imageTimelineSeconds(item: PlaylistItemWithMedia): number {
   if (item.media.file_type === "video") return 0;

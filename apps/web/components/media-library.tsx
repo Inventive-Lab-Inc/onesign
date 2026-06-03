@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { inferMediaFileType, isAcceptedSignageMime, readVideoFileDurationSeconds } from "@/lib/media";
+import { durationSecondsForStorage } from "@/lib/video-duration-probe";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -77,7 +78,7 @@ export function MediaLibrary({ userId, publicBaseUrl }: MediaLibraryProps) {
           }
           const fileType = inferMediaFileType(file.type);
           const intrinsicSeconds =
-            fileType === "video" ? await readVideoFileDurationSeconds(file) : null;
+            fileType === "video" ? durationSecondsForStorage(await readVideoFileDurationSeconds(file)) : null;
           const { error: insertError } = await supabase.from("media").insert({
             owner_id: userId,
             storage_path: objectPath,

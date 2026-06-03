@@ -24,10 +24,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { formatPlaylistClockLabel } from "@/lib/playlist-timing";
+import { ensureMediaVideoDuration } from "@/lib/media";
+import { buildPlaylistItemInsertRow, formatPlaylistClockLabel } from "@/lib/playlist-timing";
 import { cn, mediaLibraryAddButtonClassName } from "@/lib/utils";
 import { PlaylistPreviewButton } from "@/components/playlist-preview";
 import { ReadonlyVideoDuration } from "@/components/readonly-video-duration";
+import { useEnsurePlaylistVideoDurations } from "@/hooks/use-ensure-playlist-video-durations";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
@@ -112,6 +114,8 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
     await syncNow();
   }, [syncNow]);
 
+  useEnsurePlaylistVideoDurations(items, publicBaseUrl, supabase, reloadFromServer);
+
   const playlistTimingLabel = useMemo(() => formatPlaylistClockLabel(items), [items]);
 
   const filteredLibrary = useMemo(() => {
@@ -174,14 +178,19 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
     async (mediaId: string, destIndex: number) => {
       const sortLen = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
       const mediaRow = allMedia.find((m) => m.id === mediaId);
+      if (mediaRow?.file_type === "video") {
+        await ensureMediaVideoDuration(supabase, mediaRow, publicBaseUrl);
+      }
       const { data: row, error } = await supabase
         .from("playlist_items")
-        .insert({
-          playlist_id: playlistId,
-          media_id: mediaId,
-          sort_order: sortLen,
-          duration_seconds: mediaRow?.file_type === "video" ? null : 10,
-        })
+        .insert(
+          buildPlaylistItemInsertRow({
+            playlistId,
+            mediaId,
+            sortOrder: sortLen,
+            fileType: mediaRow?.file_type,
+          }),
+        )
         .select("id")
         .single();
       if (error) {
@@ -200,7 +209,7 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
         setItems(fresh);
       }
     },
-    [allMedia, persistOrder, playlistId, reloadFromServer, supabase],
+    [allMedia, persistOrder, playlistId, publicBaseUrl, reloadFromServer, supabase],
   );
 
   const removeItem = useCallback(
@@ -217,12 +226,21 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
   );
 
   const updateDuration = useCallback(
-    async (id: string, duration: number | null) => {
+    async (id: string, duration: number) => {
       const { error } = await supabase.from("playlist_items").update({ duration_seconds: duration }).eq("id", id);
       if (error) {
         toast.error(error.message);
         return;
       }
+      await reloadFromServer();
+    },
+    [reloadFromServer, supabase],
+  );
+
+  const persistVideoMediaDuration = useCallback(
+    async (mediaId: string, seconds: number) => {
+      const { error } = await supabase.from("media").update({ duration_seconds: seconds }).eq("id", mediaId);
+      if (error) return;
       await reloadFromServer();
     },
     [reloadFromServer, supabase],
@@ -454,6 +472,9 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
                                         id={`duration-video-${item.id}`}
                                         durationSeconds={item.media.duration_seconds}
                                         fallbackProbeUrl={mediaUrl(publicBaseUrl, item.media.storage_path)}
+                                        onProbedDuration={(sec) =>
+                                          void persistVideoMediaDuration(item.media.id, sec)
+                                        }
                                       />
                                     ) : (
                                       <>
@@ -470,7 +491,8 @@ export function PlaylistEditor({ playlistId, initialName, publicBaseUrl }: Playl
                                           onBlur={(e) => {
                                             const raw = e.target.value.trim();
                                             const value = Number(raw);
-                                            const nextValue = Number.isFinite(value) && value > 0 ? value : null;
+                                            const nextValue =
+                                              Number.isFinite(value) && value > 0 ? value : 10;
                                             void updateDuration(item.id, nextValue);
                                           }}
                                         />

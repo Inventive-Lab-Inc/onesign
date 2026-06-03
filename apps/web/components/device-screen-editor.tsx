@@ -26,7 +26,8 @@ import { Label } from "@/components/ui/label";
 import type { DeviceWithAssignments } from "@/lib/console-sync";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
-import { formatPlaylistClockLabel } from "@/lib/playlist-timing";
+import { ensureMediaVideoDuration } from "@/lib/media";
+import { buildPlaylistItemInsertRow, formatPlaylistClockLabel } from "@/lib/playlist-timing";
 import { cn, mediaLibraryAddButtonClassName } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
@@ -34,6 +35,7 @@ import { DevicePlaybackToggle } from "@/components/device-playback-toggle";
 import { DeviceScreenOrientationSettings } from "@/components/device-screen-orientation-settings";
 import { PlaylistPreviewButton } from "@/components/playlist-preview";
 import { ReadonlyVideoDuration } from "@/components/readonly-video-duration";
+import { useEnsurePlaylistVideoDurations } from "@/hooks/use-ensure-playlist-video-durations";
 import {
   DeviceTelemetryMoreButton,
   deviceScreenBasics,
@@ -146,6 +148,8 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
   const reloadFromServer = useCallback(async () => {
     await syncNow();
   }, [syncNow]);
+
+  useEnsurePlaylistVideoDurations(items, publicBaseUrl, supabase, reloadFromServer);
 
   const saveDeviceName = useCallback(async () => {
     if (!device) return;
@@ -287,12 +291,21 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
   );
 
   const updateDuration = useCallback(
-    async (id: string, duration: number | null) => {
+    async (id: string, duration: number) => {
       const { error } = await supabase.from("playlist_items").update({ duration_seconds: duration }).eq("id", id);
       if (error) {
         toast.error(error.message);
         return;
       }
+      await reloadFromServer();
+    },
+    [reloadFromServer, supabase],
+  );
+
+  const persistVideoMediaDuration = useCallback(
+    async (mediaId: string, seconds: number) => {
+      const { error } = await supabase.from("media").update({ duration_seconds: seconds }).eq("id", mediaId);
+      if (error) return;
       await reloadFromServer();
     },
     [reloadFromServer, supabase],
@@ -304,14 +317,19 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
       const sortLen =
         useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
       const mediaRow = allMedia.find((m) => m.id === mediaId);
+      if (mediaRow?.file_type === "video") {
+        await ensureMediaVideoDuration(supabase, mediaRow, publicBaseUrl);
+      }
       const { data: row, error } = await supabase
         .from("playlist_items")
-        .insert({
-          playlist_id: playlistId,
-          media_id: mediaId,
-          sort_order: sortLen,
-          duration_seconds: mediaRow?.file_type === "video" ? null : 10,
-        })
+        .insert(
+          buildPlaylistItemInsertRow({
+            playlistId,
+            mediaId,
+            sortOrder: sortLen,
+            fileType: mediaRow?.file_type,
+          }),
+        )
         .select("id")
         .single();
       if (error) {
@@ -330,7 +348,7 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
         setItems(fresh);
       }
     },
-    [allMedia, persistOrder, playlistId, reloadFromServer, supabase],
+    [allMedia, persistOrder, playlistId, publicBaseUrl, reloadFromServer, supabase],
   );
 
   const onDragEnd = useCallback(
@@ -724,6 +742,9 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
                                             id={`duration-video-${item.id}`}
                                             durationSeconds={item.media.duration_seconds}
                                             fallbackProbeUrl={mediaUrl(publicBaseUrl, item.media.storage_path)}
+                                            onProbedDuration={(sec) =>
+                                              void persistVideoMediaDuration(item.media.id, sec)
+                                            }
                                           />
                                         ) : (
                                           <>
@@ -740,8 +761,9 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
                                               onBlur={(e) => {
                                                 const raw = e.target.value.trim();
                                                 const value = Number(raw);
-                                                const nextValue = Number.isFinite(value) && value > 0 ? value : null;
-                                                void updateDuration(item.id, nextValue);
+                                            const nextValue =
+                                              Number.isFinite(value) && value > 0 ? value : 10;
+                                            void updateDuration(item.id, nextValue);
                                               }}
                                             />
                                           </>

@@ -2,12 +2,15 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { durationSecondsForStorage, probeVideoUrlDurationSeconds } from "@/lib/video-duration-probe";
 import { useEffect, useState } from "react";
 
 interface ReadonlyVideoDurationProps {
   id: string;
   durationSeconds?: number | null;
   fallbackProbeUrl?: string | null;
+  /** Called once when duration is read from the file (e.g. to persist on media). */
+  onProbedDuration?: (seconds: number) => void;
 }
 
 function secondsDisplay(duration: number): string {
@@ -15,48 +18,64 @@ function secondsDisplay(duration: number): string {
   return String(Math.max(1, Math.round(duration)));
 }
 
-export function ReadonlyVideoDuration({ id, durationSeconds, fallbackProbeUrl }: ReadonlyVideoDurationProps) {
+export function ReadonlyVideoDuration({
+  id,
+  durationSeconds,
+  fallbackProbeUrl,
+  onProbedDuration,
+}: ReadonlyVideoDurationProps) {
   const [probed, setProbed] = useState<number | null>(null);
+  const [probing, setProbing] = useState(false);
   const hasDb =
     durationSeconds != null && Number.isFinite(durationSeconds) && durationSeconds > 0;
 
   useEffect(() => {
     setProbed(null);
+    setProbing(false);
   }, [durationSeconds, fallbackProbeUrl]);
 
-  const metaSrc =
-    !hasDb && fallbackProbeUrl
-      ? `${fallbackProbeUrl}${fallbackProbeUrl.includes("#") ? "" : "#t=0.001"}`
-      : null;
+  const isWebm = Boolean(fallbackProbeUrl?.toLowerCase().includes(".webm"));
 
-  const sec = hasDb ? Number(durationSeconds) : probed;
+  useEffect(() => {
+    if ((hasDb && !isWebm) || !fallbackProbeUrl) return;
+
+    let cancelled = false;
+    setProbing(true);
+    void probeVideoUrlDurationSeconds(fallbackProbeUrl).then((d) => {
+      if (cancelled) return;
+      setProbing(false);
+      const stored = durationSecondsForStorage(d);
+      if (stored == null) return;
+      if (!hasDb || stored > Number(durationSeconds)) {
+        setProbed(stored);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [durationSeconds, fallbackProbeUrl, hasDb, isWebm]);
+
+  useEffect(() => {
+    if (probed == null || !onProbedDuration) return;
+    const stored = durationSecondsForStorage(probed);
+    if (stored == null) return;
+    if (!hasDb || stored > Number(durationSeconds)) {
+      onProbedDuration(stored);
+    }
+  }, [durationSeconds, hasDb, onProbedDuration, probed]);
+
+  const sec =
+    probed != null && (!hasDb || probed > Number(durationSeconds))
+      ? probed
+      : hasDb
+        ? Number(durationSeconds)
+        : probed;
   const valueText = sec != null && Number.isFinite(sec) && sec > 0 ? secondsDisplay(sec) : "";
+  const placeholder = probing ? "Detecting…" : valueText ? "" : "—";
 
   return (
     <div className="min-w-0">
-      {metaSrc ? (
-        <video
-          key={metaSrc}
-          className="pointer-events-none fixed left-0 top-0 z-[-1] h-[2px] w-[2px] opacity-0"
-          preload="metadata"
-          muted
-          playsInline
-          aria-hidden
-          src={metaSrc}
-          onLoadedMetadata={(e) => {
-            const d = e.currentTarget.duration;
-            if (Number.isFinite(d) && d > 0 && d !== Number.POSITIVE_INFINITY) {
-              setProbed(d);
-            }
-          }}
-          onDurationChange={(e) => {
-            const d = e.currentTarget.duration;
-            if (Number.isFinite(d) && d > 0 && d !== Number.POSITIVE_INFINITY) {
-              setProbed(d);
-            }
-          }}
-        />
-      ) : null}
       <Label className="sr-only" htmlFor={id}>
         Video duration in seconds (from file, not editable)
       </Label>
@@ -65,7 +84,7 @@ export function ReadonlyVideoDuration({ id, durationSeconds, fallbackProbeUrl }:
         readOnly
         tabIndex={-1}
         value={valueText}
-        placeholder="…"
+        placeholder={placeholder}
         className="h-9 w-full min-w-0 cursor-default text-sm tabular-nums"
       />
     </div>
