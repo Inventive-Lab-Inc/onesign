@@ -38,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.signage.tv.ui.SignageBrandMark
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -245,6 +246,26 @@ fun PlaybackScreen(
                 )
             }
         }
+        PlaybackTestLogoWatermark()
+    }
+}
+
+/** Visible on every slide so OTA test releases are easy to spot on the TV. */
+@Composable
+private fun PlaybackTestLogoWatermark() {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+        contentAlignment = Alignment.BottomEnd,
+    ) {
+        SignageBrandMark(
+            boxWidth = 56.dp,
+            boxHeight = 52.dp,
+            cornerRadius = 8.dp,
+            iconSize = 28.dp,
+        )
     }
 }
 
