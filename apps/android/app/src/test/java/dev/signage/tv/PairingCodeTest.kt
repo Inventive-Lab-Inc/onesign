@@ -1,8 +1,6 @@
 package dev.signage.tv
 
-import kotlin.random.Random
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PairingCodeTest {
@@ -22,14 +20,5 @@ class PairingCodeTest {
     @Test(expected = IllegalArgumentException::class)
     fun formatPairingCodeFromBucket_rejectsMillion() {
         formatPairingCodeFromBucket(1_000_000)
-    }
-
-    @Test
-    fun generatePairingCode_matchesSixDigitPattern() {
-        val random = Random(42L)
-        repeat(50) {
-            val code = generatePairingCode(random)
-            assertTrue(code.matches(Regex("^[0-9]{6}$")))
-        }
     }
 }

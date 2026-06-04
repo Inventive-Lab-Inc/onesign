@@ -84,6 +84,12 @@ private data class TvGetPlaybackParams(
 )
 
 @Serializable
+private data class RegisterOrRestoreDeviceParams(
+    @SerialName("p_android_id")
+    val pAndroidId: String,
+)
+
+@Serializable
 private data class TvGetPlaybackResult(
     val ok: Boolean,
     @SerialName("deviceName")
@@ -687,7 +693,7 @@ class MainViewModel(
         _state.value = MainUiState.Initializing
         clearLocalDevicePairingKeys()
         try {
-            createNewDeviceAndPoll()
+            registerOrRestoreDeviceAndPoll()
         } catch (t: Throwable) {
             if (t is CancellationException) throw t
             if (t is AnonymousAuthSslTrustException || t.indicatesSslTrustProblem()) {
@@ -833,7 +839,7 @@ class MainViewModel(
             }
         }
 
-        createNewDeviceAndPoll()
+        registerOrRestoreDeviceAndPoll()
     }
 
     /** Uses a normal JSON array response (no `.single()`); RLS returns [] if this session cannot see the row. */
@@ -1038,8 +1044,22 @@ class MainViewModel(
         return AnonymousSignInAttempt(null, lastFailure)
     }
 
-    private suspend fun createNewDeviceAndPoll() {
-        val pairingCode = generatePairingCode()
+    /** [Settings.Secure.ANDROID_ID] — stable across app reinstalls on the same device + signing key. */
+    private fun resolveAndroidInstallationId(): String =
+        Settings.Secure.getString(
+            getApplication<Application>().contentResolver,
+            Settings.Secure.ANDROID_ID,
+        )?.trim().orEmpty()
+
+    /**
+     * Resolves this device's identity from its hardware id instead of minting a fresh row every
+     * install. The server matches an existing [public.devices] row by [android_id] and rebinds it to
+     * the current anonymous session, so a screen that was already linked resumes playback without a
+     * pairing code — even after an uninstall/reinstall wiped all local state. Only genuinely new
+     * hardware falls through to the pairing-code screen.
+     */
+    private suspend fun registerOrRestoreDeviceAndPoll() {
+        val androidId = resolveAndroidInstallationId()
         val registrationId =
             ensureAnonymousUserIdOrNull()
                 ?: run {
@@ -1047,44 +1067,49 @@ class MainViewModel(
                     throw IllegalStateException("anonymous sign-in unavailable")
                 }
 
-        val inserted =
-            retrySupabaseNetwork("devices.insert") {
-                supabase
-                    .from("devices")
-                    .insert(
-                        DeviceInsert(
-                            pairingCode = pairingCode,
-                            registeredSessionId = registrationId,
-                        ),
-                    ) { select() }
-                    .decodeOneRow<DeviceRow>()
+        val result =
+            retrySupabaseNetwork("register_or_restore_device") {
+                supabase.postgrest.rpc(
+                    "register_or_restore_device",
+                    RegisterOrRestoreDeviceParams(pAndroidId = androidId),
+                ).decodeAs<RegisterOrRestoreDeviceResult>()
             }
 
         dataStore.edit { prefs ->
+            // On a fresh install the previous playback secret was wiped with app data; drop any stale
+            // value so the next tv_get_playback_* call mints a new one for the rebound session.
             prefs.remove(DeviceKeys.PLAYBACK_SECRET)
-            prefs[DeviceKeys.DEVICE_ID] = inserted.id
-            prefs[DeviceKeys.PAIRING_CODE] = inserted.pairingCode
-            val installId = Settings.Secure.getString(
-                getApplication<Application>().contentResolver,
-                Settings.Secure.ANDROID_ID,
+            prefs[DeviceKeys.DEVICE_ID] = result.deviceId
+            prefs[DeviceKeys.PAIRING_CODE] = result.pairingCode
+            if (androidId.isNotBlank()) {
+                prefs[DeviceKeys.ANDROID_INSTALLATION_ID] = androidId
+            }
+            prefs[DeviceKeys.REGISTERED_SESSION_ID] = registrationId
+        }
+
+        if (result.ownerId != null) {
+            Log.i(
+                LOG_TAG,
+                "register_or_restore_device restored linked device ${result.deviceId}; resuming playback without pairing",
             )
-            if (installId != null) {
-                prefs[DeviceKeys.ANDROID_INSTALLATION_ID] = installId
-            }
-            supabase.auth.currentUserOrNull()?.id?.let { uid ->
-                prefs[DeviceKeys.REGISTERED_SESSION_ID] = uid
-            }
+            startPlaybackObservation(result.deviceId, "")
+            return
         }
 
         _state.value =
             MainUiState.AwaitingLink(
-                pairingCode = inserted.pairingCode,
-                deviceId = inserted.id,
-                message = "Waiting for an admin to link this screen…",
+                pairingCode = result.pairingCode,
+                deviceId = result.deviceId,
+                message =
+                    if (result.isNew) {
+                        "Waiting for an admin to link this screen…"
+                    } else {
+                        "Enter this code in the web dashboard to finish linking."
+                    },
             )
 
-        startDeviceTelemetryLoop(inserted.id)
-        pollUntilLinked(inserted.id)
+        startDeviceTelemetryLoop(result.deviceId)
+        pollUntilLinked(result.deviceId)
     }
 
     private suspend fun pollUntilLinked(deviceId: String) {
@@ -1098,9 +1123,10 @@ class MainViewModel(
                 }
 
             if (row == null) {
-                // No row: stale local id for this anon session, or device removed — register again
+                // No row visible to this session (rotated anon user, removed device). Re-resolve by
+                // hardware id: this restores the existing screen if it still exists, else registers anew.
                 clearLocalDevicePairingKeys()
-                createNewDeviceAndPoll()
+                registerOrRestoreDeviceAndPoll()
                 return
             }
 

@@ -10,6 +10,8 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   end?: boolean;
+  /** De-emphasized link (e.g. bulk media library, not the main workflow). */
+  secondary?: boolean;
   children?: NavItemChild[];
 }
 

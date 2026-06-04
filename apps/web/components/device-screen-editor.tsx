@@ -12,11 +12,9 @@ import {
   Image as ImageIcon,
   Pencil,
   Plus,
-  Search,
   Trash2,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
@@ -28,7 +26,8 @@ import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
 import { ensureMediaVideoDuration } from "@/lib/media";
 import { buildPlaylistItemInsertRow, formatPlaylistClockLabel } from "@/lib/playlist-timing";
-import { cn, mediaLibraryAddButtonClassName } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { PlaylistAssetsPanel } from "@/components/playlist-assets-panel";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { DevicePlaybackToggle } from "@/components/device-playback-toggle";
@@ -238,8 +237,8 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
     }
   }, [device, reloadFromServer, supabase]);
 
-  const createPlaylistAndAssign = useCallback(async () => {
-    if (!device) return;
+  const createPlaylistAndAssign = useCallback(async (): Promise<string | null> => {
+    if (!device) return null;
     setCreatingPlaylist(true);
     try {
       const { data, error } = await supabase
@@ -249,12 +248,14 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
         .single();
       if (error) {
         toast.error(error.message);
-        return;
+        return null;
       }
       await assignPlaylist(data.id);
+      return data.id;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to create playlist";
       toast.error(message);
+      return null;
     } finally {
       setCreatingPlaylist(false);
     }
@@ -312,11 +313,13 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
   );
 
   const addMediaAtIndex = useCallback(
-    async (mediaId: string, destIndex: number) => {
-      if (!playlistId) return;
-      const sortLen =
-        useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
-      const mediaRow = allMedia.find((m) => m.id === mediaId);
+    async (mediaId: string, destIndex: number, targetPlaylistId?: string) => {
+      const pid = targetPlaylistId ?? playlistId;
+      if (!pid) return;
+      const sortLen = useConsoleDataStore.getState().playlistItemsByPlaylistId[pid]?.length ?? 0;
+      const mediaRow =
+        allMedia.find((m) => m.id === mediaId) ??
+        (useConsoleDataStore.getState().media as Media[]).find((m) => m.id === mediaId);
       if (mediaRow?.file_type === "video") {
         await ensureMediaVideoDuration(supabase, mediaRow, publicBaseUrl);
       }
@@ -324,7 +327,7 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
         .from("playlist_items")
         .insert(
           buildPlaylistItemInsertRow({
-            playlistId,
+            playlistId: pid,
             mediaId,
             sortOrder: sortLen,
             fileType: mediaRow?.file_type,
@@ -337,7 +340,7 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
         return;
       }
       await reloadFromServer();
-      const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? [];
+      const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[pid] ?? [];
       const fromIndex = fresh.findIndex((i) => i.id === row.id);
       if (fromIndex < 0) return;
       if (fromIndex !== destIndex) {
@@ -366,11 +369,9 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
 
       if (draggableId.startsWith("media-") && destination.droppableId === "screen-playlist") {
         const mediaId = draggableId.replace(/^media-/, "");
-        if (!playlistId) {
-          toast.error("Choose a playlist for this screen first.");
-          return;
-        }
-        await addMediaAtIndex(mediaId, destination.index);
+        const pid = playlistId || (await createPlaylistAndAssign());
+        if (!pid) return;
+        await addMediaAtIndex(mediaId, destination.index, pid);
         return;
       }
 
@@ -392,7 +393,7 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
         await persistOrder(next);
       }
     },
-    [addMediaAtIndex, items, persistOrder, playlistId, removeItem],
+    [addMediaAtIndex, createPlaylistAndAssign, items, persistOrder, playlistId, removeItem],
   );
 
   const filteredLibrary = useMemo(() => {
@@ -410,13 +411,26 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
 
   const addMediaByClick = useCallback(
     (mediaId: string) => {
-      if (!playlistId) {
-        toast.error("Choose a playlist for this screen first.");
-        return;
-      }
-      void addMediaAtIndex(mediaId, items.length);
+      void (async () => {
+        const pid = playlistId || (await createPlaylistAndAssign());
+        if (!pid) return;
+        const len = useConsoleDataStore.getState().playlistItemsByPlaylistId[pid]?.length ?? items.length;
+        await addMediaAtIndex(mediaId, len, pid);
+      })();
     },
-    [addMediaAtIndex, items.length, playlistId],
+    [addMediaAtIndex, createPlaylistAndAssign, items.length, playlistId],
+  );
+
+  const addUploadedToScreenPlaylist = useCallback(
+    async (uploaded: Media[]) => {
+      const pid = playlistId || (await createPlaylistAndAssign());
+      if (!pid) return;
+      for (const row of uploaded) {
+        const len = useConsoleDataStore.getState().playlistItemsByPlaylistId[pid]?.length ?? 0;
+        await addMediaAtIndex(row.id, len, pid);
+      }
+    },
+    [addMediaAtIndex, createPlaylistAndAssign, playlistId],
   );
 
   if (!device) {
@@ -460,13 +474,14 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
       </select>
       <Button
         type="button"
-        variant="secondary"
-        className="h-10 w-full shrink-0 whitespace-nowrap sm:w-auto"
+        variant="default"
+        className="h-10 w-full shrink-0 gap-1.5 whitespace-nowrap font-semibold shadow-sm sm:w-auto"
         disabled={creatingPlaylist || unassigningPlaylist}
-        title="Creates a playlist and assigns it to this screen"
+        title="Creates a new playlist and assigns it to this screen"
         onClick={() => void createPlaylistAndAssign()}
       >
-        {creatingPlaylist ? "Creating…" : "New playlist"}
+        <Plus className="h-4 w-4 shrink-0" aria-hidden />
+        {creatingPlaylist ? "Creating…" : "Create playlist"}
       </Button>
     </>
   );
@@ -618,7 +633,8 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
               <div className="min-w-0 flex-1 space-y-1.5">
                 <h2 className="text-lg font-semibold tracking-tight text-foreground">Playlist on this screen</h2>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  Pick which playlist this TV plays. Use <span className="font-medium text-foreground">New playlist</span> to create and assign one.
+                  Pick which playlist this TV plays, or tap{" "}
+                  <span className="font-medium text-foreground">Create playlist</span> to add a new one for this screen.
                 </p>
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-shrink-0 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
@@ -642,7 +658,7 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <h3 className="text-sm font-semibold text-foreground">Playlist control</h3>
                       <p className="text-xs text-muted-foreground">
-                        Drag rows to reorder. Drop assets from the library on the right.
+                        Drag rows to reorder. Drop media from the library on the right.
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:pt-0.5">
@@ -690,11 +706,8 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
                             <div className="rounded-xl border border-dashed border-border bg-muted/15 px-4 py-14 text-center">
                               <p className="text-sm font-medium text-foreground">Nothing in this playlist yet</p>
                               <p className="mt-1 text-xs text-muted-foreground">
-                                Drag files from <strong className="font-medium text-foreground">Assets</strong>, or upload on the{" "}
-                                <Link href="/media" className="font-medium text-brand-strong underline-offset-4 hover:underline">
-                                  Media
-                                </Link>{" "}
-                                page.
+                                Upload in the <strong className="font-medium text-foreground">Media</strong> panel on the
+                                right — a playlist will be created for this screen if needed.
                               </p>
                             </div>
                           ) : (
@@ -796,92 +809,19 @@ export function DeviceScreenEditor({ deviceId, ownerId, publicBaseUrl }: DeviceS
               </div>
             </div>
 
-            <aside className="w-full shrink-0 lg:w-[300px]">
-              <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm dark:bg-card">
-                <div className="border-b border-border bg-muted/30 px-4 py-3">
-                  <h2 className="text-sm font-semibold text-foreground">Assets</h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Drag into the playlist or tap Add.</p>
-                  <div className="relative mt-3">
-                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={librarySearch}
-                      onChange={(e) => setLibrarySearch(e.target.value)}
-                      placeholder="Search…"
-                      className="h-9 border-border bg-background pl-8 text-sm"
-                      aria-label="Search assets"
-                    />
-                  </div>
-                </div>
-                <div className="max-h-[min(520px,55vh)] overflow-y-auto p-3">
-                  <Droppable droppableId="media-library" key={libraryResetKey}>
-                    {(libProvided) => (
-                      <ul ref={libProvided.innerRef} {...libProvided.droppableProps} className="space-y-2">
-                        {filteredLibrary.length === 0 ? (
-                          <li className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
-                            No media matches.{" "}
-                            <Link href="/media" className="font-medium text-brand-strong underline-offset-4 hover:underline">
-                              Upload
-                            </Link>
-                          </li>
-                        ) : (
-                          filteredLibrary.map((m, index) => (
-                            <Draggable key={m.id} draggableId={`media-${m.id}`} index={index}>
-                              {(dragProvided, snapshot) => (
-                                <li
-                                  ref={dragProvided.innerRef}
-                                  {...dragProvided.draggableProps}
-                                  {...dragProvided.dragHandleProps}
-                                  className={cn(
-                                    "flex items-center gap-2.5 rounded-lg border border-border bg-background p-2 pr-2 shadow-sm",
-                                    snapshot.isDragging && "opacity-90 ring-2 ring-brand-faint30",
-                                  )}
-                                >
-                                  <LibraryThumb media={m} publicBaseUrl={publicBaseUrl} />
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-xs font-medium">{m.original_filename ?? m.storage_path}</p>
-                                    <p className="text-[0.625rem] capitalize text-muted-foreground">{m.file_type}</p>
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="secondary"
-                                    className={mediaLibraryAddButtonClassName}
-                                    onClick={() => addMediaByClick(m.id)}
-                                  >
-                                    <Plus className="h-3 w-3" />
-                                    Add
-                                  </Button>
-                                </li>
-                              )}
-                            </Draggable>
-                          ))
-                        )}
-                        {libProvided.placeholder}
-                      </ul>
-                    )}
-                  </Droppable>
-                </div>
-              </div>
-            </aside>
+            <PlaylistAssetsPanel
+              ownerId={ownerId}
+              publicBaseUrl={publicBaseUrl}
+              droppableId="media-library"
+              libraryResetKey={libraryResetKey}
+              librarySearch={librarySearch}
+              onLibrarySearchChange={setLibrarySearch}
+              filteredLibrary={filteredLibrary}
+              onAddMedia={addMediaByClick}
+              onUploaded={addUploadedToScreenPlaylist}
+            />
           </div>
         </DragDropContext>
-      )}
-    </div>
-  );
-}
-
-function LibraryThumb({ media, publicBaseUrl }: { media: Media; publicBaseUrl: string }) {
-  const url = mediaUrl(publicBaseUrl, media.storage_path);
-  return (
-    <div className="relative h-11 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
-      {media.file_type === "image" ? (
-        <Image src={url} alt="" fill className="object-cover" sizes="56px" />
-      ) : media.file_type === "video" ? (
-        <video className="h-full w-full object-cover" src={url} muted playsInline preload="metadata" />
-      ) : (
-        <div className="flex h-full items-center justify-center">
-          <FileImage className="h-5 w-5 text-muted-foreground" />
-        </div>
       )}
     </div>
   );

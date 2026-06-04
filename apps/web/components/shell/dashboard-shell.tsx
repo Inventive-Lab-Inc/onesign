@@ -23,7 +23,13 @@ function DashboardShellInner({
   displayName: string;
 }) {
   const router = useRouter();
-  const prefetchPaths = useMemo(() => layoutConfig.navItems.map((item) => item.path), []);
+  const prefetchPaths = useMemo(
+    () => [
+      ...layoutConfig.navItems.map((item) => item.path),
+      ...(layoutConfig.bottomNavItem ? [layoutConfig.bottomNavItem.path] : []),
+    ],
+    [],
+  );
 
   async function signOut() {
     try {

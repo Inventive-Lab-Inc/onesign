@@ -8,9 +8,9 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { inferMediaFileType, isAcceptedSignageMime, readVideoFileDurationSeconds } from "@/lib/media";
-import { durationSecondsForStorage } from "@/lib/video-duration-probe";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
+import { useMediaUpload } from "@/hooks/use-media-upload";
+import { MEDIA_UPLOAD_ACCEPT } from "@/lib/upload-media";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
@@ -45,73 +45,16 @@ const FILTER_ROWS: { id: TypeFilter; label: string; icon: typeof ImageIcon }[] =
 
 export function MediaLibrary({ userId, publicBaseUrl }: MediaLibraryProps) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
-  const items = useConsoleDataStore((s) => s.media) as Media[];
   const { syncNow } = useConsoleSync();
-  const [uploading, setUploading] = useState(false);
+  const items = useConsoleDataStore((s) => s.media) as Media[];
+  const { uploading, uploadFiles } = useMediaUpload(userId, { withDropzone: false });
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
 
-  const refresh = useCallback(async () => {
-    await syncNow();
-  }, [syncNow]);
-
-  const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      setUploading(true);
-      try {
-        for (const file of acceptedFiles) {
-          if (!isAcceptedSignageMime(file.type)) {
-            toast.error(`${file.name} is not a supported image/video type.`);
-            continue;
-          }
-          const extension = file.name.split(".").pop()?.toLowerCase() ?? "bin";
-          const objectPath = `${userId}/${crypto.randomUUID()}.${extension}`;
-          const { error: uploadError } = await supabase.storage.from("media").upload(objectPath, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: file.type,
-          });
-          if (uploadError) {
-            toast.error(uploadError.message);
-            continue;
-          }
-          const fileType = inferMediaFileType(file.type);
-          const intrinsicSeconds =
-            fileType === "video" ? durationSecondsForStorage(await readVideoFileDurationSeconds(file)) : null;
-          const { error: insertError } = await supabase.from("media").insert({
-            owner_id: userId,
-            storage_path: objectPath,
-            file_type: fileType,
-            original_filename: file.name,
-            duration_seconds: intrinsicSeconds,
-          });
-          if (insertError) {
-            toast.error(insertError.message);
-            continue;
-          }
-          toast.success(`Uploaded ${file.name}`);
-        }
-        await refresh();
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Upload failed";
-        toast.error(message);
-      } finally {
-        setUploading(false);
-      }
-    },
-    [refresh, supabase, userId],
-  );
-
   const { getRootProps, getInputProps, open, isDragActive } = useDropzone({
-    onDrop: (files) => void onDrop(files),
-    accept: {
-      "image/jpeg": [],
-      "image/png": [],
-      "image/webp": [],
-      "video/mp4": [],
-      "video/webm": [],
-    },
+    onDrop: (files) => void uploadFiles(files),
+    accept: MEDIA_UPLOAD_ACCEPT,
     multiple: true,
     disabled: uploading,
     noClick: true,
@@ -142,7 +85,7 @@ export function MediaLibrary({ userId, publicBaseUrl }: MediaLibraryProps) {
       return;
     }
     toast.success("Media deleted");
-    await refresh();
+    await syncNow();
   }
 
   return (

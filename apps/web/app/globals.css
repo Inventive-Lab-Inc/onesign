@@ -120,6 +120,54 @@ optgroup,
   display: none;
 }
 
+/* Login mobile layout only — desktop keeps inline styles from login-form.tsx */
+@media (max-width: 48rem) {
+  .auth-card--login {
+    flex-direction: column !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  .auth-card--login .auth-left-panel {
+    display: none !important;
+  }
+
+  .auth-card--login .auth-right-panel {
+    flex: 1 1 auto !important;
+    min-height: 100dvh;
+    padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem
+      max(1.5rem, env(safe-area-inset-bottom)) !important;
+    background: #fff !important;
+    border-radius: 0 !important;
+    justify-content: center !important;
+    align-items: center;
+  }
+
+  .auth-card--login .auth-content {
+    width: 100%;
+    max-width: 22rem;
+    gap: 1.5rem !important;
+    align-items: center !important;
+  }
+
+  .auth-card--login .auth-brand-offset {
+    transform: none !important;
+    align-self: center;
+  }
+
+  .auth-card--login input {
+    font-size: 1.143rem;
+  }
+
+  .auth-card--login button[type="submit"] {
+    min-height: 2.75rem;
+  }
+}
+
 .media-library-add-btn {
   flex-shrink: 0;
   gap: 0.25rem;

@@ -44,13 +44,19 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
   /** Coalesce overlapping syncs (timer + manual Sync) so every caller awaits the same pull. */
   const syncInFlightRef = useRef<Promise<void> | null>(null);
 
-  const [cacheReady, setCacheReady] = useState(() => useConsoleDataStore.persist.hasHydrated());
+  // persist APIs use localStorage — only available after client mount.
+  const [cacheReady, setCacheReady] = useState(false);
 
   useEffect(() => {
-    if (useConsoleDataStore.persist.hasHydrated()) {
+    const persist = useConsoleDataStore.persist;
+    if (!persist) {
+      setCacheReady(true);
+      return;
+    }
+    if (persist.hasHydrated()) {
       setCacheReady(true);
     }
-    const unsub = useConsoleDataStore.persist.onFinishHydration(() => {
+    const unsub = persist.onFinishHydration(() => {
       setCacheReady(true);
     });
     return unsub;
