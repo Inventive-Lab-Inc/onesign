@@ -2,6 +2,7 @@ import type { Media } from "@signage/types";
 import { NextResponse, type NextRequest } from "next/server";
 import { inferMediaFileType, isAcceptedSignageMime, readVideoFileDurationSeconds } from "@/lib/media";
 import { putMediaObject } from "@/lib/object-storage/server";
+import { mirrorMediaToSupabaseStorage } from "@/lib/object-storage/supabase-media-mirror";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { durationSecondsForStorage } from "@/lib/video-duration-probe";
 
@@ -43,6 +44,13 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Upload to object storage failed";
     return NextResponse.json({ error: message }, { status: 503 });
+  }
+
+  // Keep Supabase Storage in sync until all TVs run v9+ (MinIO-only playback URLs).
+  try {
+    await mirrorMediaToSupabaseStorage(supabase, storagePath, buffer, file.type);
+  } catch (err) {
+    console.warn("Supabase media mirror skipped:", err);
   }
 
   const fileType = inferMediaFileType(file.type);

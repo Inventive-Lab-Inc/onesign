@@ -1418,9 +1418,13 @@ class MainViewModel(
     }
 
     private fun publicMediaUrl(storagePath: String): String {
-        val base = BuildConfig.MEDIA_BASE_URL.trim().trimEnd('/')
+        val minioBase = BuildConfig.MEDIA_BASE_URL.trim().trimEnd('/')
+        val base =
+            minioBase.ifBlank {
+                BuildConfig.SUPABASE_URL.trim().trimEnd('/') + "/storage/v1/object/public/media"
+            }
         if (base.isBlank()) {
-            Log.e(LOG_TAG, "MEDIA_BASE_URL is blank; cannot build media URL")
+            Log.e(LOG_TAG, "No media base URL configured; cannot build media URL")
             return ""
         }
         val encoded =
