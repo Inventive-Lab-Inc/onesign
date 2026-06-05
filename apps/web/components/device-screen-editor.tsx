@@ -342,7 +342,7 @@ export function DeviceScreenEditor({ deviceId, ownerId }: DeviceScreenEditorProp
         setItems(reordered);
         await persistOrder(reordered);
       } else {
-        setItems(fresh);
+        await persistOrder(fresh);
       }
     },
     [allMedia, persistOrder, playlistId, reloadFromServer, supabase],

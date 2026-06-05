@@ -9,6 +9,7 @@ import android.view.TextureView
 import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -131,7 +133,7 @@ private fun hookTextureSurfaceRecycleIfNeeded(
                         return
                     }
                 }
-                if (layoutPasses >= 12 && obs.isAlive) {
+                if (layoutPasses >= 24 && obs.isAlive) {
                     obs.removeOnGlobalLayoutListener(this)
                     if (playerView.tag === SignageSurfaceHookPending) {
                         playerView.tag = null
@@ -219,7 +221,7 @@ fun PlaybackScreen(
                     }
                     SharedExoVideoSlide(
                         url = slide.url,
-                        maxDurationSeconds = null,
+                        maxDurationSeconds = slide.durationSeconds?.coerceIn(1, 7_200),
                         holdImageUrl = holdImageUrlForVideo,
                         onEnded = onEnded,
                         engine = engine,
@@ -264,9 +266,26 @@ private fun SharedExoVideoSlide(
         mutableStateOf(holdImageUrl == null)
     }
 
+    LaunchedEffect(url, holdImageUrl) {
+        if (holdImageUrl == null) {
+            videoRevealed = true
+        }
+        delay(12_000)
+        if (!videoRevealed) {
+            Log.w(LOG_TAG, "Video first frame slow; rebinding url=$url")
+            engine.rebindCurrentBoundVideo("first_frame_timeout")
+            videoRevealed = true
+        }
+    }
+
     // Bind in [AndroidView.update] (same frame as PlayerView#player) instead of [LaunchedEffect], which
     // runs on the next frame and adds a visible delay after the view attaches the surface.
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(ComposeColor.Black),
+    ) {
         if (holdImageUrl != null) {
             HoldUnderImageFullBleed(url = holdImageUrl)
         }
@@ -274,7 +293,7 @@ private fun SharedExoVideoSlide(
             factory = { context ->
                 val view = LayoutInflater.from(context).inflate(R.layout.exo_player_texture_view, null) as PlayerView
                 view.setEnableComposeSurfaceSyncWorkaround(true)
-                view.setShutterBackgroundColor(Color.TRANSPARENT)
+                view.setShutterBackgroundColor(Color.BLACK)
                 view.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                 view.player = engine.exo
                 view

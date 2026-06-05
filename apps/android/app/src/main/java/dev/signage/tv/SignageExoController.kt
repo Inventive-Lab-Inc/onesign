@@ -56,6 +56,7 @@ class SignageExoController(
     private var stallWatchdogLastPositionMs = -1L
     private var stallWatchdogSameTicks = 0
     private var stallWatchdogBufferingTicks = 0
+    private var stallWatchdogEndStuckTicks = 0
     private var stallSoftRecoveriesInWindow = 0
     private var stallGraceUntilElapsedRealtimeMs = 0L
 
@@ -106,6 +107,23 @@ class SignageExoController(
                 }
 
                 val pos = exoRef.currentPosition
+                val duration = exoRef.duration
+                if (duration != C.TIME_UNSET && duration > 0 && exoRef.playWhenReady) {
+                    val remaining = duration - pos
+                    if (remaining in 0..END_REMAINING_THRESHOLD_MS) {
+                        stallWatchdogEndStuckTicks++
+                        if (stallWatchdogEndStuckTicks >= END_STUCK_TICKS_BEFORE_ADVANCE) {
+                            Log.w(log, "Video at end (${pos}ms/${duration}ms) but STATE_ENDED not fired; advancing")
+                            finishPlayback()
+                            return
+                        }
+                    } else {
+                        stallWatchdogEndStuckTicks = 0
+                    }
+                } else {
+                    stallWatchdogEndStuckTicks = 0
+                }
+
                 val delta = kotlin.math.abs(pos - stallWatchdogLastPositionMs)
                 if (stallWatchdogLastPositionMs >= 0 && delta < STALL_POSITION_DELTA_EPSILON_MS) {
                     stallWatchdogSameTicks++
@@ -226,6 +244,7 @@ class SignageExoController(
         stallWatchdogLastPositionMs = -1L
         stallWatchdogSameTicks = 0
         stallWatchdogBufferingTicks = 0
+        stallWatchdogEndStuckTicks = 0
         val uri = Uri.parse(url)
         // Do not call clearVideoSurface() / setVideoSurface(null) here. Compose runs AndroidView
         // factory (PlayerView sets this player and attaches the surface) in the same frame, then
@@ -239,17 +258,13 @@ class SignageExoController(
             object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
-                        if (finished.compareAndSet(false, true)) {
-                            onEnded()
-                        }
+                        finishPlayback()
                     }
                 }
 
                 override fun onPlayerError(playbackError: PlaybackException) {
                     Log.e(log, "Video playback error: $url", playbackError)
-                    if (finished.compareAndSet(false, true)) {
-                        onEnded()
-                    }
+                    finishPlayback()
                 }
             }
         playbackListener = l
@@ -275,12 +290,10 @@ class SignageExoController(
         exo.setVolume(1f)
 
         val capMs = maxDurationSeconds?.takeIf { it > 0 }?.times(1000L)
-        if (capMs != null && capMs in 1L..(30L * 60L * 1000L)) {
+        if (capMs != null && capMs in 1L..(2L * 60L * 60L * 1000L)) {
             val r = Runnable {
-                if (finished.compareAndSet(false, true)) {
-                    exo.stop()
-                    onEnded()
-                }
+                Log.w(log, "Video max duration reached; advancing url=$url")
+                finishPlayback()
             }
             maxDurationRunnable = r
             mainHandler.postDelayed(r, capMs)
@@ -320,6 +333,7 @@ class SignageExoController(
         stallSoftRecoveriesInWindow = 0
         stallWatchdogBufferingTicks = 0
         stallWatchdogSameTicks = 0
+        stallWatchdogEndStuckTicks = 0
         stallWatchdogLastPositionMs = -1L
         boundVideo = null
         finished.set(true)
@@ -335,6 +349,28 @@ class SignageExoController(
     }
 
     fun onActivityResume() {
+        val snapshot = boundVideo
+        if (snapshot != null) {
+            when (exo.playbackState) {
+                Player.STATE_ENDED -> {
+                    if (!finished.get()) {
+                        finishPlayback()
+                    } else {
+                        // Ended while backgrounded; loop the current slide instead of leaving a dead surface.
+                        Log.i(log, "Resuming after STATE_ENDED; rebinding url=${snapshot.url}")
+                        finished.set(false)
+                        bindCurrentVideoUrl(
+                            snapshot.url,
+                            snapshot.maxDurationSeconds,
+                            snapshot.onEnded,
+                            snapshot.onFirstFrameRendered,
+                        )
+                    }
+                    return
+                }
+                else -> Unit
+            }
+        }
         if (boundVideo != null && !finished.get()) {
             exo.playWhenReady = true
             when (exo.playbackState) {
@@ -418,12 +454,24 @@ class SignageExoController(
         exo.release()
     }
 
+    private fun finishPlayback() {
+        if (!finished.compareAndSet(false, true)) {
+            return
+        }
+        stopStallWatchdog()
+        mainHandler.removeCallbacksAndMessages(null)
+        maxDurationRunnable = null
+        boundVideo?.onEnded?.invoke()
+    }
+
     companion object {
         const val STALL_CHECK_INTERVAL_MS = 2_000L
-        const val STALL_TICKS_BEFORE_RECOVER = 4
-        const val STALL_BUFFERING_TICKS_BEFORE_RECOVER = 15
+        const val STALL_TICKS_BEFORE_RECOVER = 6
+        const val STALL_BUFFERING_TICKS_BEFORE_RECOVER = 20
         const val STALL_POSITION_DELTA_EPSILON_MS = 80L
         const val STALL_INITIAL_GRACE_MS = 4_000L
-        const val STALL_SOFT_RECOVERIES_BEFORE_HARD = 2
+        const val STALL_SOFT_RECOVERIES_BEFORE_HARD = 3
+        const val END_REMAINING_THRESHOLD_MS = 750L
+        const val END_STUCK_TICKS_BEFORE_ADVANCE = 2
     }
 }

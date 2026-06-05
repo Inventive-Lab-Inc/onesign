@@ -58,6 +58,33 @@ export async function ensureActivePlaylistForDevice(
   return { playlistId: data.id, error: null };
 }
 
+/** Reassign sort_order to 0..n-1 using the same order TVs use (sort_order, then id). */
+export async function normalizePlaylistSortOrder(
+  supabase: SupabaseClient,
+  playlistId: string,
+): Promise<{ error: string | null }> {
+  const { data, error } = await supabase
+    .from("playlist_items")
+    .select("id")
+    .eq("playlist_id", playlistId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return { error: error.message };
+  }
+  if (!data?.length) {
+    return { error: null };
+  }
+
+  const updates = data.map((row, index) =>
+    supabase.from("playlist_items").update({ sort_order: index }).eq("id", row.id),
+  );
+  const results = await Promise.all(updates);
+  const failed = results.find((r) => r.error);
+  return failed?.error ? { error: failed.error.message } : { error: null };
+}
+
 export async function appendMediaToPlaylist(
   supabase: SupabaseClient,
   playlistId: string,

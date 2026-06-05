@@ -80,7 +80,8 @@ export async function pullConsoleData(supabase: SupabaseClient, userId: string):
         "id,playlist_id,media_id,sort_order,duration_seconds,display_from,display_until,created_at,media(*)",
       )
       .in("playlist_id", playlistIds)
-      .order("sort_order", { ascending: true });
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
 
     if (itemsError) throw itemsError;
     const rows = (itemRows as RawPlaylistItemRow[] | null) ?? [];

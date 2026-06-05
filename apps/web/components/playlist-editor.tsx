@@ -185,7 +185,7 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
         setItems(reordered);
         await persistOrder(reordered);
       } else {
-        setItems(fresh);
+        await persistOrder(fresh);
       }
     },
     [allMedia, persistOrder, playlistId, reloadFromServer, supabase],

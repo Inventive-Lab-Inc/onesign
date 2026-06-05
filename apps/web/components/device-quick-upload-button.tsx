@@ -12,6 +12,7 @@ import { getMediaPublicBaseUrl } from "@/lib/object-storage/urls";
 import {
   appendMediaToPlaylist,
   ensureActivePlaylistForDevice,
+  normalizePlaylistSortOrder,
 } from "@/lib/screen-playlist";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -61,6 +62,12 @@ export function DeviceQuickUploadButton({
           continue;
         }
         sortOrder += 1;
+      }
+
+      const { error: normalizeError } = await normalizePlaylistSortOrder(supabase, playlistId);
+      if (normalizeError) {
+        toast.error(normalizeError);
+        return;
       }
 
       await syncNow();

@@ -1391,7 +1391,7 @@ class MainViewModel(
                 PlaybackSlide(
                     url = publicMediaUrl(s.storagePath),
                     fileType = s.fileType,
-                    durationSeconds = if (s.fileType.equals("video", ignoreCase = true)) null else s.durationSeconds,
+                    durationSeconds = s.durationSeconds,
                 )
             }
         if (slides.isEmpty()) {
