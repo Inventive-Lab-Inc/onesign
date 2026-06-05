@@ -48,6 +48,8 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 503 });
   }
 
+  await supabase.storage.from("media").remove([storagePath.replace(/^\/+/, "")]);
+
   const { error: deleteError } = await supabase.from("media").delete().eq("id", mediaId);
   if (deleteError) {
     return NextResponse.json({ error: deleteError.message }, { status: 500 });
