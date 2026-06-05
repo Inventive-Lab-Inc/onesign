@@ -30,8 +30,11 @@ function hostnameFromPublicBaseUrl(raw) {
   }
 }
 
-const mediaStorageHost = hostnameFromPublicBaseUrl(process.env.NEXT_PUBLIC_MEDIA_BASE_URL);
-const releasesStorageHost = hostnameFromPublicBaseUrl(process.env.NEXT_PUBLIC_RELEASES_BASE_URL);
+const mediaBaseUrl = process.env.NEXT_PUBLIC_MEDIA_BASE_URL?.trim() ?? "";
+const releasesBaseUrl = process.env.NEXT_PUBLIC_RELEASES_BASE_URL?.trim() ?? "";
+
+const mediaStorageHost = hostnameFromPublicBaseUrl(mediaBaseUrl);
+const releasesStorageHost = hostnameFromPublicBaseUrl(releasesBaseUrl);
 
 const objectStorageRemotePatterns = [];
 for (const hostname of new Set([mediaStorageHost, releasesStorageHost].filter(Boolean))) {
@@ -46,6 +49,8 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_SUPABASE_URL: supabaseUrl ?? "",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: supabaseAnonKey ?? "",
+    NEXT_PUBLIC_MEDIA_BASE_URL: mediaBaseUrl,
+    NEXT_PUBLIC_RELEASES_BASE_URL: releasesBaseUrl,
   },
   reactStrictMode: true,
   transpilePackages: ["@signage/types"],
