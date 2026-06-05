@@ -6,14 +6,14 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 
-const endpoint = process.env.S3_ENDPOINT?.trim() || "https://s3.steakandmarrow.inventivelab.bd";
+const endpoint = process.env.S3_ENDPOINT?.trim();
 const accessKey = process.env.S3_ACCESS_KEY?.trim();
 const secretKey = process.env.S3_SECRET_KEY?.trim();
 const mediaBucket = process.env.S3_MEDIA_BUCKET?.trim() || "onesign-media";
 const releasesBucket = process.env.S3_RELEASES_BUCKET?.trim() || "onesign-releases";
 
-if (!accessKey || !secretKey) {
-  console.error("Set S3_ACCESS_KEY and S3_SECRET_KEY");
+if (!endpoint || !accessKey || !secretKey) {
+  console.error("Set S3_ENDPOINT, S3_ACCESS_KEY, and S3_SECRET_KEY");
   process.exit(1);
 }
 

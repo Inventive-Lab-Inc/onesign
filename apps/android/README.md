@@ -27,7 +27,7 @@ chmod +x scripts/start-tv-emulator.sh
 
 Or manually: `emulator -avd TV_1 -dns-server 8.8.8.8,8.8.4.4 -no-snapshot-load`
 
-Verify: `adb shell ping -c 1 nlkjbfwhzzpebsunmzrw.supabase.co` should resolve.
+Verify: `adb shell ping -c 1 YOUR_PROJECT_REF.supabase.co` should resolve.
 
 ## Tests
 
