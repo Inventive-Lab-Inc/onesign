@@ -1,6 +1,7 @@
 package dev.signage.tv
 
 import android.app.Application
+import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -223,7 +224,10 @@ class AppUpdateCoordinator(
             Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(contentUri, "application/vnd.android.package-archive")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                // Grant URI read to the package installer; required on many phones (not just TVs).
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                    clipData = ClipData.newRawUri("", contentUri)
+                }
             }
         runCatching { activity.startActivity(installIntent) }
             .onSuccess {
