@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Add s3.storage.inventivelab.bd to Caddy (MinIO reverse proxy on this VPS).
 # Run on the VPS as root after DNS A record points here:
-#   s3.storage.inventivelab.bd → 217.154.53.60
+#   s3.storage.inventivelab.bd → 194.164.91.252
 #
 # Usage:
-#   scp scripts/vps-add-s3-storage-host.sh root@217.154.53.60:/root/
-#   ssh root@217.154.53.60 'bash /root/vps-add-s3-storage-host.sh'
+#   scp scripts/vps-add-s3-storage-host.sh root@194.164.91.252:/root/
+#   ssh root@194.164.91.252 'bash /root/vps-add-s3-storage-host.sh'
 
 set -euo pipefail
 
@@ -44,5 +44,3 @@ systemctl reload caddy || systemctl restart caddy
 echo ""
 echo "Done. After DNS propagates, verify:"
 echo "  curl -sI https://${NEW_HOST}/onesign-media/ | head -5"
-echo ""
-echo "Keep s3.steakandmarrow.inventivelab.bd in Caddy until deployed TVs are rebuilt."

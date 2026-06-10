@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create OneSign MinIO buckets on the VPS (run via SSH on the server or from deploy host with mc configured).
+# Create OneSign MinIO buckets on the VPS (194.164.91.252 — run via SSH or from deploy host with mc configured).
 set -euo pipefail
 
 MINIO_ALIAS="${MINIO_ALIAS:-local}"

@@ -49,8 +49,8 @@ android {
         applicationId = "dev.signage.tv"
         minSdk = 24
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.9.3"
+        versionCode = 14
+        versionName = "0.9.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -64,8 +64,19 @@ android {
         buildConfigField("String", "RELEASES_BASE_URL", "\"$releasesBaseUrl\"")
     }
 
+    signingConfigs {
+        create("release") {
+            val home = System.getProperty("user.home")
+            storeFile = file("$home/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

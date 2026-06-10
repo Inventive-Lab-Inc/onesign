@@ -398,6 +398,12 @@ class MainViewModel(
         appUpdateCoordinator.launchInstallIntent(activity)
     }
 
+    fun retryAppUpdate() {
+        viewModelScope.launch {
+            appUpdateCoordinator.retryUpdateCheck(supabase)
+        }
+    }
+
     /** Slide advanced, video time advanced, image dwell tick, etc. — resets stale watchdog. */
     fun signalPlaybackHealthy() {
         lastPlaybackProgressSignalElapsedMs.set(SystemClock.elapsedRealtime())

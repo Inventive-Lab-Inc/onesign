@@ -30,6 +30,7 @@ import dev.signage.tv.ui.theme.SignageColors
 fun AppUpdateOverlay(
     state: AppUpdateState,
     onInstallClick: () -> Unit,
+    onRetryClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (state is AppUpdateState.Idle || state is AppUpdateState.Checking) {
@@ -142,6 +143,10 @@ fun AppUpdateOverlay(
                         color = SignageColors.ThemeForegroundOnDarkSoft,
                         textAlign = TextAlign.Center,
                     )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Button(onClick = onRetryClick) {
+                        Text(stringResource(R.string.update_retry))
+                    }
                 }
 
                 AppUpdateState.Checking,

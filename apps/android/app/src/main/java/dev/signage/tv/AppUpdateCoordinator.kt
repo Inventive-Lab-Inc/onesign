@@ -144,7 +144,7 @@ class AppUpdateCoordinator(
             }
 
             val versionName = update.versionName?.takeIf { it.isNotBlank() } ?: update.versionCode.toString()
-            val downloadUrl = buildDownloadUrl(update.storagePath)
+            val downloadUrls = downloadUrlCandidates(update.storagePath)
             val targetFile = cachedApkFile()
 
             if (targetFile.exists() && sha256Hex(targetFile).equals(update.sha256, ignoreCase = true)) {
@@ -154,27 +154,29 @@ class AppUpdateCoordinator(
             }
 
             _state.value = AppUpdateState.Downloading(versionName, progressPercent = 0)
-            val downloaded =
-                runCatching {
-                    downloadApk(downloadUrl, targetFile) { progress ->
-                        _state.value = AppUpdateState.Downloading(versionName, progress)
+            var lastDownloadError: Throwable? = null
+            var downloaded = false
+            for (downloadUrl in downloadUrls) {
+                Log.i(UPDATE_LOG_TAG, "downloading v$versionName from $downloadUrl")
+                downloaded =
+                    runCatching {
+                        downloadApk(downloadUrl, targetFile) { progress ->
+                            _state.value = AppUpdateState.Downloading(versionName, progress)
+                        }
+                    }.getOrElse { e ->
+                        lastDownloadError = e
+                        Log.w(UPDATE_LOG_TAG, "download failed for $downloadUrl", e)
+                        false
                     }
-                }.getOrElse { e ->
-                    Log.e(UPDATE_LOG_TAG, "download failed", e)
-                    targetFile.delete()
-                    recordFailedAttempt(update.versionCode)
-                    _state.value = AppUpdateState.Error("Update download failed.")
-                    delay(FAILED_UPDATE_BACKOFF_MS)
-                    _state.value = AppUpdateState.Idle
-                    return
-                }
+                if (downloaded) break
+                targetFile.delete()
+            }
 
             if (!downloaded) {
                 targetFile.delete()
                 recordFailedAttempt(update.versionCode)
+                Log.e(UPDATE_LOG_TAG, "all download URLs failed", lastDownloadError)
                 _state.value = AppUpdateState.Error("Update download failed.")
-                delay(FAILED_UPDATE_BACKOFF_MS)
-                _state.value = AppUpdateState.Idle
                 return
             }
 
@@ -184,8 +186,6 @@ class AppUpdateCoordinator(
                 targetFile.delete()
                 recordFailedAttempt(update.versionCode)
                 _state.value = AppUpdateState.Error("Update verification failed.")
-                delay(FAILED_UPDATE_BACKOFF_MS)
-                _state.value = AppUpdateState.Idle
                 return
             }
 
@@ -265,10 +265,23 @@ class AppUpdateCoordinator(
         }
     }
 
-    private fun buildDownloadUrl(storagePath: String): String {
-        val base = BuildConfig.RELEASES_BASE_URL.trim().trimEnd('/')
+    suspend fun retryUpdateCheck(supabase: SupabaseClient) {
+        dataStore.edit { prefs ->
+            prefs.remove(UpdateKeys.LAST_FAILED_VERSION_CODE)
+            prefs.remove(UpdateKeys.LAST_FAILED_AT_MS)
+        }
+        checkDownloadAndInstall(supabase)
+    }
+
+    private fun downloadUrlCandidates(storagePath: String): List<String> {
         val path = storagePath.trimStart('/')
-        return "$base/$path"
+        val bases =
+            buildList {
+                val configured = BuildConfig.RELEASES_BASE_URL.trim().trimEnd('/')
+                if (configured.isNotBlank()) add(configured)
+                add("https://s3.storage.inventivelab.bd/onesign-releases")
+            }.distinct()
+        return bases.map { base -> "$base/$path" }
     }
 
     private fun cachedApkFile(): File = File(application.cacheDir, "ota-update.apk")
@@ -365,7 +378,7 @@ class AppUpdateCoordinator(
 
     companion object {
         private const val UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
-        private const val FAILED_UPDATE_BACKOFF_MS = 6 * 60 * 60 * 1000L
+        private const val FAILED_UPDATE_BACKOFF_MS = 15 * 60 * 1000L
         private const val DOWNLOAD_BUFFER_BYTES = 64 * 1024
     }
 }

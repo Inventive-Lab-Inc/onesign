@@ -41,4 +41,5 @@
     <string name="update_awaiting_hint">Allow installs from this app if asked, then confirm the system install prompt.</string>
     <string name="update_continue_install">Continue install</string>
     <string name="update_error_title">Update failed</string>
+    <string name="update_retry">Try again</string>
 </resources>

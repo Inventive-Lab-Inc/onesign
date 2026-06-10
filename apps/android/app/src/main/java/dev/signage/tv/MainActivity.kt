@@ -178,6 +178,7 @@ class MainActivity : ComponentActivity() {
                     AppUpdateOverlay(
                         state = updateState,
                         onInstallClick = { viewModel.installPendingUpdate(this@MainActivity) },
+                        onRetryClick = { viewModel.retryAppUpdate() },
                     )
                 }
             }
