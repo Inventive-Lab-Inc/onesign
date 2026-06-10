@@ -11,6 +11,17 @@ export function getAppUrl(): string {
 }
 
 export function getPasswordResetRedirectUrl(): string {
-  const next = encodeURIComponent("/reset-password");
+  return getOAuthConfirmRedirectUrl("/reset-password");
+}
+
+/** Email/password recovery links return to /auth/confirm for PKCE code exchange. */
+export function getOAuthConfirmRedirectUrl(nextPath = "/dashboard"): string {
+  const next = encodeURIComponent(nextPath);
   return `${getAppUrl()}/auth/confirm?next=${next}`;
+}
+
+/** Auth.js Google sign-in completes at /auth/google/complete, then bridges to Supabase. */
+export function getGoogleAuthCallbackUrl(nextPath = "/dashboard"): string {
+  const next = encodeURIComponent(nextPath);
+  return `${getAppUrl()}/auth/google/complete?next=${next}`;
 }

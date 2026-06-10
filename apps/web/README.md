@@ -15,6 +15,22 @@ Create MinIO buckets `onesign-media` and `onesign-releases` on your VPS (`script
 
 Enable **Anonymous sign-ins** (Authentication → Providers) so the Android TV app can register devices without a service role key.
 
+### Google sign-in (optional, direct — not via Supabase OAuth)
+
+Console supports **Google (Auth.js)** and **email/password (Supabase)** during transition. Google login talks to Google directly; a server bridge then issues a Supabase session so playlists/media/devices keep working.
+
+1. Apply migration `00032_auth_google_identities.sql` in the Supabase SQL editor.
+2. [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → **OAuth client ID** (Web application).
+3. Authorized redirect URIs:
+   - `http://localhost:3000/api/auth/callback/google`
+   - `https://YOUR_PRODUCTION_DOMAIN/api/auth/callback/google`
+4. Set in `.env.local` / Vercel:
+   - `AUTH_SECRET` — `openssl rand -base64 32`
+   - `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — from Google Cloud
+   - `SUPABASE_SERVICE_ROLE_KEY` — Dashboard → Settings → API (server-only)
+   - `NEXT_PUBLIC_APP_URL` — public console URL in production
+5. Email/password users can later sign in with Google using the same email; accounts are linked automatically.
+
 ## Develop
 
 ```bash

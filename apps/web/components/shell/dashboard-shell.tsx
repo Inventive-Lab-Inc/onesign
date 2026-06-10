@@ -9,7 +9,6 @@ import { AppLayout } from "./app-layout";
 import { DashboardRoutePrefetch } from "./dashboard-route-prefetch";
 import { NotificationsProvider } from "./notifications-context";
 import { SettingsProvider } from "./settings-context";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getPageTitle, layoutConfig } from "@/lib/config/layout";
 import { clearConsoleCachePersist } from "@/stores/console-data-store";
 
@@ -33,10 +32,9 @@ function DashboardShellInner({
 
   async function signOut() {
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        toast.error(error.message);
+      const response = await fetch("/api/auth/signout", { method: "POST" });
+      if (!response.ok) {
+        toast.error("Sign out failed");
         return;
       }
       clearConsoleCachePersist();

@@ -7,6 +7,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { assets, getBackgroundStyle } from "@/lib/config/assets";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 
 const AUTH_PANEL_CSS = `.auth-card input::placeholder { color: #9ca3af; }
 .auth-right-panel { overflow: auto; scrollbar-width: none; -ms-overflow-style: none; }
@@ -84,6 +85,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
+    gap: "1rem",
   },
   formTitle: {
     margin: "0 0 1rem",
@@ -222,6 +224,7 @@ export default function SignupPage() {
       <div className="auth-right-panel" style={styles.rightPanel}>
         <div style={styles.rightPanelInner}>
           <h2 style={styles.formTitle}>Sign Up</h2>
+          <GoogleSignInButton disabled={loading} />
           <form onSubmit={onSubmit} style={styles.form}>
             {error && (
               <div style={styles.error} role="alert">

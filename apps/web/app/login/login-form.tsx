@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { assets, getBackgroundStyle } from "@/lib/config/assets";
 import { AuthBrandHeader } from "@/components/auth-brand-header";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 
 const AUTH_PANEL_CSS = `.auth-card input::placeholder { color: #9ca3af; }
 .auth-right-panel { overflow: auto; scrollbar-width: none; -ms-overflow-style: none; }
@@ -92,6 +93,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   formStack: {
     width: "100%",
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
   },
   formTitle: {
     margin: "0 0 1rem",
@@ -236,10 +240,28 @@ export function LoginForm() {
           </div>
           <div style={styles.formStack}>
             <h2 style={styles.formTitle}>Login</h2>
+            <GoogleSignInButton nextPath={next} disabled={loading} />
             <form onSubmit={onSubmit} style={styles.form}>
               {authError === "auth_confirm_failed" && (
                 <div style={styles.error} role="alert">
                   That sign-in link is invalid or has expired. Try resetting your password again.
+                </div>
+              )}
+              {authError === "google_auth_failed" && (
+                <div style={styles.error} role="alert">
+                  Google sign-in was cancelled or failed. Please try again.
+                </div>
+              )}
+              {authError === "google_bridge_failed" && (
+                <div style={styles.error} role="alert">
+                  Google sign-in succeeded but your console session could not be started. Check server
+                  configuration or contact your administrator.
+                </div>
+              )}
+              {authError === "Configuration" && (
+                <div style={styles.error} role="alert">
+                  Google sign-in is not configured yet. Set AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, and
+                  AUTH_SECRET.
                 </div>
               )}
               {error && (
