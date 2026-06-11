@@ -100,8 +100,13 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 Box(modifier = Modifier.fillMaxSize()) {
-                    SignageShellBackground {
-                        when (val ui = state) {
+                    when (val ui = state) {
+                        is MainUiState.Playback ->
+                            PlaybackScreen(state = ui, viewModel = viewModel)
+
+                        else ->
+                            SignageShellBackground {
+                                when (ui) {
                         MainUiState.Initializing ->
                             TvLoadingScreen(message = stringResource(R.string.startup_loading))
 
@@ -172,8 +177,9 @@ class MainActivity : ComponentActivity() {
 
                         is MainUiState.AwaitingLink -> PairingScreen(ui)
 
-                        is MainUiState.Playback -> PlaybackScreen(state = ui, viewModel = viewModel)
-                        }
+                        is MainUiState.Playback -> Unit
+                                }
+                            }
                     }
                     AppUpdateOverlay(
                         state = updateState,

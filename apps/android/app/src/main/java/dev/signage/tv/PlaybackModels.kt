@@ -23,3 +23,21 @@ data class PlaybackSlide(
     val fileType: String,
     val durationSeconds: Int? = null,
 )
+
+/**
+ * Prefetch warms the *next* slide in loop order. When the playlist has only one video (or the next
+ * slide is the same URL), prefetch would read the same bytes ExoPlayer is already decoding and can
+ * leave playback on a black frame.
+ */
+fun shouldPrefetchNextVideoSlide(
+    currentIndex: Int,
+    slides: List<PlaybackSlide>,
+): Boolean {
+    if (slides.isEmpty()) {
+        return false
+    }
+    val n = slides.size
+    val current = slides[currentIndex % n]
+    val next = slides[(currentIndex + 1) % n]
+    return next.fileType == "video" && next.url != current.url
+}

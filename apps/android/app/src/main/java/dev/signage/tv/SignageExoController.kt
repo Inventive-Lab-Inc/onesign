@@ -49,6 +49,7 @@ class SignageExoController(
         val maxDurationSeconds: Int?,
         val onEnded: () -> Unit,
         val onFirstFrameRendered: (() -> Unit)?,
+        val loopSingleItem: Boolean = false,
     )
 
     private var boundVideo: BoundVideo? = null
@@ -108,7 +109,11 @@ class SignageExoController(
 
                 val pos = exoRef.currentPosition
                 val duration = exoRef.duration
-                if (duration != C.TIME_UNSET && duration > 0 && exoRef.playWhenReady) {
+                val loopSingleItem = boundVideo?.loopSingleItem == true
+                if (loopSingleItem && state == Player.STATE_READY && exoRef.playWhenReady) {
+                    mainHandler.post { onPlaybackPositionAdvanced?.invoke() }
+                }
+                if (duration != C.TIME_UNSET && duration > 0 && exoRef.playWhenReady && !loopSingleItem) {
                     val remaining = duration - pos
                     if (remaining in 0..END_REMAINING_THRESHOLD_MS) {
                         stallWatchdogEndStuckTicks++
@@ -234,12 +239,13 @@ class SignageExoController(
         maxDurationSeconds: Int?,
         onEnded: () -> Unit,
         onFirstFrameRendered: (() -> Unit)? = null,
+        loopSingleItem: Boolean = false,
     ) {
         finished.set(false)
         stopStallWatchdog()
         mainHandler.removeCallbacksAndMessages(null)
         maxDurationRunnable = null
-        boundVideo = BoundVideo(url, maxDurationSeconds, onEnded, onFirstFrameRendered)
+        boundVideo = BoundVideo(url, maxDurationSeconds, onEnded, onFirstFrameRendered, loopSingleItem)
         stallGraceUntilElapsedRealtimeMs = SystemClock.elapsedRealtime() + STALL_INITIAL_GRACE_MS
         stallWatchdogLastPositionMs = -1L
         stallWatchdogSameTicks = 0
@@ -252,19 +258,47 @@ class SignageExoController(
         firstFrameListener?.let { exo.removeAnalyticsListener(it) }
         firstFrameListener = null
         playbackListener?.let { exo.removeListener(it) }
+        exo.repeatMode = if (loopSingleItem) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         exo.setMediaItem(MediaItem.fromUri(uri))
         exo.seekTo(0L)
         val l =
             object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (playbackState == Player.STATE_ENDED) {
+                    if (playbackState == Player.STATE_ENDED && !loopSingleItem) {
                         finishPlayback()
+                    }
+                }
+
+                override fun onPositionDiscontinuity(
+                    oldPosition: Player.PositionInfo,
+                    newPosition: Player.PositionInfo,
+                    reason: Int,
+                ) {
+                    if (loopSingleItem &&
+                        (
+                            reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION ||
+                                reason == Player.DISCONTINUITY_REASON_SEEK
+                        )
+                    ) {
+                        finished.set(false)
+                        mainHandler.post { onPlaybackPositionAdvanced?.invoke() }
                     }
                 }
 
                 override fun onPlayerError(playbackError: PlaybackException) {
                     Log.e(log, "Video playback error: $url", playbackError)
-                    finishPlayback()
+                    if (loopSingleItem) {
+                        Log.w(log, "Looping video error; rebinding url=$url")
+                        bindCurrentVideoUrl(
+                            url,
+                            maxDurationSeconds,
+                            onEnded,
+                            onFirstFrameRendered,
+                            loopSingleItem = true,
+                        )
+                    } else {
+                        finishPlayback()
+                    }
                 }
             }
         playbackListener = l
@@ -290,7 +324,7 @@ class SignageExoController(
         exo.setVolume(1f)
 
         val capMs = maxDurationSeconds?.takeIf { it > 0 }?.times(1000L)
-        if (capMs != null && capMs in 1L..(2L * 60L * 60L * 1000L)) {
+        if (!loopSingleItem && capMs != null && capMs in 1L..(2L * 60L * 60L * 1000L)) {
             val r = Runnable {
                 Log.w(log, "Video max duration reached; advancing url=$url")
                 finishPlayback()
@@ -314,7 +348,38 @@ class SignageExoController(
             snapshot.maxDurationSeconds,
             snapshot.onEnded,
             snapshot.onFirstFrameRendered,
+            snapshot.loopSingleItem,
         )
+    }
+
+    /** True when Exo reached the end of a non-looping item and needs a fresh bind from Compose. */
+    fun shouldRebindSameItemInView(): Boolean =
+        boundVideo?.loopSingleItem != true &&
+            exo.playbackState == Player.STATE_ENDED &&
+            exo.repeatMode == Player.REPEAT_MODE_OFF
+
+    /** Compose still shows a video slide but the engine lost an active decode session. */
+    fun needsVideoRebind(): Boolean {
+        if (boundVideo == null) {
+            return true
+        }
+        if (exo.playbackState == Player.STATE_ENDED) {
+            return true
+        }
+        return finished.get() && boundVideo?.loopSingleItem != true
+    }
+
+    /** Exo is decoding the current slide; skip destructive foreground recovery. */
+    fun isActivelyPlayingVideo(): Boolean {
+        if (boundVideo == null) {
+            return false
+        }
+        return when (exo.playbackState) {
+            Player.STATE_BUFFERING,
+            Player.STATE_READY,
+            -> exo.playWhenReady
+            else -> false
+        }
     }
 
     fun onActivityPause() {
@@ -364,6 +429,7 @@ class SignageExoController(
                             snapshot.maxDurationSeconds,
                             snapshot.onEnded,
                             snapshot.onFirstFrameRendered,
+                            snapshot.loopSingleItem,
                         )
                     }
                     return
@@ -410,6 +476,7 @@ class SignageExoController(
             snapshot.maxDurationSeconds,
             snapshot.onEnded,
             snapshot.onFirstFrameRendered,
+            snapshot.loopSingleItem,
         )
     }
 

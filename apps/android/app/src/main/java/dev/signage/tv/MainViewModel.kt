@@ -516,6 +516,12 @@ class MainViewModel(
             Log.d(LOG_TAG, "recoverPlaybackAsIfPlaylistChanged skipped ($reason); cooldown active")
             return
         }
+        if (signageExo?.isActivelyPlayingVideo() == true) {
+            Log.d(LOG_TAG, "recoverPlaybackAsIfPlaylistChanged skipped ($reason); player active")
+            requestPlaybackUiRecovery(reason)
+            immediatePlaybackPoll.trySend(Unit)
+            return
+        }
         lastFreezeAutoRecoverAtElapsedMs = now
         Log.w(LOG_TAG, "recover playback as if playlist changed ($reason)")
         signageExo?.resetDecoderStateAfterDisplayWake()
@@ -529,7 +535,6 @@ class MainViewModel(
         }
         requestPlaybackUiRecovery(reason)
         immediatePlaybackPoll.trySend(Unit)
-        signalPlaybackHealthy()
     }
 
     private fun ensureSignageExo() {
@@ -568,9 +573,14 @@ class MainViewModel(
     fun onPlaybackForegroundEvent() {
         val s = _state.value
         val now = SystemClock.elapsedRealtime()
+        val progressAgeMs = now - lastPlaybackProgressSignalElapsedMs.get()
+        val playbackLooksHealthy =
+            progressAgeMs < PLAYBACK_HEALTH_STALE_THRESHOLD_MS ||
+                signageExo?.isActivelyPlayingVideo() == true
         if (s is MainUiState.Playback &&
             !s.playbackDisabledByAdmin &&
             s.slides.isNotEmpty() &&
+            !playbackLooksHealthy &&
             now - lastPlaybackForegroundRecoveryAtElapsedMs >= FOREGROUND_RECOVERY_DEBOUNCE_MS
         ) {
             lastPlaybackForegroundRecoveryAtElapsedMs = now
@@ -611,11 +621,12 @@ class MainViewModel(
         if (slides.isEmpty()) {
             return
         }
+        if (!shouldPrefetchNextVideoSlide(currentIndex, slides)) {
+            return
+        }
         val n = slides.size
         val next = slides[(currentIndex + 1) % n]
-        if (next.fileType == "video") {
-            signageExo?.requestPrefetchIfVideo(next.url)
-        }
+        signageExo?.requestPrefetchIfVideo(next.url)
     }
 
     private suspend fun readCachedPlaybackOnly(deviceId: String): MainUiState.Playback? = withContext(Dispatchers.IO) {
@@ -1165,6 +1176,10 @@ class MainViewModel(
                     }
                     val cur = _state.value
                     if (cur !is MainUiState.Playback || cur.playbackDisabledByAdmin || cur.slides.isEmpty()) {
+                        continue
+                    }
+                    if (signageExo?.isActivelyPlayingVideo() == true) {
+                        signalPlaybackHealthy()
                         continue
                     }
                     val now = SystemClock.elapsedRealtime()

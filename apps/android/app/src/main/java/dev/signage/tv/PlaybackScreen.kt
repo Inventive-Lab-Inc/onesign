@@ -6,6 +6,11 @@ import android.graphics.SurfaceTexture
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.TextureView
+import android.view.ViewGroup
+import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
@@ -156,6 +161,15 @@ fun PlaybackScreen(
     viewModel: MainViewModel,
 ) {
     val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        val activity = context as? ComponentActivity ?: return@LaunchedEffect
+        activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        val insetsController =
+            WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        insetsController.hide(WindowInsetsCompat.Type.systemBars())
+        insetsController.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
     LaunchedEffect(state.screenOrientation) {
         val activity = context as? ComponentActivity ?: return@LaunchedEffect
         activity.requestedOrientation =
@@ -195,6 +209,7 @@ fun PlaybackScreen(
     val n = state.slides.size
     val slide = state.slides[index % n]
     val previousSlide = state.slides[(index - 1 + n) % n]
+    val isSingleVideoPlaylist = n == 1 && slide.fileType == "video"
     val holdImageUrlForVideo: String? =
         if (slide.fileType == "video" && previousSlide.fileType != "video") {
             previousSlide.url
@@ -216,13 +231,17 @@ fun PlaybackScreen(
                 // Include contentRevision so a playlist edit that keeps the same URL still remounts/rebinds Exo.
                 key(visit, slide.url, recoveryEpoch, state.uiRefreshGeneration, state.contentRevision) {
                     val onEnded: () -> Unit = {
-                        index = (index + 1) % n
-                        visit += 1
+                        if (!isSingleVideoPlaylist) {
+                            index = (index + 1) % n
+                            visit += 1
+                        }
                     }
                     SharedExoVideoSlide(
                         url = slide.url,
                         maxDurationSeconds = slide.durationSeconds?.coerceIn(1, 7_200),
                         holdImageUrl = holdImageUrlForVideo,
+                        loopSingleItem = isSingleVideoPlaylist,
+                        recoveryEpoch = recoveryEpoch,
                         onEnded = onEnded,
                         engine = engine,
                     )
@@ -256,13 +275,17 @@ private fun SharedExoVideoSlide(
     url: String,
     maxDurationSeconds: Int?,
     holdImageUrl: String?,
+    loopSingleItem: Boolean,
+    recoveryEpoch: Long,
     onEnded: () -> Unit,
     engine: SignageExoController,
 ) {
     val onEndState = rememberUpdatedState(onEnded)
-    val bindKey = url to maxDurationSeconds
-    var lastBound: Pair<String, Int?>? by remember { mutableStateOf(null) }
-    var videoRevealed by remember(url, holdImageUrl) {
+    val bindKey = Triple(url, maxDurationSeconds, loopSingleItem)
+    var lastBound: Triple<String, Int?, Boolean>? by remember(recoveryEpoch, url, maxDurationSeconds, loopSingleItem) {
+        mutableStateOf(null)
+    }
+    var videoRevealed by remember(url, holdImageUrl, recoveryEpoch) {
         mutableStateOf(holdImageUrl == null)
     }
 
@@ -291,12 +314,20 @@ private fun SharedExoVideoSlide(
         }
         AndroidView(
             factory = { context ->
-                val view = LayoutInflater.from(context).inflate(R.layout.exo_player_texture_view, null) as PlayerView
-                view.setEnableComposeSurfaceSyncWorkaround(true)
-                view.setShutterBackgroundColor(Color.BLACK)
-                view.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
-                view.player = engine.exo
-                view
+                (LayoutInflater.from(context).inflate(R.layout.exo_player_texture_view, null) as PlayerView).apply {
+                    layoutParams =
+                        ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                    setEnableComposeSurfaceSyncWorkaround(true)
+                    setShutterBackgroundColor(Color.BLACK)
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+                    setKeepContentOnPlayerReset(true)
+                    useArtwork = false
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    player = engine.exo
+                }
             },
             onRelease = { v ->
                 val pv = v as PlayerView
@@ -312,7 +343,7 @@ private fun SharedExoVideoSlide(
                 }
                 hookTextureSurfaceRecycleIfNeeded(view, engine)
                 view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                if (lastBound != bindKey) {
+                if (lastBound != bindKey || engine.shouldRebindSameItemInView() || engine.needsVideoRebind()) {
                     lastBound = bindKey
                     videoRevealed = (holdImageUrl == null)
                     engine.bindCurrentVideoUrl(
@@ -325,6 +356,7 @@ private fun SharedExoVideoSlide(
                             } else {
                                 null
                             },
+                        loopSingleItem = loopSingleItem,
                     )
                 }
             },
