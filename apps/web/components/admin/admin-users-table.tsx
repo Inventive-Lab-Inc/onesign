@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ViewClientButton } from "@/components/admin/view-client-button";
+import { PlanUsageMeter } from "@/components/plan/plan-usage-meter";
 import { useAdminStaff } from "@/components/admin/admin-staff-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,7 +106,7 @@ function filterUsers(users: AdminUserDirectoryEntry[], query: string, status: St
   if (!trimmed) return rows;
 
   return rows.filter((user) => {
-    const name = user.full_name?.toLowerCase() ?? "";
+    const name = user.client_name?.toLowerCase() ?? "";
     return user.email.toLowerCase().includes(trimmed) || name.includes(trimmed);
   });
 }
@@ -194,7 +195,8 @@ export function AdminUsersTable({ users }: { users: AdminUserDirectoryEntry[] })
                 <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Devices</th>
+                <th className="px-4 py-3">Screens</th>
+                <th className="px-4 py-3">Storage</th>
                 <th className="px-4 py-3">Online</th>
                 <th className="px-4 py-3">Joined</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -203,7 +205,7 @@ export function AdminUsersTable({ users }: { users: AdminUserDirectoryEntry[] })
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
+                  <td colSpan={8} className="px-4 py-12 text-center">
                     <p className="text-sm font-medium text-foreground">No accounts match your filters</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Try a different search or clear the status filter.
@@ -221,7 +223,7 @@ export function AdminUsersTable({ users }: { users: AdminUserDirectoryEntry[] })
                   >
                     <td className="px-4 py-3 font-medium text-foreground">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span>{row.full_name?.trim() || "—"}</span>
+                        <span>{row.client_name?.trim() || "—"}</span>
                         {row.is_staff ? (
                           <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
                             Admin
@@ -233,7 +235,22 @@ export function AdminUsersTable({ users }: { users: AdminUserDirectoryEntry[] })
                     <td className="px-4 py-3">
                       <AccountStatusBadge isDisabled={row.is_disabled} />
                     </td>
-                    <td className="px-4 py-3 tabular-nums">{row.device_count}</td>
+                    <td className="px-4 py-3">
+                      <PlanUsageMeter
+                        variant="screens"
+                        used={row.device_count}
+                        limit={row.device_limit}
+                        layout="compact"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <PlanUsageMeter
+                        variant="storage"
+                        used={row.storage_used_bytes}
+                        limit={row.storage_limit_bytes}
+                        layout="compact"
+                      />
+                    </td>
                     <td className="px-4 py-3 tabular-nums">{row.online_device_count}</td>
                     <td className="px-4 py-3 whitespace-nowrap tabular-nums text-muted-foreground">
                       {formatDate(row.created_at)}

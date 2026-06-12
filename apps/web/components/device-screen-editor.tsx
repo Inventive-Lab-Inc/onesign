@@ -32,7 +32,7 @@ import { PlaylistAssetsPanel } from "@/components/playlist-assets-panel";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { DevicePlaybackToggle } from "@/components/device-playback-toggle";
-import { DeviceDisabledNotice, isDevicePlaybackDisabled } from "@/components/device-disabled-notice";
+import { DeviceDisabledNotice, isDevicePausedByQuota, isDevicePlaybackDisabled } from "@/components/device-disabled-notice";
 import { DeviceScreenOrientationSettings } from "@/components/device-screen-orientation-settings";
 import { PlaylistPreviewButton } from "@/components/playlist-preview";
 import { ReadonlyVideoDuration } from "@/components/readonly-video-duration";
@@ -111,6 +111,7 @@ export function DeviceScreenEditor({
     [storeDevices, deviceId],
   );
   const deviceDisabled = device ? isDevicePlaybackDisabled(device) : false;
+  const pausedByQuota = device ? isDevicePausedByQuota(device) : false;
 
   useEffect(() => {
     void syncNow();
@@ -499,7 +500,9 @@ export function DeviceScreenEditor({
 
   return (
     <div className="space-y-6">
-      {deviceDisabled ? <DeviceDisabledNotice canControlPlayback={canControlPlayback} /> : null}
+      {deviceDisabled ? (
+        <DeviceDisabledNotice canControlPlayback={canControlPlayback} pausedByQuota={pausedByQuota} />
+      ) : null}
 
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">

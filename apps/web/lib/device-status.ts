@@ -40,3 +40,22 @@ export function formatDeviceLastSeen(iso: string | null): string {
   if (diffMs > STALE_ONLINE_MS) return `${sec}s ago`;
   return "Just now";
 }
+
+/** Compact hint for admin plan screen picker (linked date + last activity). */
+export function formatDevicePlanAdded(device: Pick<Device, "created_at">): string {
+  const linked = new Date(device.created_at).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  return `Added ${linked}`;
+}
+
+export function formatDevicePlanActive(device: Pick<Device, "last_seen">): string {
+  if (!device.last_seen) return "Active never";
+  const last = formatDeviceLastSeen(device.last_seen).replace(/^Never seen$/, "never");
+  return `Active ${last}`;
+}
+
+export function formatDevicePlanHint(device: Pick<Device, "created_at" | "last_seen">): string {
+  return `${formatDevicePlanAdded(device)} · ${formatDevicePlanActive(device)}`;
+}

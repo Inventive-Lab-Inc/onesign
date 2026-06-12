@@ -9,6 +9,8 @@ import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { deviceDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
+import { usePlanQuota } from "@/components/console/plan-quota-context";
+import { PlanUsageMeter } from "@/components/plan/plan-usage-meter";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +23,7 @@ import { useConsoleDataStore } from "@/stores/console-data-store";
 import { deviceTelemetrySummaryLine } from "@/components/device-telemetry-panel";
 import { DeviceMediaCacheChip } from "@/components/device-media-cache-chip";
 import { DeviceAppVersionChip } from "@/components/device-app-version-chip";
-import { DeviceDisabledBadge, isDevicePlaybackDisabled } from "@/components/device-disabled-notice";
+import { DeviceDisabledBadge, isDevicePausedByQuota, isDevicePlaybackDisabled } from "@/components/device-disabled-notice";
 import { useActiveAppRelease, type ActiveAppRelease } from "@/hooks/use-active-app-release";
 import { deviceAppUpdateStatus, getDeviceInstalledApp } from "@/lib/device-app-version";
 
@@ -70,6 +72,9 @@ export function DevicesManager() {
 
   const { syncNow } = useConsoleSync();
   const adminStaff = useOptionalAdminStaff();
+  const adminRoutes = useAdminClientRoutes();
+  const plan = usePlanQuota();
+  const deviceLimit = plan?.deviceLimit ?? null;
   const readOnly = adminStaff != null && !adminStaff.canWrite;
 
   const [pairingCode, setPairingCode] = useState("");
@@ -87,6 +92,10 @@ export function DevicesManager() {
 
   async function linkDevice() {
     if (readOnly) return;
+    if (deviceLimit != null && devices.length >= deviceLimit) {
+      toast.error(`Screen limit reached (${deviceLimit}). Contact support to add more.`);
+      return;
+    }
     setLinking(true);
     try {
       const code = pairingCode.trim();
@@ -94,12 +103,18 @@ export function DevicesManager() {
         toast.error("Pairing code must be exactly 6 digits.");
         return;
       }
+      const ownerId = adminRoutes?.clientId ?? null;
       const { data, error } = await supabase.rpc("link_device_by_pairing_code", {
         p_code: code,
         p_name: friendlyName.trim() || null,
+        p_owner_id: ownerId,
       });
       if (error) {
-        toast.error(error.message);
+        if (error.message.includes("device_limit_reached")) {
+          toast.error(`Screen limit reached (${deviceLimit ?? "your plan limit"}). Contact support to add more.`);
+        } else {
+          toast.error(error.message);
+        }
         return;
       }
       toast.success(`Linked device ${(data as Device).name}`);
@@ -157,9 +172,22 @@ export function DevicesManager() {
       .length;
   }, [activeAppRelease, devices]);
 
+  const atDeviceLimit = deviceLimit != null && devices.length >= deviceLimit;
+  const quotaPausedCount = devices.filter((d) => isDevicePausedByQuota(d)).length;
+
   return (
     <div className="flex min-h-[min(70vh,720px)] flex-col gap-6 lg:flex-row lg:gap-8">
       <aside className="w-full shrink-0 space-y-4 lg:w-56 xl:w-60">
+        {plan ? (
+          <PlanUsageMeter
+            variant="screens"
+            used={devices.length}
+            limit={plan.deviceLimit}
+            layout="card"
+            className="shadow-sm"
+          />
+        ) : null}
+
         <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -178,48 +206,64 @@ export function DevicesManager() {
             <p className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
               Link a screen
             </p>
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="pair-code" className="text-xs">
-                  Pairing code
-                </Label>
-                <Input
-                  id="pair-code"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  value={pairingCode}
-                  onChange={(e) => setPairingCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="123456"
-                  className="h-9 font-mono text-sm tracking-widest"
-                />
+            {deviceLimit != null ? (
+              <p className="mb-3 text-xs tabular-nums text-muted-foreground">
+                {devices.length} of {deviceLimit} screens linked
+                {quotaPausedCount > 0
+                  ? ` · ${quotaPausedCount} paused by plan`
+                  : ""}
+              </p>
+            ) : null}
+            {atDeviceLimit ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                You have reached your screen limit. Contact support if you need to link more devices.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="pair-code" className="text-xs">
+                    Pairing code
+                  </Label>
+                  <Input
+                    id="pair-code"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={pairingCode}
+                    onChange={(e) => setPairingCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="123456"
+                    className="h-9 font-mono text-sm tracking-widest"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pair-name" className="text-xs">
+                    Display name
+                  </Label>
+                  <Input
+                    id="pair-name"
+                    value={friendlyName}
+                    onChange={(e) => setFriendlyName(e.target.value)}
+                    placeholder="Lobby screen"
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  className="h-10 w-full gap-2 font-semibold shadow-sm"
+                  onClick={() => void linkDevice()}
+                  disabled={linking}
+                >
+                  <Tv className="h-4 w-4" strokeWidth={2.25} />
+                  {linking ? "Linking…" : "Link device"}
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="pair-name" className="text-xs">
-                  Display name
-                </Label>
-                <Input
-                  id="pair-name"
-                  value={friendlyName}
-                  onChange={(e) => setFriendlyName(e.target.value)}
-                  placeholder="Lobby screen"
-                  className="h-9 text-sm"
-                />
-              </div>
-              <Button
-                type="button"
-                className="h-10 w-full gap-2 font-semibold shadow-sm"
-                onClick={() => void linkDevice()}
-                disabled={linking}
-              >
-                <Tv className="h-4 w-4" strokeWidth={2.25} />
-                {linking ? "Linking…" : "Link device"}
-              </Button>
-            </div>
-            <p className="mt-3 text-[0.6875rem] leading-relaxed text-muted-foreground">
-              Enter the six-digit code from the TV after it signs in. List is cached locally—use Sync in the
-              header to refresh.
-            </p>
+            )}
+            {!atDeviceLimit ? (
+              <p className="mt-3 text-[0.6875rem] leading-relaxed text-muted-foreground">
+                Enter the six-digit code from the TV after it signs in. List is cached locally—use Sync in the
+                header to refresh.
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -391,7 +435,9 @@ function DeviceCard({
           <div className="flex flex-col items-end gap-1">
             <div className="flex flex-wrap justify-end gap-1">
               <StatusBadge status={effectiveDeviceStatus(device)} />
-              {isDevicePlaybackDisabled(device) ? <DeviceDisabledBadge /> : null}
+              {isDevicePlaybackDisabled(device) ? (
+                <DeviceDisabledBadge pausedByQuota={isDevicePausedByQuota(device)} />
+              ) : null}
             </div>
             <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} compact />
           </div>
@@ -471,7 +517,9 @@ function DeviceListRow({
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-semibold text-foreground">{device.name}</p>
             <StatusBadge status={effectiveDeviceStatus(device)} />
-            {isDevicePlaybackDisabled(device) ? <DeviceDisabledBadge /> : null}
+            {isDevicePlaybackDisabled(device) ? (
+              <DeviceDisabledBadge pausedByQuota={isDevicePausedByQuota(device)} />
+            ) : null}
             <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} />
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">Last seen · {formatDeviceLastSeen(device.last_seen)}</p>

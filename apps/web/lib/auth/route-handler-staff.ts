@@ -1,6 +1,7 @@
 import type { PlatformStaff, Profile } from "@signage/types";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchProfileRow } from "@/lib/supabase/profile";
 
 /** Auth + profile + optional staff row for Route Handlers. */
 export async function getRouteHandlerStaffAuth(): Promise<{
@@ -19,12 +20,8 @@ export async function getRouteHandlerStaffAuth(): Promise<{
     return { supabase, user: null, profile: null, staff: null };
   }
 
-  const [{ data: profile, error: profileError }, { data: staff, error: staffError }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name, created_at, is_disabled")
-      .eq("id", user.id)
-      .maybeSingle(),
+  const [{ profile }, { data: staff, error: staffError }] = await Promise.all([
+    fetchProfileRow(supabase, user.id).then((row) => ({ profile: row })),
     supabase
       .from("platform_staff")
       .select("user_id, email, display_name, role, is_active, created_at")
@@ -33,9 +30,6 @@ export async function getRouteHandlerStaffAuth(): Promise<{
       .maybeSingle(),
   ]);
 
-  if (profileError) {
-    console.warn("[getRouteHandlerStaffAuth] profile", profileError.message);
-  }
   if (staffError) {
     console.warn("[getRouteHandlerStaffAuth] staff", staffError.message);
   }
@@ -43,7 +37,7 @@ export async function getRouteHandlerStaffAuth(): Promise<{
   return {
     supabase,
     user,
-    profile: (profile as Profile | null) ?? null,
+    profile,
     staff: (staff as PlatformStaff | null) ?? null,
   };
 }

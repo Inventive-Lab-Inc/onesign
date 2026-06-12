@@ -14,6 +14,8 @@ import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status
 import { getMediaPublicBaseUrl } from "@/lib/object-storage/urls";
 import { cn } from "@/lib/utils";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import { usePlanQuota } from "@/components/console/plan-quota-context";
+import { PlanUsageSummary } from "@/components/plan/plan-usage-meter";
 
 function activePlaylistRow(device: DeviceWithAssignments) {
   const rows = device.device_playlists;
@@ -128,6 +130,7 @@ function DashboardRowPlaylistPreview({
 export default function DashboardHomePage() {
   useStaleOnlineTick();
 
+  const plan = usePlanQuota();
   const storeDeviceCount = useConsoleDataStore((s) => s.devices.length);
   const ownerId = useConsoleDataStore((s) => s.ownerId);
   const playlistCount = useConsoleDataStore((s) => s.playlists.length);
@@ -183,7 +186,7 @@ export default function DashboardHomePage() {
     {
       href: "/media",
       label: "Media",
-      description: "Library in storage",
+      description: "Files in cloud storage",
       count: mediaCount,
       icon: ImageIcon,
     },
@@ -191,6 +194,25 @@ export default function DashboardHomePage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 pb-4">
+      {plan ? (
+        <section className="space-y-2">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-[0.625rem] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                Your plan
+              </p>
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">Usage & limits</h2>
+            </div>
+          </div>
+          <PlanUsageSummary
+            deviceCount={storeDeviceCount}
+            deviceLimit={plan.deviceLimit}
+            storageUsedBytes={plan.storageUsedBytes}
+            storageLimitBytes={plan.storageLimitBytes}
+          />
+        </section>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map(({ href, label, description, count, icon: Icon }) => (
           <Link

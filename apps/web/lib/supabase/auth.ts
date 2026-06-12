@@ -1,6 +1,7 @@
 import { cache } from "react";
 import type { User } from "@supabase/supabase-js";
 import type { Profile } from "@signage/types";
+import { fetchProfileRow } from "./profile";
 import { getSupabaseServerClient } from "./server";
 
 /**
@@ -51,16 +52,8 @@ export const getServerAuthWithProfile = cache(
       return { supabase, user: null, profile: null };
     }
 
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, created_at, is_disabled")
-      .eq("id", user.id)
-      .maybeSingle();
+    const profile = await fetchProfileRow(supabase, user.id);
 
-    if (error) {
-      console.warn("[getServerAuthWithProfile]", error.message);
-    }
-
-    return { supabase, user, profile: (profile as Profile | null) ?? null };
+    return { supabase, user, profile };
   },
 );

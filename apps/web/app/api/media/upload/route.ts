@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { Media } from "@signage/types";
+import { MAX_UPLOAD_FILE_BYTES } from "@/lib/plan-quota";
 import { inferMediaFileType, isAcceptedSignageMime, readVideoFileDurationSeconds } from "@/lib/media";
 import { putMediaObject } from "@/lib/object-storage/server";
 import { getRouteHandlerStaffAuth } from "@/lib/auth/route-handler-staff";
@@ -47,6 +48,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `${file.name} is not a supported image/video type.` }, { status: 400 });
   }
 
+  if (file.size > MAX_UPLOAD_FILE_BYTES) {
+    return NextResponse.json(
+      { error: `Each file must be ${Math.round(MAX_UPLOAD_FILE_BYTES / 1024 / 1024)} MB or smaller.` },
+      { status: 400 },
+    );
+  }
+
+  const { error: quotaError } = await supabase.rpc("check_storage_quota", {
+    p_owner_id: effectiveOwnerId,
+    p_add_bytes: file.size,
+  });
+  if (quotaError) {
+    const message = quotaError.message.includes("storage_limit_reached")
+      ? "Storage full. Delete unused files or contact support to upgrade."
+      : quotaError.message;
+    return NextResponse.json({ error: message }, { status: 403 });
+  }
+
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "bin";
   const storagePath = `${effectiveOwnerId}/${crypto.randomUUID()}.${extension}`;
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -70,6 +89,7 @@ export async function POST(request: NextRequest) {
       file_type: fileType,
       original_filename: file.name,
       duration_seconds: intrinsicSeconds,
+      size_bytes: file.size,
     })
     .select("*")
     .single();

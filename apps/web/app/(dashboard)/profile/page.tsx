@@ -1,10 +1,12 @@
-import { getServerAuth } from "@/lib/supabase/auth";
+import { redirect } from "next/navigation";
+import { getServerAuthWithProfile } from "@/lib/supabase/auth";
 
 export default async function ProfilePage() {
-  const { user } = await getServerAuth();
+  const { user, profile } = await getServerAuthWithProfile();
+  if (!user) redirect("/login");
 
-  const meta = user?.user_metadata as Record<string, string | undefined> | undefined;
-  const fullName = meta?.full_name?.trim();
+  const meta = user.user_metadata as Record<string, string | undefined> | undefined;
+  const clientName = profile?.client_name?.trim() || meta?.full_name?.trim();
 
   return (
     <div style={{ maxWidth: "36rem" }}>
@@ -20,11 +22,11 @@ export default async function ProfilePage() {
       >
         <div>
           <dt style={{ color: "#6b7280", fontWeight: 500 }}>Email</dt>
-          <dd style={{ margin: "0.25rem 0 0" }}>{user?.email ?? "—"}</dd>
+          <dd style={{ margin: "0.25rem 0 0" }}>{user.email ?? "—"}</dd>
         </div>
         <div>
-          <dt style={{ color: "#6b7280", fontWeight: 500 }}>Display name</dt>
-          <dd style={{ margin: "0.25rem 0 0" }}>{fullName || "—"}</dd>
+          <dt style={{ color: "#6b7280", fontWeight: 500 }}>Name</dt>
+          <dd style={{ margin: "0.25rem 0 0" }}>{clientName || "—"}</dd>
         </div>
       </dl>
     </div>

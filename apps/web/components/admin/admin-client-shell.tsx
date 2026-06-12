@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, Image, LayoutGrid, ListVideo, Monitor, UserRound } from "lucide-react";
+import { ArrowLeft, HardDrive, Image, LayoutGrid, ListVideo, Monitor, UserRound } from "lucide-react";
 import type { AdminUserDirectoryEntry } from "@signage/types";
 import { useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { formatStorageBytes } from "@/lib/plan-quota";
 import { cn } from "@/lib/utils";
 
 function AccountStatusBadge({ isDisabled }: { isDisabled: boolean }) {
@@ -44,7 +45,7 @@ export function AdminClientShell({
   const pathname = usePathname();
   const routes = useAdminClientRoutes();
   const basePath = routes?.basePath ?? `/admin/clients/${client.id}`;
-  const displayName = client.full_name?.trim() || client.email.split("@")[0];
+  const displayName = client.client_name?.trim() || client.email.split("@")[0];
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-2">
@@ -69,7 +70,11 @@ export function AdminClientShell({
             <AccountStatusBadge isDisabled={client.is_disabled} />
             <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
               <Monitor className="h-3.5 w-3.5" aria-hidden />
-              {client.device_count} screens · {client.online_device_count} online
+              {client.active_device_count}/{client.device_limit} active · {client.device_count} linked
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
+              <HardDrive className="h-3.5 w-3.5" aria-hidden />
+              {formatStorageBytes(client.storage_used_bytes)} / {formatStorageBytes(client.storage_limit_bytes)}
             </span>
           </div>
         </div>
@@ -111,33 +116,8 @@ export function AdminClientOverview({
   client: AdminUserDirectoryEntry;
   children?: React.ReactNode;
 }) {
-  const routes = useAdminClientRoutes();
-  const basePath = routes?.basePath ?? `/admin/clients/${client.id}`;
-
-  const quickLinks = [
-    { href: `${basePath}/devices`, label: "Devices", desc: "Screens, pairing, TV controls", icon: Monitor },
-    { href: `${basePath}/playlists`, label: "Playlists", desc: "Content schedules", icon: ListVideo },
-    { href: `${basePath}/media`, label: "Media", desc: "Images and videos", icon: Image },
-  ];
-
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-3">
-        {quickLinks.map(({ href, label, desc, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className="group rounded-xl border border-border/90 bg-card p-4 shadow-sm transition hover:border-brand-faint25 hover:shadow-md"
-          >
-            <div className="mb-3 inline-flex rounded-lg bg-muted/60 p-2 transition group-hover:bg-brand-faint15">
-              <Icon className="h-4 w-4 text-brand-strong" aria-hidden />
-            </div>
-            <p className="font-semibold text-foreground">{label}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{desc}</p>
-          </Link>
-        ))}
-      </div>
-
       <div className="rounded-xl border border-border/90 bg-card p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2">
           <LayoutGrid className="h-4 w-4 text-muted-foreground" aria-hidden />
@@ -149,8 +129,8 @@ export function AdminClientOverview({
             <dd className="mt-0.5 text-foreground">{client.email}</dd>
           </div>
           <div>
-            <dt className="text-xs font-medium text-muted-foreground">Display name</dt>
-            <dd className="mt-0.5 text-foreground">{client.full_name?.trim() || "—"}</dd>
+            <dt className="text-xs font-medium text-muted-foreground">Client name</dt>
+            <dd className="mt-0.5 text-foreground">{client.client_name?.trim() || "—"}</dd>
           </div>
           <div>
             <dt className="text-xs font-medium text-muted-foreground">Joined</dt>

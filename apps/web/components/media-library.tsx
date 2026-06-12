@@ -9,6 +9,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
+import { usePlanQuota } from "@/components/console/plan-quota-context";
+import { PlanUsageMeter } from "@/components/plan/plan-usage-meter";
+import { isStorageFull } from "@/lib/plan-quota";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { MEDIA_UPLOAD_ACCEPT } from "@/lib/upload-media";
@@ -45,9 +48,11 @@ const FILTER_ROWS: { id: TypeFilter; label: string; icon: typeof ImageIcon }[] =
 
 export function MediaLibrary({ userId }: MediaLibraryProps) {
   const { syncNow } = useConsoleSync();
+  const plan = usePlanQuota();
   const adminStaff = useOptionalAdminStaff();
   const readOnly = adminStaff != null && !adminStaff.canWrite;
   const items = useConsoleDataStore((s) => s.media) as Media[];
+  const storageFull = plan != null && isStorageFull(plan);
   const { uploading, uploadFiles } = useMediaUpload(userId, { withDropzone: false });
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
@@ -57,7 +62,7 @@ export function MediaLibrary({ userId }: MediaLibraryProps) {
     onDrop: (files) => void uploadFiles(files),
     accept: MEDIA_UPLOAD_ACCEPT,
     multiple: true,
-    disabled: uploading || readOnly,
+    disabled: uploading || readOnly || storageFull,
     noClick: true,
     noKeyboard: true,
   });
@@ -107,6 +112,16 @@ export function MediaLibrary({ userId }: MediaLibraryProps) {
   return (
     <div className="flex min-h-[min(70vh,720px)] flex-col gap-6 lg:flex-row lg:gap-8">
       <aside className="w-full shrink-0 space-y-4 lg:w-56 xl:w-60">
+        {plan ? (
+          <PlanUsageMeter
+            variant="storage"
+            used={plan.storageUsedBytes}
+            limit={plan.storageLimitBytes}
+            layout="card"
+            className="shadow-sm"
+          />
+        ) : null}
+
         <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -122,18 +137,26 @@ export function MediaLibrary({ userId }: MediaLibraryProps) {
 
         {!readOnly ? (
           <>
-            <Button
-              type="button"
-              className="h-10 w-full gap-2 font-semibold shadow-sm"
-              onClick={() => open()}
-              disabled={uploading}
-            >
-              <Upload className="h-4 w-4" strokeWidth={2.25} />
-              {uploading ? "Uploading…" : "Upload files"}
-            </Button>
-            <p className="text-center text-[0.6875rem] text-muted-foreground lg:text-left">
-              or drag files into the library
-            </p>
+            {storageFull ? (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/8 px-3 py-2.5 text-xs leading-relaxed text-red-900 dark:text-red-100">
+                Storage full. Delete unused files or contact support to add more space.
+              </div>
+            ) : (
+              <Button
+                type="button"
+                className="h-10 w-full gap-2 font-semibold shadow-sm"
+                onClick={() => open()}
+                disabled={uploading}
+              >
+                <Upload className="h-4 w-4" strokeWidth={2.25} />
+                {uploading ? "Uploading…" : "Upload files"}
+              </Button>
+            )}
+            {!storageFull ? (
+              <p className="text-center text-[0.6875rem] text-muted-foreground lg:text-left">
+                or drag files into the library
+              </p>
+            ) : null}
           </>
         ) : null}
 

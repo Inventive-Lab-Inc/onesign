@@ -9,9 +9,13 @@ export type MediaFileType = "image" | "video" | "unknown";
 
 export interface Profile {
   id: string;
-  full_name: string | null;
+  client_name: string | null;
   created_at: string;
   is_disabled?: boolean;
+  /** Max linked devices; default 1 for new accounts. */
+  device_limit?: number;
+  /** Max cloud storage bytes; default 2 GiB. */
+  storage_limit_bytes?: number;
 }
 
 export interface PlatformStaff {
@@ -37,10 +41,14 @@ export interface AdminDirectoryEntry {
 export interface AdminUserDirectoryEntry {
   id: string;
   email: string;
-  full_name: string | null;
+  client_name: string | null;
   created_at: string;
   device_count: number;
   online_device_count: number;
+  active_device_count: number;
+  device_limit: number;
+  storage_used_bytes: number;
+  storage_limit_bytes: number;
   is_disabled: boolean;
   /** True when the account also has admin portal access. */
   is_staff: boolean;
@@ -66,6 +74,8 @@ export interface Device {
   telemetry_at?: string | null;
   /** When true, the TV shows standby branding instead of the assigned playlist. */
   playback_disabled?: boolean;
+  /** Paused because the client exceeded their screen plan limit. */
+  paused_by_quota?: boolean;
 }
 
 export interface AppRelease {
@@ -88,6 +98,8 @@ export interface Media {
   file_type: MediaFileType;
   original_filename: string | null;
   created_at: string;
+  /** File size in bytes at upload. */
+  size_bytes?: number;
   /** Video intrinsic length in seconds; null for images or not yet probed. */
   duration_seconds?: number | null;
 }

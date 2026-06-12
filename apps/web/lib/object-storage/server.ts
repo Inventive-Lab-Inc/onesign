@@ -1,3 +1,4 @@
+import { HeadObjectCommand } from "@aws-sdk/client-s3";
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getObjectStorageServerConfig, type ObjectStorageServerConfig } from "./env";
 
@@ -77,4 +78,22 @@ export async function deleteMediaObject(ownerId: string, storagePath: string): P
       Key: storagePath.replace(/^\/+/, ""),
     }),
   );
+}
+
+export async function headMediaObjectSize(ownerId: string, storagePath: string): Promise<number | null> {
+  assertOwnerStoragePath(ownerId, storagePath);
+  const config = requireConfig();
+  const client = getClient();
+
+  try {
+    const result = await client.send(
+      new HeadObjectCommand({
+        Bucket: config.mediaBucket,
+        Key: storagePath.replace(/^\/+/, ""),
+      }),
+    );
+    return typeof result.ContentLength === "number" ? result.ContentLength : null;
+  } catch {
+    return null;
+  }
 }
