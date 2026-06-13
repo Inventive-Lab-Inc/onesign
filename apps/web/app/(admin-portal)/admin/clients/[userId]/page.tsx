@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { AdminAccountActions } from "@/components/admin/admin-account-actions";
 import { AdminPlanEditor } from "@/components/admin/admin-plan-editor";
 import { AdminClientOverview } from "@/components/admin/admin-client-shell";
 import { getAdminClientEntry } from "@/lib/admin/get-client-entry";
@@ -36,7 +35,6 @@ export default async function AdminClientOverviewPage({
         storageUsedBytes={client.storage_used_bytes}
         devices={devices ?? []}
       />
-      <AdminAccountActions userId={client.id} email={client.email} isDisabled={client.is_disabled} />
     </AdminClientOverview>
   );
 }

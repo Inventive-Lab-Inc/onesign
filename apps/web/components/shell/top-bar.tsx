@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { Bell, ChevronDown, LogOut, Menu, Search, Settings, UserRound } from "lucide-react";
+import { Bell, ChevronDown, LayoutDashboard, LogOut, Menu, Search, Settings, Shield, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { setStaffPortalChoice } from "@/lib/auth/staff-portal-choice";
 import { useNotifications } from "./notifications-context";
 import { useSettings } from "./settings-context";
 import { MobileNavDrawer, TopNavBar } from "./top-nav";
@@ -26,6 +27,13 @@ function formatNotificationTime(ts: number) {
 
 const HOVER_CLOSE_DELAY_MS = 150;
 const SEARCH_EXPANDED_WIDTH = "11.25rem";
+
+export type ProfilePortalSwitch = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  choice: "admin" | "user";
+};
 
 function ExpandableSearch({ placeholder }: { placeholder: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -344,6 +352,7 @@ export interface TopBarProps {
   userName?: string;
   profileSubtext?: string;
   onSignOut?: () => void;
+  portalSwitch?: ProfilePortalSwitch;
   centerSlot?: React.ReactNode;
   searchPlaceholder?: string;
   rightSlot?: React.ReactNode;
@@ -359,11 +368,13 @@ function ProfileDropdown({
   userName,
   profileSubtext,
   onSignOut,
+  portalSwitch,
   isMobile,
 }: {
   userName?: string;
   profileSubtext?: string;
   onSignOut?: () => void;
+  portalSwitch?: ProfilePortalSwitch;
   isMobile?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -571,6 +582,22 @@ function ProfileDropdown({
             <Settings size={14} color="#6B7280" strokeWidth={2} />
             Settings
           </Link>
+          {portalSwitch ? (
+            <Link
+              prefetch
+              href={portalSwitch.href}
+              className="topbar-dropdown-item"
+              style={linkItemStyle}
+              role="menuitem"
+              onClick={() => {
+                setStaffPortalChoice(portalSwitch.choice);
+                setOpen(false);
+              }}
+            >
+              <portalSwitch.icon size={14} color="#6B7280" strokeWidth={2} />
+              {portalSwitch.label}
+            </Link>
+          ) : null}
           <div style={{ height: "0.0625rem", background: "#E8ECF0", margin: "0.25rem 0" }} aria-hidden />
           <button
             type="button"
@@ -610,6 +637,7 @@ export function TopBar({
   userName,
   profileSubtext,
   onSignOut,
+  portalSwitch,
   centerSlot,
   searchPlaceholder,
   rightSlot,
@@ -712,7 +740,13 @@ export function TopBar({
             {searchPlaceholder != null && <ExpandableSearch placeholder={searchPlaceholder} />}
             {syncControl}
             <NotificationBellDropdown />
-            <ProfileDropdown userName={userName} profileSubtext={profileSubtext} onSignOut={onSignOut} isMobile />
+            <ProfileDropdown
+              userName={userName}
+              profileSubtext={profileSubtext}
+              onSignOut={onSignOut}
+              portalSwitch={portalSwitch}
+              isMobile
+            />
           </>
         )}
       </header>
@@ -777,7 +811,12 @@ export function TopBar({
             {searchPlaceholder != null && <ExpandableSearch placeholder={searchPlaceholder} />}
             {syncControl}
             <NotificationBellDropdown />
-            <ProfileDropdown userName={userName} profileSubtext={profileSubtext} onSignOut={onSignOut} />
+            <ProfileDropdown
+              userName={userName}
+              profileSubtext={profileSubtext}
+              onSignOut={onSignOut}
+              portalSwitch={portalSwitch}
+            />
           </>
         )}
       </div>

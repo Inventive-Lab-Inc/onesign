@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ArrowLeft, HardDrive, Image, LayoutGrid, ListVideo, Monitor, ScrollText, UserRound } from "lucide-react";
 import type { AdminUserDirectoryEntry } from "@signage/types";
 import { useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { AdminAccountActions } from "@/components/admin/admin-account-actions";
 import { formatStorageBytes } from "@/lib/plan-quota";
 import { cn } from "@/lib/utils";
 
@@ -71,12 +72,20 @@ export function AdminClientShell({
             <AccountStatusBadge isDisabled={client.is_disabled} />
             <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
               <Monitor className="h-3.5 w-3.5" aria-hidden />
-              {client.active_device_count}/{client.device_limit} active · {client.device_count} linked
+              {client.is_disabled
+                ? `0/${client.device_limit} active`
+                : `${client.active_device_count}/${client.device_limit} active`}{" "}
+              · {client.device_count} linked
             </span>
             <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2.5 py-1 text-xs tabular-nums text-muted-foreground">
               <HardDrive className="h-3.5 w-3.5" aria-hidden />
               {formatStorageBytes(client.storage_used_bytes)} / {formatStorageBytes(client.storage_limit_bytes)}
             </span>
+            <AdminAccountActions
+              userId={client.id}
+              email={client.email}
+              isDisabled={client.is_disabled}
+            />
           </div>
         </div>
 

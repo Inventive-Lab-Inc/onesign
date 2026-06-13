@@ -1,7 +1,6 @@
-import type { AdminDirectoryStats, AdminUserDirectoryEntry } from "@signage/types";
-import { Monitor, Users } from "lucide-react";
-import { AdminInviteClientPanel } from "@/components/admin/admin-invite-client-panel";
-import { AdminUsersTable } from "@/components/admin/admin-users-table";
+import type { AccessWaitlistEntry, AdminDirectoryStats, AdminUserDirectoryEntry } from "@signage/types";
+import { Inbox, Monitor, Users } from "lucide-react";
+import { AdminOverviewSections } from "@/components/admin/admin-overview-sections";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getServerStaffAuth } from "@/lib/auth/staff";
 
@@ -38,13 +37,18 @@ export default async function AdminOverviewPage({
   const search = searchParams.q?.trim() || null;
   const offset = (page - 1) * PAGE_SIZE;
 
-  const [statsResult, listResult] = await Promise.all([
+  const [statsResult, listResult, waitlistResult] = await Promise.all([
     ctx.supabase.rpc("admin_directory_stats"),
     ctx.supabase.rpc("admin_list_users", {
       p_limit: PAGE_SIZE,
       p_offset: offset,
       p_search: search,
       p_status: status,
+    }),
+    ctx.supabase.rpc("admin_list_waitlist", {
+      p_limit: 50,
+      p_offset: 0,
+      p_status: "all",
     }),
   ]);
 
@@ -54,6 +58,9 @@ export default async function AdminOverviewPage({
   if (listResult.error) {
     throw new Error(listResult.error.message);
   }
+  if (waitlistResult.error) {
+    throw new Error(waitlistResult.error.message);
+  }
 
   const statsRows = (statsResult.data as AdminDirectoryStats[]) ?? [];
   const stats = statsRows[0] ?? {
@@ -61,10 +68,12 @@ export default async function AdminOverviewPage({
     device_count: 0,
     online_device_count: 0,
     disabled_count: 0,
+    pending_waitlist_count: 0,
   };
 
   const users = (listResult.data as AdminUserDirectoryEntry[]) ?? [];
   const totalCount = users[0]?.total_count ?? users.length;
+  const waitlistEntries = (waitlistResult.data as AccessWaitlistEntry[]) ?? [];
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 pb-4">
@@ -75,7 +84,7 @@ export default async function AdminOverviewPage({
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card className="border-border/90 shadow-sm">
           <CardHeader className="space-y-2 pb-2">
             <div className="flex items-center gap-2.5">
@@ -135,22 +144,34 @@ export default async function AdminOverviewPage({
             <p className="text-3xl font-semibold tabular-nums">{stats.disabled_count}</p>
           </CardContent>
         </Card>
+        <Card className="border-border/90 shadow-sm">
+          <CardHeader className="space-y-2 pb-2">
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-lg bg-muted/60 p-2">
+                <Inbox className="h-4 w-4 text-amber-600" aria-hidden />
+              </div>
+              <CardTitle className="text-base">Waitlist</CardTitle>
+            </div>
+            <CardDescription>Pending access applications</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold tabular-nums">
+              {stats.pending_waitlist_count ?? waitlistEntries.length}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      <section className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-sm font-semibold tracking-tight text-foreground">Client accounts</h2>
-          <AdminInviteClientPanel />
-        </div>
-        <AdminUsersTable
-          users={users}
-          page={page}
-          pageSize={PAGE_SIZE}
-          totalCount={totalCount}
-          initialQuery={search ?? ""}
-          initialStatus={status}
-        />
-      </section>
+      <AdminOverviewSections
+        users={users}
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalCount={totalCount}
+        initialQuery={search ?? ""}
+        initialStatus={status}
+        waitlistEntries={waitlistEntries}
+        pendingWaitlistCount={stats.pending_waitlist_count ?? 0}
+      />
     </div>
   );
 }

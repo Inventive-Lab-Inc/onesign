@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
 import type { AdminAuditLogEntry } from "@signage/types";
-import {
-  AdminAuditLogTable,
-  type AuditActionFilter,
-} from "@/components/admin/admin-audit-log-table";
+import { AdminAuditLogTable } from "@/components/admin/admin-audit-log-table";
+import { parseAuditActionFilter } from "@/lib/admin/audit-log";
 import { getAdminClientEntry } from "@/lib/admin/get-client-entry";
 import { getServerStaffAuth } from "@/lib/auth/staff";
 
@@ -19,11 +17,8 @@ function parsePage(value: string | undefined): number {
   return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
-function parseAction(value: string | undefined): AuditActionFilter {
-  if (value === "plan_update" || value === "account_disable" || value === "account_enable") {
-    return value;
-  }
-  return "all";
+function parseAction(value: string | undefined) {
+  return parseAuditActionFilter(value);
 }
 
 export default async function AdminClientAuditPage({

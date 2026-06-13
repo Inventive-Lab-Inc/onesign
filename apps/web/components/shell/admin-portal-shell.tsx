@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useAppRouter } from "@/hooks/use-app-router";
-import { ScrollText, Settings, Shield, Users } from "lucide-react";
+import { LayoutDashboard, ScrollText, Settings, Shield, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { PlatformStaff } from "@signage/types";
 import { AdminPortalSyncProvider } from "@/components/console/admin-portal-sync-provider";
@@ -14,6 +14,7 @@ import { DashboardRoutePrefetch } from "@/components/shell/dashboard-route-prefe
 import { NotificationsProvider } from "@/components/shell/notifications-context";
 import { SettingsProvider } from "@/components/shell/settings-context";
 import { clearConsoleCachePersist } from "@/stores/console-data-store";
+import { clearStaffPortalChoice } from "@/lib/auth/staff-portal-choice";
 import type { NavItem } from "@/components/shell/types";
 import { getAdminPageTitle } from "@/lib/config/admin-layout";
 
@@ -62,7 +63,8 @@ export function AdminPortalShell({
         return;
       }
       clearConsoleCachePersist();
-      router.replace("/login?next=/admin");
+      clearStaffPortalChoice();
+      router.replace("/login");
       router.refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sign out failed";
@@ -82,6 +84,12 @@ export function AdminPortalShell({
             userName={displayName}
             profileSubtext={profileSubtext}
             onSignOut={() => void signOut()}
+            portalSwitch={{
+              label: "Switch to my dashboard",
+              href: "/dashboard",
+              icon: LayoutDashboard,
+              choice: "user",
+            }}
             searchPlaceholder="Search clients…"
             topBarSyncControl={<AdminPortalSyncControl />}
             outerBg="#1f2937"

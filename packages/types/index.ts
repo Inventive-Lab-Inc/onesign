@@ -26,6 +26,7 @@ export interface AdminDirectoryStats {
   device_count: number;
   online_device_count: number;
   disabled_count: number;
+  pending_waitlist_count?: number;
 }
 
 export interface PlatformStaff {
@@ -66,6 +67,19 @@ export interface AdminUserDirectoryEntry {
   total_count?: number;
   /** True when the account was invited but has not completed first sign-in. */
   invitation_pending?: boolean;
+}
+
+/** Row returned by admin_list_waitlist() RPC. */
+export interface AccessWaitlistEntry {
+  id: string;
+  email: string;
+  company_name: string | null;
+  screen_count: number | null;
+  message: string | null;
+  status: "pending" | "reviewed" | "invited" | "dismissed";
+  created_at: string;
+  reviewed_at: string | null;
+  total_count?: number;
 }
 
 /** Row returned by admin_list_audit_log() RPC. */

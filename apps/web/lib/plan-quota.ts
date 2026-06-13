@@ -49,6 +49,7 @@ export interface PlanQuotaSnapshot {
   deviceCount: number;
   storageLimitBytes: number;
   storageUsedBytes: number;
+  accountDisabled?: boolean;
 }
 
 export function isStorageFull(snapshot: Pick<PlanQuotaSnapshot, "storageLimitBytes" | "storageUsedBytes">): boolean {

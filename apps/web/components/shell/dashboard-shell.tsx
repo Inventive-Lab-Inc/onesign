@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { Shield } from "lucide-react";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { toast } from "sonner";
 import { ClientConsoleSyncProvider } from "@/components/console/client-console-sync-provider";
@@ -11,15 +12,18 @@ import { NotificationsProvider } from "./notifications-context";
 import { SettingsProvider } from "./settings-context";
 import { getPageTitle, layoutConfig } from "@/lib/config/layout";
 import { clearConsoleCachePersist } from "@/stores/console-data-store";
+import { clearStaffPortalChoice } from "@/lib/auth/staff-portal-choice";
 
 function DashboardShellInner({
   children,
   userEmail,
   displayName,
+  isStaff,
 }: {
   children: React.ReactNode;
   userEmail: string;
   displayName: string;
+  isStaff: boolean;
 }) {
   const router = useAppRouter();
   const prefetchPaths = useMemo(
@@ -38,6 +42,7 @@ function DashboardShellInner({
         return;
       }
       clearConsoleCachePersist();
+      clearStaffPortalChoice();
       router.replace("/login");
       router.refresh();
     } catch (err) {
@@ -54,6 +59,16 @@ function DashboardShellInner({
       userName={displayName}
       profileSubtext={userEmail}
       onSignOut={() => void signOut()}
+      portalSwitch={
+        isStaff
+          ? {
+              label: "Switch to admin portal",
+              href: "/admin",
+              icon: Shield,
+              choice: "admin",
+            }
+          : undefined
+      }
       searchPlaceholder="Search..."
       topBarSyncControl={<ConsoleSyncButton />}
     >
@@ -68,17 +83,19 @@ export function DashboardShell({
   authUserId,
   userEmail,
   displayName,
+  isStaff = false,
 }: {
   children: React.ReactNode;
   authUserId: string;
   userEmail: string;
   displayName: string;
+  isStaff?: boolean;
 }) {
   return (
     <SettingsProvider>
       <NotificationsProvider>
         <ClientConsoleSyncProvider authUserId={authUserId}>
-          <DashboardShellInner userEmail={userEmail} displayName={displayName}>
+          <DashboardShellInner userEmail={userEmail} displayName={displayName} isStaff={isStaff}>
             {children}
           </DashboardShellInner>
         </ClientConsoleSyncProvider>

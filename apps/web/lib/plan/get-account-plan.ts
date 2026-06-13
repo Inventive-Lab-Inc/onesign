@@ -35,11 +35,13 @@ export function planSnapshotFromAdminEntry(entry: {
   device_limit: number;
   storage_used_bytes: number;
   storage_limit_bytes: number;
+  is_disabled: boolean;
 }): PlanQuotaSnapshot {
   return {
     deviceCount: Number(entry.device_count),
     deviceLimit: entry.device_limit,
     storageUsedBytes: Number(entry.storage_used_bytes),
     storageLimitBytes: Number(entry.storage_limit_bytes),
+    accountDisabled: entry.is_disabled,
   };
 }

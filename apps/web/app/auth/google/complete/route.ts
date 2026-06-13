@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/auth";
-import { bridgeGoogleUserToSupabase } from "@/lib/auth/google-supabase-bridge";
+import {
+  bridgeGoogleUserToSupabase,
+  GoogleBridgeError,
+} from "@/lib/auth/google-supabase-bridge";
 import { establishSupabaseSessionOnResponse } from "@/lib/auth/supabase-session-from-email";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -18,7 +22,7 @@ export async function GET(request: NextRequest) {
   const redirectUrl = new URL(nextPath, request.url);
 
   try {
-    await bridgeGoogleUserToSupabase({
+    const userId = await bridgeGoogleUserToSupabase({
       googleSub,
       email,
       name: session.user.name ?? undefined,
@@ -27,11 +31,24 @@ export async function GET(request: NextRequest) {
 
     const response = NextResponse.redirect(redirectUrl);
     await establishSupabaseSessionOnResponse(request, response, email);
+
+    const admin = getSupabaseAdminClient();
+    await admin
+      .from("client_invitations")
+      .update({ status: "accepted", accepted_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("status", "pending");
+
     return response;
   } catch (error) {
     console.error("Google Supabase bridge failed", error);
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("error", "google_bridge_failed");
+    if (error instanceof GoogleBridgeError) {
+      loginUrl.searchParams.set("apply", "1");
+      loginUrl.searchParams.set("email", email);
+    } else {
+      loginUrl.searchParams.set("error", "google_bridge_failed");
+    }
     return NextResponse.redirect(loginUrl);
   }
 }

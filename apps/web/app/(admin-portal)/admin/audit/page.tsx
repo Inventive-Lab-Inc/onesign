@@ -1,9 +1,7 @@
 import type { AdminAuditLogEntry } from "@signage/types";
 import { ScrollText } from "lucide-react";
-import {
-  AdminAuditLogTable,
-  type AuditActionFilter,
-} from "@/components/admin/admin-audit-log-table";
+import { AdminAuditLogTable } from "@/components/admin/admin-audit-log-table";
+import { parseAuditActionFilter } from "@/lib/admin/audit-log";
 import { getServerStaffAuth } from "@/lib/auth/staff";
 
 const PAGE_SIZE = 50;
@@ -19,11 +17,8 @@ function parsePage(value: string | undefined): number {
   return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
-function parseAction(value: string | undefined): AuditActionFilter {
-  if (value === "plan_update" || value === "account_disable" || value === "account_enable") {
-    return value;
-  }
-  return "all";
+function parseAction(value: string | undefined) {
+  return parseAuditActionFilter(value);
 }
 
 function parseClientId(value: string | undefined): string | null {
@@ -89,7 +84,7 @@ export default async function AdminAuditPage({
             ? clientLabel
               ? `Activity for ${clientLabel}.`
               : "Activity for this client account."
-            : "Platform staff actions on client accounts — plan updates, suspensions, and re-enables."}
+            : "Platform staff actions — plan updates, suspensions, invitations, and waitlist reviews."}
         </p>
       </div>
 

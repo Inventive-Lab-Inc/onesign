@@ -32,7 +32,8 @@ import { PlaylistAssetsPanel } from "@/components/playlist-assets-panel";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { DevicePlaybackToggle } from "@/components/device-playback-toggle";
-import { DeviceDisabledNotice, isDevicePausedByQuota, isDevicePlaybackDisabled } from "@/components/device-disabled-notice";
+import { usePlanQuota } from "@/components/console/plan-quota-context";
+import { DeviceDisabledNotice, deviceDisabledPresentation } from "@/components/device-disabled-notice";
 import { DeviceScreenOrientationSettings } from "@/components/device-screen-orientation-settings";
 import { PlaylistPreviewButton } from "@/components/playlist-preview";
 import { ReadonlyVideoDuration } from "@/components/readonly-video-duration";
@@ -104,14 +105,16 @@ export function DeviceScreenEditor({
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const { syncNow } = useConsoleSync();
   const activeAppRelease = useActiveAppRelease();
+  const plan = usePlanQuota();
+  const accountDisabled = plan?.accountDisabled ?? false;
 
   const storeDevices = useConsoleDataStore((s) => s.devices) as DeviceWithAssignments[];
   const device = useMemo(
     () => storeDevices.find((d) => d.id === deviceId),
     [storeDevices, deviceId],
   );
-  const deviceDisabled = device ? isDevicePlaybackDisabled(device) : false;
-  const pausedByQuota = device ? isDevicePausedByQuota(device) : false;
+  const disabledState = device ? deviceDisabledPresentation(device, accountDisabled) : null;
+  const deviceDisabled = disabledState?.show ?? false;
 
   useEffect(() => {
     void syncNow();
@@ -501,7 +504,11 @@ export function DeviceScreenEditor({
   return (
     <div className="space-y-6">
       {deviceDisabled ? (
-        <DeviceDisabledNotice canControlPlayback={canControlPlayback} pausedByQuota={pausedByQuota} />
+        <DeviceDisabledNotice
+          canControlPlayback={canControlPlayback}
+          accountSuspended={disabledState?.accountSuspended}
+          pausedByQuota={disabledState?.pausedByQuota}
+        />
       ) : null}
 
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">

@@ -1,10 +1,32 @@
+export type DeviceDisabledPresentation = {
+  show: boolean;
+  accountSuspended: boolean;
+  pausedByQuota: boolean;
+};
+
 export function DeviceDisabledNotice({
   canControlPlayback = false,
   pausedByQuota = false,
+  accountSuspended = false,
 }: {
   canControlPlayback?: boolean;
   pausedByQuota?: boolean;
+  accountSuspended?: boolean;
 }) {
+  if (accountSuspended) {
+    return (
+      <div
+        role="status"
+        className="rounded-xl border border-red-500/35 bg-red-500/8 px-4 py-3 text-sm text-red-950 dark:text-red-100"
+      >
+        <p>
+          This screen is paused because the client account is suspended. Re-enable the account to
+          resume playback.
+        </p>
+      </div>
+    );
+  }
+
   if (pausedByQuota) {
     return (
       <div
@@ -39,17 +61,34 @@ export function DeviceDisabledNotice({
   );
 }
 
-export function DeviceDisabledBadge({ pausedByQuota = false }: { pausedByQuota?: boolean }) {
+const deviceStatusChipClass =
+  "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide";
+
+export function DeviceDisabledBadge({
+  pausedByQuota = false,
+  accountSuspended = false,
+}: {
+  pausedByQuota?: boolean;
+  accountSuspended?: boolean;
+}) {
+  if (accountSuspended) {
+    return (
+      <span className={`${deviceStatusChipClass} bg-red-500/15 text-red-800 dark:text-red-200`}>
+        Suspended
+      </span>
+    );
+  }
+
   if (pausedByQuota) {
     return (
-      <span className="inline-flex items-center rounded-full bg-red-500/12 px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-red-800 dark:text-red-200">
-        Plan paused
+      <span className={`${deviceStatusChipClass} bg-red-500/15 text-red-800 dark:text-red-200`}>
+        Paused
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100">
+    <span className={`${deviceStatusChipClass} bg-amber-500/15 text-amber-900 dark:text-amber-100`}>
       Disabled
     </span>
   );
@@ -65,4 +104,36 @@ export function isDevicePausedByQuota(device: {
   paused_by_quota?: boolean | null;
 }): boolean {
   return Boolean(device.paused_by_quota);
+}
+
+export function isDeviceEffectivelyPlaybackDisabled(
+  device: {
+    playback_disabled?: boolean | null;
+    paused_by_quota?: boolean | null;
+  },
+  accountDisabled = false,
+): boolean {
+  return accountDisabled || isDevicePlaybackDisabled(device);
+}
+
+export function deviceDisabledPresentation(
+  device: {
+    playback_disabled?: boolean | null;
+    paused_by_quota?: boolean | null;
+  },
+  accountDisabled = false,
+): DeviceDisabledPresentation {
+  if (accountDisabled) {
+    return { show: true, accountSuspended: true, pausedByQuota: false };
+  }
+
+  if (!isDevicePlaybackDisabled(device)) {
+    return { show: false, accountSuspended: false, pausedByQuota: false };
+  }
+
+  return {
+    show: true,
+    accountSuspended: false,
+    pausedByQuota: isDevicePausedByQuota(device),
+  };
 }

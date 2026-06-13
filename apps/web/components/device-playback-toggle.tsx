@@ -1,7 +1,7 @@
 "use client";
 
 import type { Device } from "@signage/types";
-import { Tv } from "lucide-react";
+import { Loader2, Power, Tv } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
@@ -10,20 +10,19 @@ import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { Button } from "@/components/ui/button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import { cn } from "@/lib/utils";
 
-export function DevicePlaybackToggle({ device }: { device: Device }) {
+function useDevicePlaybackToggle(device: Device) {
   const supabase = getSupabaseBrowserClient();
   const { syncNow } = useConsoleSync();
   const patchDevice = useConsoleDataStore((s) => s.patchDevice);
-  const adminStaff = useOptionalAdminStaff();
   const [busy, setBusy] = useState(false);
-  const disabled = Boolean(device.playback_disabled);
-  const quotaPaused = isDevicePausedByQuota(device);
+  const playbackOff = Boolean(device.playback_disabled) || isDevicePausedByQuota(device);
 
   const toggle = useCallback(async () => {
     setBusy(true);
     try {
-      const next = !disabled;
+      const next = !playbackOff;
       const { error } = await supabase
         .from("devices")
         .update({ playback_disabled: next, paused_by_quota: false })
@@ -33,14 +32,70 @@ export function DevicePlaybackToggle({ device }: { device: Device }) {
         return;
       }
       patchDevice(device.id, { playback_disabled: next, paused_by_quota: false });
-      toast.success(next ? "Device disabled" : "Device enabled");
+      toast.success(next ? "Screen disabled" : "Screen enabled");
       await syncNow();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update screen");
     } finally {
       setBusy(false);
     }
-  }, [device.id, disabled, patchDevice, supabase, syncNow]);
+  }, [device.id, patchDevice, playbackOff, supabase, syncNow]);
+
+  return { busy, playbackOff, toggle };
+}
+
+export function DevicePlaybackPowerButton({
+  device,
+  className,
+  variant = "secondary",
+  onPointerDown,
+}: {
+  device: Device;
+  className?: string;
+  variant?: "secondary" | "outline";
+  onPointerDown?: (event: React.PointerEvent<HTMLButtonElement>) => void;
+}) {
+  const adminStaff = useOptionalAdminStaff();
+  const { busy, playbackOff, toggle } = useDevicePlaybackToggle(device);
+  const label = playbackOff ? `Enable ${device.name}` : `Disable ${device.name}`;
+
+  if (!adminStaff?.canWrite) {
+    return null;
+  }
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant={variant}
+      disabled={busy}
+      title={label}
+      aria-label={label}
+      className={cn(
+        "h-8 w-8 p-0 transition-all duration-150 hover:shadow-sm active:scale-[0.97]",
+        "hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300",
+        className,
+      )}
+      onPointerDown={onPointerDown}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void toggle();
+      }}
+    >
+      {busy ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+      ) : (
+        <Power className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+      )}
+    </Button>
+  );
+}
+
+export function DevicePlaybackToggle({ device }: { device: Device }) {
+  const adminStaff = useOptionalAdminStaff();
+  const { busy, playbackOff, toggle } = useDevicePlaybackToggle(device);
+  const quotaPaused = isDevicePausedByQuota(device);
 
   if (quotaPaused && !adminStaff?.canWrite) {
     return (
@@ -53,15 +108,15 @@ export function DevicePlaybackToggle({ device }: { device: Device }) {
   return (
     <Button
       type="button"
-      variant={disabled ? "default" : "outline"}
+      variant={playbackOff ? "default" : "outline"}
       size="sm"
       className="gap-2"
       disabled={busy}
-      title={disabled ? "Turn this device back on" : "Disable this device"}
+      title={playbackOff ? "Turn this device back on" : "Disable this device"}
       onClick={() => void toggle()}
     >
       <Tv className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-      {busy ? "Updating…" : disabled ? "Enable Device" : "Disable Device"}
+      {busy ? "Updating…" : playbackOff ? "Enable Device" : "Disable Device"}
     </Button>
   );
 }

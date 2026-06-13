@@ -1,8 +1,10 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { StaffPortalChoiceGate } from "@/components/auth/staff-portal-choice-gate";
 import { PlanQuotaProvider } from "@/components/console/plan-quota-context";
 import { DashboardShell } from "@/components/shell/dashboard-shell";
 import { PageContentLoading } from "@/components/shell/page-content-loading";
+import { getServerStaffAuth } from "@/lib/auth/staff";
 import { getAccountPlanSnapshot } from "@/lib/plan/get-account-plan";
 import { getServerAuthWithProfile } from "@/lib/supabase/auth";
 
@@ -20,7 +22,10 @@ async function DashboardPlanQuota({
 }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, profile } = await getServerAuthWithProfile();
+  const [{ user, profile }, staff] = await Promise.all([
+    getServerAuthWithProfile(),
+    getServerStaffAuth(),
+  ]);
 
   if (!user) {
     redirect("/login");
@@ -37,10 +42,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
     "User";
 
   return (
-    <DashboardShell authUserId={user.id} userEmail={user.email ?? ""} displayName={displayName}>
-      <Suspense fallback={<PageContentLoading label="Loading account data…" />}>
-        <DashboardPlanQuota userId={user.id}>{children}</DashboardPlanQuota>
-      </Suspense>
-    </DashboardShell>
+    <StaffPortalChoiceGate isStaff={!!staff}>
+      <DashboardShell authUserId={user.id} userEmail={user.email ?? ""} displayName={displayName} isStaff={!!staff}>
+        <Suspense fallback={<PageContentLoading label="Loading account data…" />}>
+          <DashboardPlanQuota userId={user.id}>{children}</DashboardPlanQuota>
+        </Suspense>
+      </DashboardShell>
+    </StaffPortalChoiceGate>
   );
 }

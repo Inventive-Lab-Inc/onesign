@@ -8,20 +8,14 @@ import { ViewClientButton } from "@/components/admin/view-client-button";
 import { useAppRouter } from "@/hooks/use-app-router";
 import {
   auditActionLabel,
+  AUDIT_ACTION_FILTERS,
+  auditSubjectKind,
   formatAuditMetadata,
   formatAuditTimestamp,
+  type AuditActionFilter,
 } from "@/lib/admin/audit-log";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-export const AUDIT_ACTION_FILTERS = [
-  { id: "all", label: "All actions" },
-  { id: "plan_update", label: "Plan updates" },
-  { id: "account_disable", label: "Suspensions" },
-  { id: "account_enable", label: "Re-enables" },
-] as const;
-
-export type AuditActionFilter = (typeof AUDIT_ACTION_FILTERS)[number]["id"];
 
 function buildAuditListUrl({
   page,
@@ -42,23 +36,68 @@ function buildAuditListUrl({
   return qs ? `${listPath}?${qs}` : listPath;
 }
 
-function ActionBadge({ action }: { action: string }) {
+function ActionBadge({
+  action,
+  metadata,
+}: {
+  action: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const statusAfter =
+    action === "waitlist_status" && typeof metadata?.status_after === "string"
+      ? metadata.status_after
+      : null;
+
   const tone =
-    action === "account_disable"
+    action === "account_disable" || statusAfter === "dismissed"
       ? "bg-red-500/10 text-red-800"
-      : action === "account_enable"
+      : action === "account_enable" || statusAfter === "invited"
         ? "bg-emerald-500/10 text-emerald-800"
-        : "bg-brand-faint15 text-foreground";
+        : statusAfter === "reviewed"
+          ? "bg-amber-500/10 text-amber-800"
+          : action === "client_invite"
+            ? "bg-sky-500/10 text-sky-800"
+            : "bg-brand-faint15 text-foreground";
 
   return (
     <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold", tone)}>
-      {auditActionLabel(action)}
+      {auditActionLabel(action, metadata)}
     </span>
   );
 }
 
 function targetDisplayName(entry: AdminAuditLogEntry): string {
   return entry.target_client_name?.trim() || entry.target_email?.split("@")[0] || "—";
+}
+
+function AuditSubjectCell({ entry }: { entry: AdminAuditLogEntry }) {
+  const kind = auditSubjectKind(entry);
+
+  if (entry.target_user_id) {
+    return (
+      <div className="space-y-1">
+        <div className="font-medium text-foreground">{targetDisplayName(entry)}</div>
+        <div className="text-xs text-muted-foreground">{entry.target_email}</div>
+        <ViewClientButton userId={entry.target_user_id} />
+      </div>
+    );
+  }
+
+  if (entry.target_email) {
+    return (
+      <div className="space-y-1">
+        <div className="font-medium text-foreground">{targetDisplayName(entry)}</div>
+        <div className="text-xs text-muted-foreground">{entry.target_email}</div>
+        {kind === "waitlist" ? (
+          <span className="inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[0.6875rem] font-semibold text-amber-800">
+            Waitlist
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  return <span className="text-muted-foreground">—</span>;
 }
 
 function actorDisplayName(entry: AdminAuditLogEntry): string {
@@ -157,7 +196,7 @@ export function AdminAuditLogTable({
                 <th className="px-4 py-3">When</th>
                 <th className="px-4 py-3">Action</th>
                 <th className="px-4 py-3">Admin</th>
-                {showClientColumn ? <th className="px-4 py-3">Client</th> : null}
+                {showClientColumn ? <th className="px-4 py-3">Subject</th> : null}
                 <th className="px-4 py-3">Details</th>
               </tr>
             </thead>
@@ -167,7 +206,7 @@ export function AdminAuditLogTable({
                   <td colSpan={showClientColumn ? 5 : 4} className="px-4 py-12 text-center">
                     <p className="text-sm font-medium text-foreground">No activity recorded yet</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Plan changes and account suspensions appear here.
+                      Plan changes, suspensions, invitations, and waitlist reviews appear here.
                     </p>
                   </td>
                 </tr>
@@ -178,7 +217,7 @@ export function AdminAuditLogTable({
                       {formatAuditTimestamp(entry.created_at)}
                     </td>
                     <td className="px-4 py-3">
-                      <ActionBadge action={entry.action} />
+                      <ActionBadge action={entry.action} metadata={entry.metadata ?? {}} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-foreground">{actorDisplayName(entry)}</div>
@@ -186,15 +225,7 @@ export function AdminAuditLogTable({
                     </td>
                     {showClientColumn ? (
                       <td className="px-4 py-3">
-                        {entry.target_user_id ? (
-                          <div className="space-y-1">
-                            <div className="font-medium text-foreground">{targetDisplayName(entry)}</div>
-                            <div className="text-xs text-muted-foreground">{entry.target_email}</div>
-                            <ViewClientButton userId={entry.target_user_id} />
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
+                        <AuditSubjectCell entry={entry} />
                       </td>
                     ) : null}
                     <td className="px-4 py-3 text-muted-foreground">

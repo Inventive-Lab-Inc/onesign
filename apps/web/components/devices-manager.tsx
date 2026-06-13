@@ -23,7 +23,8 @@ import { useConsoleDataStore } from "@/stores/console-data-store";
 import { deviceTelemetrySummaryLine } from "@/components/device-telemetry-panel";
 import { DeviceMediaCacheChip } from "@/components/device-media-cache-chip";
 import { DeviceAppVersionChip } from "@/components/device-app-version-chip";
-import { DeviceDisabledBadge, isDevicePausedByQuota, isDevicePlaybackDisabled } from "@/components/device-disabled-notice";
+import { DeviceDisabledBadge, deviceDisabledPresentation, isDevicePausedByQuota } from "@/components/device-disabled-notice";
+import { DevicePlaybackPowerButton } from "@/components/device-playback-toggle";
 import { useActiveAppRelease, type ActiveAppRelease } from "@/hooks/use-active-app-release";
 import { deviceAppUpdateStatus, getDeviceInstalledApp } from "@/lib/device-app-version";
 
@@ -57,6 +58,25 @@ function StatusBadge({ status }: { status: DeviceStatus }) {
   );
 }
 
+function deviceCardActionButtonClass(variant: "secondary" | "outline") {
+  return cn(
+    buttonVariants({ variant, size: "sm" }),
+    "h-8 w-8 p-0 transition-all duration-150 hover:shadow-sm active:scale-[0.97]",
+    variant === "secondary" ? "hover:bg-muted/90" : "hover:bg-muted/60",
+  );
+}
+
+function DeviceModelChip({ model }: { model: string }) {
+  return (
+    <span
+      className="inline-flex max-w-full items-center rounded-full border border-border/80 bg-background/90 px-2 py-0.5 text-[0.6875rem] font-medium text-muted-foreground shadow-sm"
+      title={model}
+    >
+      <span className="truncate">{model}</span>
+    </span>
+  );
+}
+
 const STATUS_FILTERS: { id: StatusFilter; label: string; icon: typeof Monitor }[] = [
   { id: "all", label: "All", icon: Monitor },
   { id: "online", label: "Online", icon: Wifi },
@@ -75,7 +95,9 @@ export function DevicesManager() {
   const adminRoutes = useAdminClientRoutes();
   const plan = usePlanQuota();
   const deviceLimit = plan?.deviceLimit ?? null;
+  const accountDisabled = plan?.accountDisabled ?? false;
   const readOnly = adminStaff != null && !adminStaff.canWrite;
+  const canControlPlayback = Boolean(adminStaff?.canWrite && !accountDisabled);
 
   const [pairingCode, setPairingCode] = useState("");
   const [friendlyName, setFriendlyName] = useState("");
@@ -190,19 +212,6 @@ export function DevicesManager() {
           />
         ) : null}
 
-        <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search screens…"
-              className="h-9 border-border bg-background pl-8 text-sm"
-              aria-label="Search devices"
-            />
-          </div>
-        </div>
-
         {!readOnly ? (
           <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
             <p className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -298,8 +307,8 @@ export function DevicesManager() {
 
       <div className="min-w-0 flex-1">
         <div className="flex min-h-full flex-col rounded-xl border border-border bg-card shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-            <div>
+          <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
+            <div className="min-w-0 shrink-0">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <span className="text-foreground">Screens</span>
                 <span className="text-muted-foreground/70">/</span>
@@ -322,7 +331,18 @@ export function DevicesManager() {
                 )}
               </p>
             </div>
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
+            <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+              <div className="relative w-full min-w-0 sm:w-48 lg:w-56">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search screens…"
+                  className="h-9 border-border bg-background pl-8 text-sm"
+                  aria-label="Search devices"
+                />
+              </div>
+              <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
               <button
                 type="button"
                 onClick={() => setView("grid")}
@@ -348,6 +368,7 @@ export function DevicesManager() {
                 <List className="h-4 w-4" strokeWidth={1.75} />
               </button>
             </div>
+            </div>
           </div>
 
           <div className="flex-1 p-4 sm:p-5">
@@ -368,12 +389,14 @@ export function DevicesManager() {
                 <p className="mt-1 max-w-sm text-xs text-muted-foreground">Try another search or status filter.</p>
               </div>
             ) : view === "grid" ? (
-              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <ul className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {filtered.map((device) => (
                   <DeviceCard
                     key={device.id}
                     device={device}
                     activeAppRelease={activeAppRelease}
+                    accountDisabled={accountDisabled}
+                    canControlPlayback={canControlPlayback}
                     canDelete={!readOnly}
                     onRequestDelete={() => setDevicePendingDelete(device)}
                   />
@@ -386,6 +409,8 @@ export function DevicesManager() {
                     key={device.id}
                     device={device}
                     activeAppRelease={activeAppRelease}
+                    accountDisabled={accountDisabled}
+                    canControlPlayback={canControlPlayback}
                     canDelete={!readOnly}
                     onRequestDelete={() => setDevicePendingDelete(device)}
                   />
@@ -412,80 +437,103 @@ export function DevicesManager() {
 function DeviceCard({
   device,
   activeAppRelease,
+  accountDisabled = false,
+  canControlPlayback = false,
   canDelete = true,
   onRequestDelete,
 }: {
   device: Device;
   activeAppRelease: ActiveAppRelease | null;
+  accountDisabled?: boolean;
+  canControlPlayback?: boolean;
   canDelete?: boolean;
   onRequestDelete: () => void;
 }) {
   const adminRoutes = useAdminClientRoutes();
   const deviceSummary = deviceTelemetrySummaryLine(device);
+  const disabledState = deviceDisabledPresentation(device, accountDisabled);
   return (
-    <li className="relative flex flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm transition-shadow hover:shadow-md">
+    <li className="relative flex h-full min-h-[15.5rem] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm transition-shadow hover:shadow-md">
       <Link
         href={deviceDetailPath(device.id, adminRoutes)}
         className="absolute inset-0 z-0 rounded-xl ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`Open screen: ${device.name}`}
       />
-      <div className="pointer-events-none relative z-[1] border-b border-border bg-gradient-to-br from-muted/80 to-muted/40 px-4 py-5">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-background shadow-sm ring-1 ring-border">
+      <div className="pointer-events-none relative z-[1] min-h-[6.5rem] border-b border-border bg-gradient-to-br from-muted/80 to-muted/40 px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background shadow-sm ring-1 ring-border">
             <Tv className="h-6 w-6 text-foreground" strokeWidth={1.5} />
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex flex-wrap justify-end gap-1">
-              <StatusBadge status={effectiveDeviceStatus(device)} />
-              {isDevicePlaybackDisabled(device) ? (
-                <DeviceDisabledBadge pausedByQuota={isDevicePausedByQuota(device)} />
-              ) : null}
+          <div className="min-w-0 flex-1">
+            <div className="space-y-0.5">
+              <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground" title={device.name}>
+                {device.name}
+              </p>
+              {deviceSummary ? <DeviceModelChip model={deviceSummary} /> : null}
             </div>
-            <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} compact />
+            <p className="mt-1 text-xs text-muted-foreground">Active · {formatDeviceLastSeen(device.last_seen)}</p>
           </div>
         </div>
-        <p className="mt-3 line-clamp-2 text-sm font-semibold leading-snug text-foreground" title={device.name}>
-          {device.name}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">Last seen · {formatDeviceLastSeen(device.last_seen)}</p>
-        {deviceSummary && (
-          <p className="line-clamp-1 text-xs text-muted-foreground/90" title={deviceSummary}>
-            {deviceSummary}
-          </p>
-        )}
-        <div className="mt-1.5">
+      </div>
+      <div className="pointer-events-none relative z-[1] min-h-[3.5rem] space-y-1 border-b border-border px-3 py-2">
+        <div className="flex min-h-[1.25rem] flex-wrap items-center gap-1">
+          <StatusBadge status={effectiveDeviceStatus(device)} />
+          {disabledState.show ? (
+            <DeviceDisabledBadge
+              accountSuspended={disabledState.accountSuspended}
+              pausedByQuota={disabledState.pausedByQuota}
+            />
+          ) : null}
+        </div>
+        <div className="flex min-h-[1.25rem] flex-wrap items-center gap-1">
+          <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} compact />
           <DeviceMediaCacheChip device={device} compact />
         </div>
       </div>
-      <div className="relative z-[1] flex flex-1 flex-col gap-3 p-3 pointer-events-none">
-        <p className="truncate font-mono text-[0.625rem] text-muted-foreground" title={device.id}>
-          {device.id.slice(0, 8)}…
-        </p>
-      </div>
-      <div className="relative z-[2] flex items-center justify-between gap-2 border-t border-border bg-background px-3 py-2">
-        <Link
-          href={deviceDetailPath(device.id, adminRoutes)}
-          className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "h-8 gap-1.5")}
-        >
-          <Settings className="h-3.5 w-3.5" aria-hidden />
-          Settings
-        </Link>
-        {canDelete ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1 text-destructive hover:bg-destructive/10"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onRequestDelete();
-            }}
+      <div className="relative z-[2] mt-auto flex items-center justify-between gap-1 border-t border-border bg-muted/30 px-3 py-2">
+        <div className="flex items-center gap-1">
+          {canDelete ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              aria-label={`Remove ${device.name}`}
+              className={cn(
+                deviceCardActionButtonClass("secondary"),
+                "hover:border-red-500/35 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300",
+              )}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRequestDelete();
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+            </Button>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-1">
+          {canControlPlayback ? (
+            <DevicePlaybackPowerButton
+              device={device}
+              variant="secondary"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+            />
+          ) : null}
+          <Link
+            href={deviceDetailPath(device.id, adminRoutes)}
+            aria-label={`Settings for ${device.name}`}
+            className={cn(
+              deviceCardActionButtonClass("secondary"),
+              "hover:text-foreground",
+            )}
           >
-            <Trash2 className="h-3.5 w-3.5" />
-            Remove
-          </Button>
-        ) : null}
+            <Settings className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+        </div>
       </div>
     </li>
   );
@@ -494,16 +542,21 @@ function DeviceCard({
 function DeviceListRow({
   device,
   activeAppRelease,
+  accountDisabled = false,
+  canControlPlayback = false,
   canDelete = true,
   onRequestDelete,
 }: {
   device: Device;
   activeAppRelease: ActiveAppRelease | null;
+  accountDisabled?: boolean;
+  canControlPlayback?: boolean;
   canDelete?: boolean;
   onRequestDelete: () => void;
 }) {
   const adminRoutes = useAdminClientRoutes();
   const deviceSummary = deviceTelemetrySummaryLine(device);
+  const disabledState = deviceDisabledPresentation(device, accountDisabled);
   return (
     <li className="relative flex flex-row items-center justify-between gap-3 px-3 py-4 transition-colors hover:bg-muted/40">
       <Link
@@ -516,49 +569,69 @@ function DeviceListRow({
           <Tv className="h-5 w-5 text-foreground" strokeWidth={1.5} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-semibold text-foreground">{device.name}</p>
+          <p className="truncate text-sm font-semibold text-foreground">{device.name}</p>
+          {deviceSummary ? (
+            <div className="mt-0.5">
+              <DeviceModelChip model={deviceSummary} />
+            </div>
+          ) : null}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <StatusBadge status={effectiveDeviceStatus(device)} />
-            {isDevicePlaybackDisabled(device) ? (
-              <DeviceDisabledBadge pausedByQuota={isDevicePausedByQuota(device)} />
+            {disabledState.show ? (
+              <DeviceDisabledBadge
+                accountSuspended={disabledState.accountSuspended}
+                pausedByQuota={disabledState.pausedByQuota}
+              />
             ) : null}
             <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} />
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">Last seen · {formatDeviceLastSeen(device.last_seen)}</p>
-          {deviceSummary && (
-            <p className="mt-0.5 line-clamp-1 max-w-md text-xs text-muted-foreground/90" title={deviceSummary}>
-              {deviceSummary}
-            </p>
-          )}
+          <p className="mt-1 text-xs text-muted-foreground">Active · {formatDeviceLastSeen(device.last_seen)}</p>
           <div className="mt-1">
             <DeviceMediaCacheChip device={device} compact />
           </div>
         </div>
       </div>
 
-      <div className="relative z-[2] flex shrink-0 items-center gap-2">
-        <Link
-          href={deviceDetailPath(device.id, adminRoutes)}
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-        >
-          <Settings className="h-3.5 w-3.5" aria-hidden />
-          Settings
-        </Link>
+      <div className="relative z-[2] flex shrink-0 items-center gap-1">
         {canDelete ? (
           <Button
             type="button"
             size="sm"
-            variant="ghost"
-            className="text-destructive hover:bg-destructive/10"
+            variant="outline"
+            aria-label={`Remove ${device.name}`}
+            className={cn(
+              deviceCardActionButtonClass("outline"),
+              "hover:border-red-500/35 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300",
+            )}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onRequestDelete();
             }}
           >
-            Remove
+            <Trash2 className="h-3.5 w-3.5" aria-hidden />
           </Button>
         ) : null}
+        {canControlPlayback ? (
+          <DevicePlaybackPowerButton
+            device={device}
+            variant="outline"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+          />
+        ) : null}
+        <Link
+          href={deviceDetailPath(device.id, adminRoutes)}
+          aria-label={`Settings for ${device.name}`}
+          className={cn(
+            deviceCardActionButtonClass("outline"),
+            "hover:text-foreground",
+          )}
+        >
+          <Settings className="h-3.5 w-3.5" aria-hidden />
+        </Link>
       </div>
     </li>
   );

@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useRouteNavigationPending } from "@/hooks/use-route-navigation-pending";
 import { NavigationProgressBar } from "@/components/shell/page-loading-skeleton";
-import { TopBar } from "./top-bar";
+import { TopBar, type ProfilePortalSwitch } from "./top-bar";
 import { useBreakpoint } from "./use-breakpoint";
 import type { AppLayoutConfig, NavItem } from "./types";
 import { assets, getBackgroundStyle } from "@/lib/config/assets";
@@ -14,6 +14,7 @@ interface AppLayoutProps extends AppLayoutConfig {
   bottomNavItem?: NavItem;
   profileSubtext?: string;
   onSignOut?: () => void;
+  portalSwitch?: ProfilePortalSwitch;
   getPageTitle?: (pathname: string) => string;
   searchPlaceholder?: string;
   topBarCenterSlot?: ReactNode;
@@ -38,6 +39,7 @@ export function AppLayout({
   bottomNavItem,
   profileSubtext,
   onSignOut,
+  portalSwitch,
   searchPlaceholder,
   topBarCenterSlot,
   topBarRightSlot,
@@ -139,6 +141,7 @@ export function AppLayout({
             userName={userName}
             profileSubtext={profileSubtext}
             onSignOut={onSignOut}
+            portalSwitch={portalSwitch}
             centerSlot={topBarCenterSlot}
             searchPlaceholder={searchPlaceholder}
             rightSlot={topBarRightSlot}

@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2, Power } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -40,41 +41,42 @@ export function AdminAccountActions({
   }
 
   return (
-    <div className="rounded-xl border border-border/90 bg-card p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-foreground">Account control</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        {isDisabled
-          ? "This client cannot sign in and all screens are paused."
-          : "Disabling suspends sign-in and pauses every linked screen immediately."}
-      </p>
-      <Button
-        type="button"
-        size="sm"
-        variant={isDisabled ? "default" : "outline"}
-        disabled={loading}
-        className={cn("mt-3", !isDisabled && "text-destructive hover:text-destructive")}
-        onClick={() => {
-          const message = nextDisabled
-            ? `Disable ${email}? All of their screens will pause immediately.`
-            : `Re-enable ${email}? All of their screens will resume playback.`;
-          if (!window.confirm(message)) return;
+    <Button
+      type="button"
+      size="sm"
+      variant={isDisabled ? "default" : "destructive"}
+      disabled={loading}
+      title={label}
+      aria-label={label}
+      className={cn(
+        "h-8 w-8 shrink-0 p-0",
+        isDisabled && "bg-emerald-600 text-white hover:bg-emerald-700",
+      )}
+      onClick={() => {
+        const message = nextDisabled
+          ? `Disable ${email}? All of their screens will pause immediately.`
+          : `Re-enable ${email}? All of their screens will resume playback.`;
+        if (!window.confirm(message)) return;
 
-          setLoading(true);
-          void (async () => {
-            try {
-              await setAccountDisabled(userId, nextDisabled);
-              toast.success(nextDisabled ? "Account disabled" : "Account enabled");
-              router.refresh();
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Could not update account");
-            } finally {
-              setLoading(false);
-            }
-          })();
-        }}
-      >
-        {loading ? "Saving…" : label}
-      </Button>
-    </div>
+        setLoading(true);
+        void (async () => {
+          try {
+            await setAccountDisabled(userId, nextDisabled);
+            toast.success(nextDisabled ? "Account disabled" : "Account enabled");
+            router.refresh();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not update account");
+          } finally {
+            setLoading(false);
+          }
+        })();
+      }}
+    >
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+      ) : (
+        <Power className="h-4 w-4" aria-hidden />
+      )}
+    </Button>
   );
 }

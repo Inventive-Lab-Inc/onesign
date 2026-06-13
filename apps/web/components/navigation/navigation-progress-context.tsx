@@ -37,9 +37,11 @@ export function NavigationProgressProvider({ children }: { children: ReactNode }
       if (typeof window === "undefined") return;
       const target = navigationTarget(href, window.location.origin);
       if (!target) return;
+      const targetPath = target.split("?")[0] ?? target;
+      if (targetPath === pathname) return;
       const current = pathname + window.location.search;
       if (target === current) return;
-      setPendingPath(target.split("?")[0] ?? target);
+      setPendingPath(targetPath);
     },
     [pathname],
   );
