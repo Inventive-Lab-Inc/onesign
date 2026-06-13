@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { findAuthUserIdByEmail } from "@/lib/auth/find-user-by-email";
 
 export interface GoogleBridgeInput {
   googleSub: string;
@@ -8,30 +9,11 @@ export interface GoogleBridgeInput {
   image?: string;
 }
 
-async function findUserIdByEmail(admin: SupabaseClient, email: string): Promise<string | null> {
-  const normalizedEmail = email.trim().toLowerCase();
-  let page = 1;
-  const perPage = 200;
-
-  while (true) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-    if (error) {
-      throw error;
-    }
-
-    const match = data.users.find((user) => user.email?.trim().toLowerCase() === normalizedEmail);
-    if (match) {
-      return match.id;
-    }
-
-    if (data.users.length < perPage) {
-      break;
-    }
-
-    page += 1;
+export class GoogleBridgeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GoogleBridgeError";
   }
-
-  return null;
 }
 
 async function linkGoogleIdentity(admin: SupabaseClient, googleSub: string, userId: string): Promise<void> {
@@ -69,34 +51,13 @@ export async function bridgeGoogleUserToSupabase(input: GoogleBridgeInput): Prom
     return linkedUserId;
   }
 
-  const existingUserId = await findUserIdByEmail(admin, email);
+  const existingUserId = await findAuthUserIdByEmail(admin, email);
   if (existingUserId) {
     await linkGoogleIdentity(admin, googleSub, existingUserId);
     return existingUserId;
   }
 
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email,
-    email_confirm: true,
-    user_metadata: {
-      full_name: input.name ?? null,
-      avatar_url: input.image ?? null,
-      google_sub: googleSub,
-    },
-    app_metadata: {
-      providers: ["google"],
-    },
-  });
-
-  if (createError) {
-    throw createError;
-  }
-
-  const userId = created.user?.id;
-  if (!userId) {
-    throw new Error("Supabase did not return a user id after Google sign-up.");
-  }
-
-  await linkGoogleIdentity(admin, googleSub, userId);
-  return userId;
+  throw new GoogleBridgeError(
+    "No account found for this Google email. Ask your administrator for an invitation.",
+  );
 }

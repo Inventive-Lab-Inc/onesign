@@ -19,7 +19,7 @@ function hasSupabaseAuthCookie(request: NextRequest): boolean {
  * Refreshes the session cookie when needed and returns the response to continue the request.
  * Uses getClaims() (local JWT validation) instead of getSession()/getUser() network calls.
  */
-const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password"];
+const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth/accept-invite"];
 
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname;

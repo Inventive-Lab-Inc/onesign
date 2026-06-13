@@ -64,6 +64,8 @@ export interface AdminUserDirectoryEntry {
   is_staff: boolean;
   /** Total rows matching the current admin list filter (paginated RPC only). */
   total_count?: number;
+  /** True when the account was invited but has not completed first sign-in. */
+  invitation_pending?: boolean;
 }
 
 /** Row returned by admin_list_audit_log() RPC. */

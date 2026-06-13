@@ -28,7 +28,21 @@ async function setAccountDisabled(userId: string, disabled: boolean) {
   }
 }
 
-function AccountStatusBadge({ isDisabled }: { isDisabled: boolean }) {
+function AccountStatusBadge({
+  isDisabled,
+  invitationPending,
+}: {
+  isDisabled: boolean;
+  invitationPending?: boolean;
+}) {
+  if (invitationPending) {
+    return (
+      <span className="inline-flex rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-200">
+        Invite pending
+      </span>
+    );
+  }
+
   return (
     <span
       className={cn(
@@ -40,6 +54,51 @@ function AccountStatusBadge({ isDisabled }: { isDisabled: boolean }) {
     >
       {isDisabled ? "Disabled" : "Active"}
     </span>
+  );
+}
+
+async function resendClientInvite(email: string) {
+  const response = await fetch("/api/admin/invite-client", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? "Failed to resend invitation");
+  }
+  const body = (await response.json().catch(() => null)) as { message?: string } | null;
+  return body?.message ?? `Invitation resent to ${email}`;
+}
+
+function ResendInviteButton({ email }: { email: string }) {
+  const router = useAppRouter();
+  const [loading, setLoading] = useState(false);
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={loading}
+      onClick={() => {
+        setLoading(true);
+        void (async () => {
+          try {
+            const message = await resendClientInvite(email);
+            toast.success(message);
+            router.refresh();
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not resend invitation");
+          } finally {
+            setLoading(false);
+          }
+        })();
+      }}
+    >
+      {loading ? "Sending…" : "Resend invite"}
+    </Button>
   );
 }
 
@@ -282,7 +341,10 @@ export function AdminUsersTable({
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{row.email}</td>
                     <td className="px-4 py-3">
-                      <AccountStatusBadge isDisabled={row.is_disabled} />
+                      <AccountStatusBadge
+                        isDisabled={row.is_disabled}
+                        invitationPending={row.invitation_pending}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <PlanUsageMeter
@@ -308,11 +370,16 @@ export function AdminUsersTable({
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         <ViewClientButton userId={row.id} />
                         {!row.is_staff && canWrite ? (
-                          <AccountDisableToggle
-                            userId={row.id}
-                            isDisabled={row.is_disabled}
-                            email={row.email}
-                          />
+                          <>
+                            {row.invitation_pending ? (
+                              <ResendInviteButton email={row.email} />
+                            ) : null}
+                            <AccountDisableToggle
+                              userId={row.id}
+                              isDisabled={row.is_disabled}
+                              email={row.email}
+                            />
+                          </>
                         ) : null}
                       </div>
                     </td>

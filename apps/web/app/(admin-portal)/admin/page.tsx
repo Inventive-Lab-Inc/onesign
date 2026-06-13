@@ -1,5 +1,6 @@
 import type { AdminDirectoryStats, AdminUserDirectoryEntry } from "@signage/types";
 import { Monitor, Users } from "lucide-react";
+import { AdminInviteClientPanel } from "@/components/admin/admin-invite-client-panel";
 import { AdminUsersTable } from "@/components/admin/admin-users-table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getServerStaffAuth } from "@/lib/auth/staff";
@@ -137,7 +138,10 @@ export default async function AdminOverviewPage({
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-tight text-foreground">Client accounts</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">Client accounts</h2>
+          <AdminInviteClientPanel />
+        </div>
         <AdminUsersTable
           users={users}
           page={page}

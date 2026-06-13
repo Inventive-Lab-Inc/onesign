@@ -25,3 +25,8 @@ export function getGoogleAuthCallbackUrl(nextPath = "/dashboard"): string {
   const next = encodeURIComponent(nextPath);
   return `${getAppUrl()}/auth/google/complete?next=${next}`;
 }
+
+/** Admin invite emails land on /auth/confirm then /auth/accept-invite to set a password. */
+export function getInviteAcceptRedirectUrl(): string {
+  return getOAuthConfirmRedirectUrl("/auth/accept-invite");
+}

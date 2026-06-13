@@ -63,11 +63,11 @@ export function AdminAdminsTable({ admins }: { admins: AdminDirectoryEntry[] }) 
           role: "operator",
         }),
       });
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      const body = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
       if (!response.ok) {
         throw new Error(body?.error ?? "Unable to add admin");
       }
-      toast.success(`${trimmedEmail} now has admin portal access.`);
+      toast.success(body?.message ?? `Invitation sent to ${trimmedEmail}. They can set a password from the email link.`);
       setEmail("");
       setDisplayName("");
       router.refresh();

@@ -1,18 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useAppRouter } from "@/hooks/use-app-router";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { assets, getBackgroundStyle } from "@/lib/config/assets";
 import { AuthBrandHeader } from "@/components/auth-brand-header";
-
-const AUTH_PANEL_CSS = `.auth-card input::placeholder { color: #9ca3af; }
-.auth-right-panel { overflow: auto; scrollbar-width: none; -ms-overflow-style: none; }
-.auth-right-panel::-webkit-scrollbar { display: none; }`;
+import { assets, getBackgroundStyle } from "@/lib/config/assets";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const inputBase: React.CSSProperties = {
   width: "100%",
@@ -93,16 +88,20 @@ const styles: Record<string, React.CSSProperties> = {
   },
   formStack: {
     width: "100%",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
   },
   formTitle: {
-    margin: "0 0 1rem",
+    margin: "0 0 0.5rem",
     fontSize: "1.75rem",
     fontWeight: 800,
     color: "#111827",
     textAlign: "center",
+  },
+  formHint: {
+    margin: "0 0 1rem",
+    fontSize: "0.8125rem",
+    color: "#6b7280",
+    textAlign: "center",
+    lineHeight: 1.4,
   },
   form: {
     display: "flex",
@@ -126,19 +125,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
     color: "#374151",
   },
-  passwordFieldHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "0.75rem",
-  },
-  forgotLink: {
-    fontSize: "0.8125rem",
-    color: "#171717",
-    fontWeight: 600,
-    textDecoration: "underline",
-    whiteSpace: "nowrap",
-  },
   input: inputBase,
   inputPassword: { ...inputBase, paddingRight: "2.5rem" },
   passwordWrap: {
@@ -159,6 +145,11 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
   },
+  passwordHint: {
+    fontSize: "0.6875rem",
+    color: "#6b7280",
+    marginTop: "0.125rem",
+  },
   submitButton: {
     marginTop: "0.5rem",
     padding: "0.75rem 1rem",
@@ -174,6 +165,7 @@ const styles: Record<string, React.CSSProperties> = {
     margin: "1.5rem 0 0",
     fontSize: "0.8125rem",
     color: "#6b7280",
+    textAlign: "center",
   },
   footerLink: {
     color: "#171717",
@@ -182,44 +174,68 @@ const styles: Record<string, React.CSSProperties> = {
   },
 };
 
-export function LoginForm() {
-  const router = useAppRouter();
+export function AcceptInviteForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/dashboard";
   const authError = searchParams.get("error");
-  const notice = searchParams.get("notice");
 
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setError(null);
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
+
     try {
       const supabase = getSupabaseBrowserClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
         const message =
-          signInError.message === "Invalid login credentials"
-            ? "Email or password is incorrect. If you recently reset your password, use the new one."
-            : signInError.message;
+          "This invitation link is invalid or has expired. Ask your administrator to resend it.";
         setError(message);
         toast.error(message);
         return;
       }
-      router.replace(next);
+
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) {
+        const message =
+          updateError.message.includes("session") || updateError.message.includes("Auth")
+            ? "This invitation link is invalid or has expired. Ask your administrator to resend it."
+            : updateError.message;
+        setError(message);
+        toast.error(message);
+        return;
+      }
+
+      await fetch("/api/auth/invitation-accepted", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+
+      toast.success("Account ready. Welcome to OneSign.");
+      router.replace("/dashboard");
       router.refresh();
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message.includes("Missing Supabase")
-            ? "App is not configured for sign-in. Contact your administrator."
-            : err.message
-          : "Sign-in failed";
+      const message = err instanceof Error ? err.message : "Could not complete invitation";
       setError(message);
       toast.error(message);
     } finally {
@@ -229,10 +245,9 @@ export function LoginForm() {
 
   return (
     <div className="auth-card auth-card--login" style={styles.wrapper}>
-      <style>{AUTH_PANEL_CSS}</style>
       <div className="auth-left-panel" style={styles.leftPanel}>
-        <h1 style={styles.leftTitle}>Welcome back</h1>
-        <p style={styles.leftSubtitle}>Sign in with the email and password from your invitation.</p>
+        <h1 style={styles.leftTitle}>You&apos;re invited</h1>
+        <p style={styles.leftSubtitle}>Create your password to activate your OneSign console.</p>
       </div>
       <div className="auth-right-panel" style={styles.rightPanel}>
         <div className="auth-content" style={styles.authContent}>
@@ -240,23 +255,14 @@ export function LoginForm() {
             <AuthBrandHeader variant="hero-light" />
           </div>
           <div style={styles.formStack}>
-            <h2 style={styles.formTitle}>Login</h2>
+            <h2 style={styles.formTitle}>Set your password</h2>
+            <p style={styles.formHint}>
+              Choose a password for the email address in your invitation.
+            </p>
             <form onSubmit={onSubmit} style={styles.form}>
-              {notice === "invite_only" && (
-                <div
-                  style={{
-                    ...styles.error,
-                    background: "#eff6ff",
-                    color: "#1d4ed8",
-                  }}
-                  role="status"
-                >
-                  Accounts are invitation-only. Contact your administrator if you need access.
-                </div>
-              )}
               {authError === "auth_confirm_failed" && (
                 <div style={styles.error} role="alert">
-                  That link is invalid or has expired. Ask your administrator to resend your invitation.
+                  This invitation link is invalid or has expired. Ask your administrator to resend it.
                 </div>
               )}
               {error && (
@@ -265,44 +271,21 @@ export function LoginForm() {
                 </div>
               )}
               <label style={styles.field}>
-                <span style={styles.fieldLabel}>Email</span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  required
-                  autoComplete="email"
-                  style={styles.input}
-                />
-              </label>
-              <label style={styles.field}>
-                <div style={styles.passwordFieldHeader}>
-                  <span style={styles.fieldLabel}>Password</span>
-                  <Link
-                    href={
-                      email.trim()
-                        ? `/forgot-password?email=${encodeURIComponent(email.trim())}`
-                        : "/forgot-password"
-                    }
-                    style={styles.forgotLink}
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
+                <span style={styles.fieldLabel}>Password</span>
                 <div style={styles.passwordWrap}>
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Create a password"
                     required
-                    autoComplete="current-password"
+                    autoComplete="new-password"
+                    minLength={8}
                     style={styles.inputPassword}
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword((s) => !s)}
+                    onClick={() => setShowPassword((value) => !value)}
                     style={styles.eyeButton}
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
@@ -313,13 +296,30 @@ export function LoginForm() {
                     )}
                   </button>
                 </div>
+                <span style={styles.passwordHint}>Must be at least 8 characters.</span>
+              </label>
+              <label style={styles.field}>
+                <span style={styles.fieldLabel}>Confirm password</span>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="Re-enter your password"
+                  required
+                  autoComplete="new-password"
+                  minLength={8}
+                  style={styles.input}
+                />
               </label>
               <button type="submit" disabled={loading} style={styles.submitButton}>
-                {loading ? "Signing in…" : "Login"}
+                {loading ? "Activating…" : "Activate account"}
               </button>
             </form>
             <p style={styles.footer}>
-              Need access? Ask your administrator to send you an invitation.
+              Already set up?{" "}
+              <Link href="/login" style={styles.footerLink}>
+                Sign in
+              </Link>
             </p>
           </div>
         </div>
