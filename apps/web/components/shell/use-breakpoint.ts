@@ -2,17 +2,17 @@
 
 import { useEffect, useState } from "react";
 
-function getWidth() {
-  return typeof window !== "undefined" ? window.innerWidth : 1280;
-}
+/** SSR-safe default — must match server render before hydration. */
+const SSR_WIDTH = 1280;
 
 export function useBreakpoint() {
-  const [width, setWidth] = useState(getWidth);
+  const [width, setWidth] = useState(SSR_WIDTH);
 
   useEffect(() => {
-    const handler = () => setWidth(window.innerWidth);
-    window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
+    const sync = () => setWidth(window.innerWidth);
+    sync();
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
   }, []);
 
   return {

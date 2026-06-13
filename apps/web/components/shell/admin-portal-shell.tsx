@@ -50,7 +50,7 @@ export function AdminPortalShell({
       name: "OneSign",
       subtitle: "Admin",
       icon: Shield,
-      logoColor: "#DC2626",
+      logoColor: "var(--theme)",
     }),
     [],
   );
@@ -92,7 +92,6 @@ export function AdminPortalShell({
             }}
             searchPlaceholder="Search clients…"
             topBarSyncControl={<AdminPortalSyncControl />}
-            outerBg="#1f2937"
             contentCardBg="#F4F7FB"
           >
             <DashboardRoutePrefetch paths={prefetchPaths} />

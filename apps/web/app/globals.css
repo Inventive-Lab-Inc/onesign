@@ -111,22 +111,75 @@ optgroup,
 .auth-card input::placeholder {
   color: #9ca3af;
 }
+
+/* Scroll-safe auth layout: margin auto centers when content fits, scrolls when it doesn't */
+.auth-card--login {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .auth-right-panel {
-  overflow: auto;
+  justify-content: flex-start !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+
 .auth-right-panel::-webkit-scrollbar {
   display: none;
 }
 
-/* Login mobile layout only — desktop keeps inline styles from login-form.tsx */
-@media (max-width: 48rem) {
+.auth-content {
+  margin-block: auto;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.auth-card--login .auth-brand-offset {
+  transform: none !important;
+}
+
+@media (min-width: 48.0625rem) and (min-height: 42rem) {
+  .auth-card--login .auth-brand-offset {
+    transform: translateY(-1.5rem) !important;
+  }
+}
+
+@media (max-height: 42rem) {
+  .auth-card--login .auth-content {
+    gap: 1.25rem !important;
+  }
+
+  .auth-card--login .auth-right-panel {
+    padding-block: 1rem !important;
+  }
+
+  .auth-card--login h2 {
+    margin-bottom: 0.625rem !important;
+    font-size: 1.5rem !important;
+  }
+}
+
+.auth-card--login input,
+.auth-card--login select,
+.auth-card--login textarea {
+  font-size: max(1rem, 16px);
+}
+
+/* Login compact / mobile — stack earlier so browser zoom keeps the form usable */
+@media (max-width: 56rem) {
   .auth-card--login {
     flex-direction: column !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
+    min-height: 100dvh !important;
+    height: auto !important;
+    max-height: none !important;
     padding: 0 !important;
     border-radius: 0 !important;
     background: #fff !important;
@@ -138,29 +191,24 @@ optgroup,
 
   .auth-card--login .auth-right-panel {
     flex: 1 1 auto !important;
-    min-height: 100dvh;
-    padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem
-      max(1.5rem, env(safe-area-inset-bottom)) !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    padding: max(1rem, env(safe-area-inset-top)) 1.25rem
+      max(1.25rem, env(safe-area-inset-bottom)) !important;
     background: #fff !important;
     border-radius: 0 !important;
-    justify-content: center !important;
     align-items: center;
   }
 
   .auth-card--login .auth-content {
-    width: 100%;
     max-width: 22rem;
-    gap: 1.5rem !important;
+    gap: 1.25rem !important;
     align-items: center !important;
   }
 
   .auth-card--login .auth-brand-offset {
     transform: none !important;
     align-self: center;
-  }
-
-  .auth-card--login input {
-    font-size: 1.143rem;
   }
 
   .auth-card--login button[type="submit"] {

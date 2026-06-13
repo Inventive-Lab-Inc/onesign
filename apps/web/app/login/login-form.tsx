@@ -7,13 +7,28 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { assets, getBackgroundStyle } from "@/lib/config/assets";
+import { assets } from "@/lib/config/assets";
+import dynamic from "next/dynamic";
 import { AuthBrandHeader } from "@/components/auth-brand-header";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 
-const AUTH_PANEL_CSS = `.auth-card input::placeholder { color: #9ca3af; }
-.auth-right-panel { overflow: auto; scrollbar-width: none; -ms-overflow-style: none; }
-.auth-right-panel::-webkit-scrollbar { display: none; }`;
+const LoginMotionPanel = dynamic(
+  () =>
+    import("@/components/auth/login-motion-panel").then((m) => ({ default: m.LoginMotionPanel })),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: "linear-gradient(160deg, #1a120e 0%, #0a0a0a 100%)",
+        }}
+        aria-hidden
+      />
+    ),
+  },
+);
 
 const inputBase: React.CSSProperties = {
   width: "100%",
@@ -33,7 +48,6 @@ const styles: Record<string, React.CSSProperties> = {
     width: "100%",
     height: "100%",
     display: "flex",
-    overflow: "hidden",
     background: "#e5e7eb",
     padding: "0.5rem",
     boxSizing: "border-box",
@@ -42,55 +56,30 @@ const styles: Record<string, React.CSSProperties> = {
   leftPanel: {
     flex: 7,
     minWidth: 0,
-    padding: "2.5rem 2rem",
-    ...getBackgroundStyle(assets.loginBackgroundValue),
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    gap: "0.5rem",
     minHeight: 0,
     overflow: "hidden",
     borderRadius: "0.5rem",
     borderTopRightRadius: 0,
     borderBottomRightRadius: 0,
-  },
-  leftTitle: {
-    margin: 0,
-    fontSize: "clamp(2rem, 4vw, 3.5rem)",
-    fontWeight: 700,
-    color: "#fff",
-    lineHeight: 1.1,
-  },
-  leftSubtitle: {
-    margin: 0,
-    fontSize: "1.05rem",
-    fontWeight: 400,
-    color: "rgba(255,255,255,0.9)",
-    lineHeight: 1.25,
+    position: "relative",
   },
   rightPanel: {
     flex: 3,
     minWidth: 0,
     minHeight: 0,
-    padding: "2.5rem 2rem",
+    padding: "clamp(1rem, 3vh, 2.5rem) clamp(1rem, 2vw, 2rem)",
     background: "#fff",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "center",
-    overflow: "auto",
     borderRadius: "0.5rem",
     borderTopLeftRadius: 0,
     borderBottomLeftRadius: 0,
   },
   authContent: {
-    width: "100%",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "2.5rem",
-  },
-  brandMarkOffset: {
-    transform: "translateY(-3rem)",
+    gap: "clamp(1.25rem, 4vh, 2.5rem)",
   },
   formStack: {
     width: "100%",
@@ -214,14 +203,15 @@ export function LoginForm() {
 
   return (
     <div className="auth-card auth-card--login" style={styles.wrapper}>
-      <style>{AUTH_PANEL_CSS}</style>
       <div className="auth-left-panel" style={styles.leftPanel}>
-        <h1 style={styles.leftTitle}>Welcome back</h1>
-        <p style={styles.leftSubtitle}>Sign in with Google or your email and password.</p>
+        <LoginMotionPanel
+          title="Welcome back"
+          subtitle="Your promos and playlists — on every screen, in every venue."
+        />
       </div>
       <div className="auth-right-panel" style={styles.rightPanel}>
         <div className="auth-content" style={styles.authContent}>
-          <div className="auth-brand-offset" style={styles.brandMarkOffset}>
+          <div className="auth-brand-offset" data-auth-anchor>
             <AuthBrandHeader variant="hero-light" />
           </div>
           <div style={styles.formStack}>
@@ -304,11 +294,11 @@ export function LoginForm() {
                   Forgot password?
                 </Link>
               </label>
-              <button type="submit" disabled={loading} style={styles.submitButton}>
+              <button type="submit" disabled={loading} data-auth-anchor style={styles.submitButton}>
                 {loading ? "Signing in…" : "Sign in"}
               </button>
             </form>
-            <p style={styles.footer}>
+            <p className="auth-login-footer" data-auth-anchor style={styles.footer}>
               New to OneSign?{" "}
               <Link href="/signup" style={{ color: assets.themePrimary, fontWeight: 600 }}>
                 Start free trial
