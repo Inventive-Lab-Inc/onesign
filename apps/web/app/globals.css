@@ -94,18 +94,6 @@ optgroup,
   .top-nav-slide-indicator {
     transition: none !important;
   }
-
-  .topbar-expandable-search {
-    transition: none !important;
-  }
-}
-
-.topbar-shell-search::placeholder {
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.topbar-expandable-search {
-  transition: width 0.2s ease, height 0.2s ease, padding 0.2s ease, gap 0.2s ease;
 }
 
 .auth-card input::placeholder {

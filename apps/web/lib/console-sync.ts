@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Device, Media, Playlist, PlaylistItemWithMedia } from "@signage/types";
+import type { Device, DeviceGroup, Media, Playlist, PlaylistItemWithMedia } from "@signage/types";
 
 export type DeviceWithAssignments = Device & {
   device_playlists: Array<{ playlist_id: string; is_active: boolean }> | null;
@@ -36,8 +36,13 @@ function mapPlaylistItemRow(row: RawPlaylistItemRow): PlaylistItemWithMedia {
   };
 }
 
+export type DeviceGroupWithMembers = DeviceGroup & {
+  member_device_ids: string[];
+};
+
 export type ConsoleSnapshot = {
   devices: DeviceWithAssignments[];
+  deviceGroups: DeviceGroupWithMembers[];
   playlists: Playlist[];
   media: Media[];
   playlistItemsByPlaylistId: Record<string, PlaylistItemWithMedia[]>;
@@ -52,21 +57,28 @@ export async function pullConsoleData(supabase: SupabaseClient, userId: string):
     console.warn("[pullConsoleData] mark_stale_devices_offline:", staleErr.message);
   }
 
-  const [devicesRes, playlistsRes, mediaRes] = await Promise.all([
+  const [devicesRes, deviceGroupsRes, playlistsRes, mediaRes] = await Promise.all([
     supabase
       .from("devices")
       .select("*, device_playlists(playlist_id,is_active)")
       .eq("owner_id", userId)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("device_groups")
+      .select("*, device_group_members(device_id)")
+      .eq("owner_id", userId)
+      .order("created_at", { ascending: true }),
     supabase.from("playlists").select("*").eq("owner_id", userId).order("created_at", { ascending: false }),
     supabase.from("media").select("*").eq("owner_id", userId).order("created_at", { ascending: false }),
   ]);
 
   if (devicesRes.error) throw devicesRes.error;
+  if (deviceGroupsRes.error) throw deviceGroupsRes.error;
   if (playlistsRes.error) throw playlistsRes.error;
   if (mediaRes.error) throw mediaRes.error;
 
   const devices = (devicesRes.data as DeviceWithAssignments[]) ?? [];
+  const deviceGroups = mapDeviceGroups(deviceGroupsRes.data);
   const playlists = (playlistsRes.data as Playlist[]) ?? [];
   const media = (mediaRes.data as Media[]) ?? [];
 
@@ -93,5 +105,23 @@ export async function pullConsoleData(supabase: SupabaseClient, userId: string):
     }
   }
 
-  return { devices, playlists, media, playlistItemsByPlaylistId };
+  return { devices, deviceGroups, playlists, media, playlistItemsByPlaylistId };
+}
+
+type RawDeviceGroupRow = DeviceGroup & {
+  device_group_members: Array<{ device_id: string }> | null;
+};
+
+function mapDeviceGroups(rows: RawDeviceGroupRow[] | null): DeviceGroupWithMembers[] {
+  return (rows ?? []).map((row) => {
+    const members = row.device_group_members ?? [];
+    return {
+      id: row.id,
+      owner_id: row.owner_id,
+      name: row.name,
+      accent_color: row.accent_color,
+      created_at: row.created_at,
+      member_device_ids: members.map((m) => m.device_id),
+    };
+  });
 }

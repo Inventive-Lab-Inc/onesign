@@ -70,7 +70,6 @@ function DashboardShellInner({
             }
           : undefined
       }
-      searchPlaceholder="Search..."
       topBarSyncControl={<ConsoleSyncButton />}
       banner={<TrialStrip />}
     >

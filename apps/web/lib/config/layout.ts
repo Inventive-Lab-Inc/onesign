@@ -22,8 +22,8 @@ export function getPageTitle(pathname: string): string {
     "/devices": "Devices",
     "/playlists": "Playlists",
     "/media": "Media",
-    "/profile": "Profile",
-    "/settings": "Settings",
+    "/account": "Account",
+    "/download-app": "Download App",
   };
   if (titles[pathname]) return titles[pathname];
   if (pathname.startsWith("/devices/")) return "Screen";

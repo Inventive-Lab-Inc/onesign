@@ -1,0 +1,72 @@
+.account-page-header {
+  position: relative;
+}
+
+.account-page-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -0.75rem;
+  width: 3rem;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--theme) 0%, var(--theme-faint-30) 100%);
+}
+
+.account-identity-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 120% 80% at 100% -20%, var(--theme-soft) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 60% at -10% 110%, var(--theme-softer) 0%, transparent 50%),
+    hsl(var(--card));
+}
+
+.account-identity-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  background-image: radial-gradient(var(--theme-faint-20) 1px, transparent 1px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(135deg, black 20%, transparent 70%);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .account-page-enter {
+    animation: account-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .account-page-enter:nth-child(2) {
+    animation-delay: 0.07s;
+  }
+
+  .account-page-enter:nth-child(3) {
+    animation-delay: 0.14s;
+  }
+}
+
+@keyframes account-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.account-toggle-track {
+  transition: background-color 0.2s ease;
+}
+
+.account-toggle-thumb {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.account-setting-row:hover {
+  background: color-mix(in srgb, var(--theme) 4%, hsl(var(--card)));
+}

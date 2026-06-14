@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { Bell, ChevronDown, LayoutDashboard, LogOut, Menu, Search, Settings, Shield, UserRound } from "lucide-react";
+import { Bell, ChevronDown, Download, LayoutDashboard, LogOut, Menu, Shield, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -27,7 +27,6 @@ function formatNotificationTime(ts: number) {
 }
 
 const HOVER_CLOSE_DELAY_MS = 150;
-const SEARCH_EXPANDED_WIDTH = "11.25rem";
 
 export type ProfilePortalSwitch = {
   label: string;
@@ -35,110 +34,6 @@ export type ProfilePortalSwitch = {
   icon: LucideIcon;
   choice: "admin" | "user";
 };
-
-function ExpandableSearch({ placeholder }: { placeholder: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!expanded) return;
-    inputRef.current?.focus();
-  }, [expanded]);
-
-  useEffect(() => {
-    if (!expanded) return;
-    const handlePointerDown = (e: MouseEvent) => {
-      if (containerRef.current?.contains(e.target as Node)) return;
-      const value = inputRef.current?.value ?? "";
-      if (!value.trim()) setExpanded(false);
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setExpanded(false);
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [expanded]);
-
-  const shellStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    background: shellChrome.background,
-    border: shellChrome.border,
-    borderRadius: "0.5rem",
-    flexShrink: 0,
-    overflow: "hidden",
-  };
-
-  if (!expanded) {
-    return (
-      <div ref={containerRef}>
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          aria-label="Search"
-          aria-expanded={false}
-          className="topbar-expandable-search"
-          style={{
-            ...shellStyle,
-            width: "2rem",
-            height: "2rem",
-            justifyContent: "center",
-            cursor: "pointer",
-            padding: 0,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = shellChrome.backgroundHover;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = shellChrome.background;
-          }}
-        >
-          <Search size={14} color={shellChrome.icon} strokeWidth={1.75} />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      ref={containerRef}
-      className="topbar-expandable-search"
-      style={{
-        ...shellStyle,
-        gap: "0.5rem",
-        padding: "0 0.75rem",
-        height: "2.125rem",
-        width: SEARCH_EXPANDED_WIDTH,
-      }}
-      role="search"
-    >
-      <Search size={13} color={shellChrome.textMuted} style={{ flexShrink: 0 }} aria-hidden />
-      <input
-        ref={inputRef}
-        placeholder={placeholder}
-        className="topbar-shell-search"
-        aria-label={placeholder}
-        style={{
-          border: "none",
-          background: "transparent",
-          outline: "none",
-          fontSize: "0.75rem",
-          color: shellChrome.text,
-          width: "100%",
-          minWidth: 0,
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setExpanded(false);
-        }}
-      />
-    </div>
-  );
-}
 
 function NotificationBellDropdown() {
   const [open, setOpen] = useState(false);
@@ -355,7 +250,6 @@ export interface TopBarProps {
   onSignOut?: () => void;
   portalSwitch?: ProfilePortalSwitch;
   centerSlot?: React.ReactNode;
-  searchPlaceholder?: string;
   rightSlot?: React.ReactNode;
   /** Placed before notifications / profile (e.g. Sync). */
   syncControl?: React.ReactNode;
@@ -563,25 +457,25 @@ function ProfileDropdown({
           </div>
           <Link
             prefetch
-            href="/profile"
+            href="/account"
             className="topbar-dropdown-item"
             style={linkItemStyle}
             role="menuitem"
             onClick={() => setOpen(false)}
           >
             <UserRound size={14} color="#6B7280" strokeWidth={2} />
-            Profile
+            Account
           </Link>
           <Link
             prefetch
-            href="/settings"
+            href="/download-app"
             className="topbar-dropdown-item"
             style={linkItemStyle}
             role="menuitem"
             onClick={() => setOpen(false)}
           >
-            <Settings size={14} color="#6B7280" strokeWidth={2} />
-            Settings
+            <Download size={14} color="#6B7280" strokeWidth={2} />
+            Download App
           </Link>
           {portalSwitch ? (
             <Link
@@ -640,7 +534,6 @@ export function TopBar({
   onSignOut,
   portalSwitch,
   centerSlot,
-  searchPlaceholder,
   rightSlot,
   syncControl,
   languageLabel,
@@ -738,7 +631,6 @@ export function TopBar({
         )}
         {rightSlot ?? (
           <>
-            {searchPlaceholder != null && <ExpandableSearch placeholder={searchPlaceholder} />}
             <TrialTopBarPill />
             {syncControl}
             <NotificationBellDropdown />
@@ -810,7 +702,6 @@ export function TopBar({
         )}
         {rightSlot ?? (
           <>
-            {searchPlaceholder != null && <ExpandableSearch placeholder={searchPlaceholder} />}
             <TrialTopBarPill />
             {syncControl}
             <NotificationBellDropdown />

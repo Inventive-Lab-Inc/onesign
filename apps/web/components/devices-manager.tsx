@@ -14,7 +14,7 @@ import { PlanUsageMeter } from "@/components/plan/plan-usage-meter";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { DeviceWithAssignments } from "@/lib/console-sync";
+import type { DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,10 @@ import { DeviceDisabledBadge, deviceDisabledPresentation, isDevicePausedByQuota 
 import { DevicePlaybackPowerButton } from "@/components/device-playback-toggle";
 import { useActiveAppRelease, type ActiveAppRelease } from "@/hooks/use-active-app-release";
 import { deviceAppUpdateStatus, getDeviceInstalledApp } from "@/lib/device-app-version";
+import { DeviceGroupChip } from "@/components/device-groups/device-group-chip";
+import { DeviceGroupEditorDialog } from "@/components/device-groups/device-group-editor-dialog";
+import { DeviceGroupsSidebar, type GroupFilter } from "@/components/device-groups/device-groups-sidebar";
+import "@/components/device-groups/device-groups.css";
 
 type StatusFilter = "all" | DeviceStatus;
 
@@ -88,6 +92,8 @@ export function DevicesManager() {
   useStaleOnlineTick();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const devices = useConsoleDataStore((s) => s.devices) as DeviceWithAssignments[];
+  const deviceGroups = useConsoleDataStore((s) => s.deviceGroups) as DeviceGroupWithMembers[];
+  const ownerId = useConsoleDataStore((s) => s.ownerId);
   const activeAppRelease = useActiveAppRelease();
 
   const { syncNow } = useConsoleSync();
@@ -104,9 +110,13 @@ export function DevicesManager() {
   const [linking, setLinking] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [devicePendingDelete, setDevicePendingDelete] = useState<Device | null>(null);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [groupEditorOpen, setGroupEditorOpen] = useState(false);
+  const [groupEditorMode, setGroupEditorMode] = useState<"create" | "edit">("create");
+  const [groupBeingEdited, setGroupBeingEdited] = useState<DeviceGroupWithMembers | null>(null);
 
   const refreshAfterMutation = useCallback(async () => {
     await syncNow();
@@ -175,17 +185,69 @@ export function DevicesManager() {
     }
   }, [devicePendingDelete, refreshAfterMutation, supabase]);
 
+  const deviceGroupsByDeviceId = useMemo(() => {
+    const map = new Map<string, DeviceGroupWithMembers[]>();
+    for (const group of deviceGroups) {
+      for (const deviceId of group.member_device_ids) {
+        const list = map.get(deviceId) ?? [];
+        list.push(group);
+        map.set(deviceId, list);
+      }
+    }
+    return map;
+  }, [deviceGroups]);
+
+  const groupedDeviceIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const group of deviceGroups) {
+      for (const deviceId of group.member_device_ids) {
+        ids.add(deviceId);
+      }
+    }
+    return ids;
+  }, [deviceGroups]);
+
+  const ungroupedCount = useMemo(
+    () => devices.filter((d) => !groupedDeviceIds.has(d.id)).length,
+    [devices, groupedDeviceIds],
+  );
+
+  const activeGroup = useMemo(
+    () => (groupFilter !== "all" && groupFilter !== "ungrouped"
+      ? deviceGroups.find((g) => g.id === groupFilter) ?? null
+      : null),
+    [deviceGroups, groupFilter],
+  );
+
   const filtered = useMemo(() => {
     let list = devices;
     if (statusFilter !== "all") {
       list = list.filter((d) => effectiveDeviceStatus(d) === statusFilter);
+    }
+    if (groupFilter === "ungrouped") {
+      list = list.filter((d) => !groupedDeviceIds.has(d.id));
+    } else if (groupFilter !== "all") {
+      const memberIds = new Set(activeGroup?.member_device_ids ?? []);
+      list = list.filter((d) => memberIds.has(d.id));
     }
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter((d) => d.name.toLowerCase().includes(q));
     }
     return list;
-  }, [devices, statusFilter, search]);
+  }, [devices, statusFilter, search, groupFilter, groupedDeviceIds, activeGroup]);
+
+  const openCreateGroup = useCallback(() => {
+    setGroupEditorMode("create");
+    setGroupBeingEdited(null);
+    setGroupEditorOpen(true);
+  }, []);
+
+  const openEditGroup = useCallback((group: DeviceGroupWithMembers) => {
+    setGroupEditorMode("edit");
+    setGroupBeingEdited(group);
+    setGroupEditorOpen(true);
+  }, []);
 
   const onlineCount = useMemo(
     () => devices.filter((d) => effectiveDeviceStatus(d) === "online").length,
@@ -305,6 +367,17 @@ export function DevicesManager() {
             })}
           </ul>
         </nav>
+
+        <DeviceGroupsSidebar
+          groups={deviceGroups}
+          activeFilter={groupFilter}
+          onFilterChange={setGroupFilter}
+          ungroupedCount={ungroupedCount}
+          totalCount={devices.length}
+          readOnly={readOnly}
+          onCreateGroup={openCreateGroup}
+          onEditGroup={openEditGroup}
+        />
       </aside>
 
       <div className="min-w-0 flex-1">
@@ -314,7 +387,13 @@ export function DevicesManager() {
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <span className="text-foreground">Screens</span>
                 <span className="text-muted-foreground/70">/</span>
-                <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">All devices</span>
+                <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">
+                  {groupFilter === "all"
+                    ? "All devices"
+                    : groupFilter === "ungrouped"
+                      ? "Ungrouped"
+                      : activeGroup?.name ?? "Group"}
+                </span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 {filtered.length} screen{filtered.length === 1 ? "" : "s"}
@@ -396,6 +475,7 @@ export function DevicesManager() {
                   <DeviceCard
                     key={device.id}
                     device={device}
+                    groups={deviceGroupsByDeviceId.get(device.id) ?? []}
                     activeAppRelease={activeAppRelease}
                     accountDisabled={accountDisabled}
                     canControlPlayback={canControlPlayback}
@@ -410,6 +490,7 @@ export function DevicesManager() {
                   <DeviceListRow
                     key={device.id}
                     device={device}
+                    groups={deviceGroupsByDeviceId.get(device.id) ?? []}
                     activeAppRelease={activeAppRelease}
                     accountDisabled={accountDisabled}
                     canControlPlayback={canControlPlayback}
@@ -432,12 +513,24 @@ export function DevicesManager() {
         onConfirm={confirmDeleteDevice}
         isConfirming={deleteInProgress}
       />
+
+      {ownerId ? (
+        <DeviceGroupEditorDialog
+          open={groupEditorOpen}
+          mode={groupEditorMode}
+          ownerId={ownerId}
+          group={groupBeingEdited}
+          devices={devices}
+          onClose={() => setGroupEditorOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
 
 function DeviceCard({
   device,
+  groups,
   activeAppRelease,
   accountDisabled = false,
   canControlPlayback = false,
@@ -445,6 +538,7 @@ function DeviceCard({
   onRequestDelete,
 }: {
   device: Device;
+  groups: DeviceGroupWithMembers[];
   activeAppRelease: ActiveAppRelease | null;
   accountDisabled?: boolean;
   canControlPlayback?: boolean;
@@ -474,6 +568,13 @@ function DeviceCard({
               {deviceSummary ? <DeviceModelChip model={deviceSummary} /> : null}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">Active · {formatDeviceLastSeen(device.last_seen)}</p>
+            {groups.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {groups.map((group) => (
+                  <DeviceGroupChip key={group.id} name={group.name} accentColor={group.accent_color} />
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -543,6 +644,7 @@ function DeviceCard({
 
 function DeviceListRow({
   device,
+  groups,
   activeAppRelease,
   accountDisabled = false,
   canControlPlayback = false,
@@ -550,6 +652,7 @@ function DeviceListRow({
   onRequestDelete,
 }: {
   device: Device;
+  groups: DeviceGroupWithMembers[];
   activeAppRelease: ActiveAppRelease | null;
   accountDisabled?: boolean;
   canControlPlayback?: boolean;
@@ -585,6 +688,9 @@ function DeviceListRow({
                 pausedByQuota={disabledState.pausedByQuota}
               />
             ) : null}
+            {groups.map((group) => (
+              <DeviceGroupChip key={group.id} name={group.name} accentColor={group.accent_color} />
+            ))}
             <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} />
           </div>
           <p className="mt-1 text-xs text-muted-foreground">Active · {formatDeviceLastSeen(device.last_seen)}</p>

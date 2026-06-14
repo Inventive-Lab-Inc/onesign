@@ -1,13 +1,14 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Media, Playlist, PlaylistItemWithMedia } from "@signage/types";
-import type { ConsoleSnapshot, DeviceWithAssignments } from "@/lib/console-sync";
+import type { ConsoleSnapshot, DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
 
 export type { DeviceWithAssignments };
 
 type ConsoleDataState = {
   ownerId: string | null;
   devices: DeviceWithAssignments[];
+  deviceGroups: DeviceGroupWithMembers[];
   playlists: Playlist[];
   media: Media[];
   playlistItemsByPlaylistId: Record<string, PlaylistItemWithMedia[]>;
@@ -28,6 +29,7 @@ type ConsoleDataActions = {
 const emptyState = (): ConsoleDataState => ({
   ownerId: null,
   devices: [],
+  deviceGroups: [],
   playlists: [],
   media: [],
   playlistItemsByPlaylistId: {},
@@ -45,6 +47,7 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
         set({
           ownerId,
           devices: snapshot.devices,
+          deviceGroups: snapshot.deviceGroups,
           playlists: snapshot.playlists,
           media: snapshot.media,
           playlistItemsByPlaylistId: snapshot.playlistItemsByPlaylistId,
@@ -62,11 +65,12 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
       reset: () => set(emptyState()),
     }),
     {
-      name: "signage-console-cache-v1",
+      name: "signage-console-cache-v2",
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         ownerId: s.ownerId,
         devices: s.devices,
+        deviceGroups: s.deviceGroups,
         playlists: s.playlists,
         media: s.media,
         playlistItemsByPlaylistId: s.playlistItemsByPlaylistId,
@@ -79,6 +83,7 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
 export function clearConsoleCachePersist() {
   useConsoleDataStore.getState().reset();
   try {
+    localStorage.removeItem("signage-console-cache-v2");
     localStorage.removeItem("signage-console-cache-v1");
   } catch {
     /* ignore */

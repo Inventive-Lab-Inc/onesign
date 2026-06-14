@@ -15,7 +15,6 @@ interface AppLayoutProps extends AppLayoutConfig {
   onSignOut?: () => void;
   portalSwitch?: ProfilePortalSwitch;
   getPageTitle?: (pathname: string) => string;
-  searchPlaceholder?: string;
   topBarCenterSlot?: ReactNode;
   topBarRightSlot?: ReactNode;
   /** Shown before notifications (e.g. Sync). */
@@ -39,7 +38,6 @@ export function AppLayout({
   profileSubtext,
   onSignOut,
   portalSwitch,
-  searchPlaceholder,
   topBarCenterSlot,
   topBarRightSlot,
   topBarSyncControl,
@@ -142,7 +140,6 @@ export function AppLayout({
             onSignOut={onSignOut}
             portalSwitch={portalSwitch}
             centerSlot={topBarCenterSlot}
-            searchPlaceholder={searchPlaceholder}
             rightSlot={topBarRightSlot}
             syncControl={topBarSyncControl}
             languageLabel={languageLabel}

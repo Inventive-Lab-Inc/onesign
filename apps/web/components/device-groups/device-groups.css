@@ -1,0 +1,73 @@
+.device-group-chip {
+  --group-accent: var(--theme);
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--group-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--group-accent) 10%, transparent);
+  padding: 0.125rem 0.5rem 0.125rem 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: color-mix(in srgb, var(--group-accent) 55%, #000000);
+}
+
+.device-group-chip__dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--group-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--group-accent) 18%, transparent);
+}
+
+.device-group-sidebar-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.device-group-sidebar-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.375rem;
+  bottom: 0.375rem;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--group-accent, var(--theme));
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.device-group-sidebar-item[data-active="true"]::before {
+  opacity: 1;
+}
+
+.device-group-color-swatch {
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.device-group-color-swatch[data-selected="true"] {
+  border-color: hsl(var(--foreground));
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 3.5px color-mix(in srgb, var(--swatch) 45%, transparent);
+  transform: scale(1.08);
+}
+
+.device-group-editor-panel {
+  background:
+    radial-gradient(ellipse 80% 60% at 100% 0%, color-mix(in srgb, var(--group-accent, var(--theme)) 8%, transparent), transparent),
+    hsl(var(--card));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .device-group-sidebar-item::before,
+  .device-group-color-swatch {
+    transition: none;
+  }
+}

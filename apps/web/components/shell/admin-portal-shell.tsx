@@ -90,7 +90,6 @@ export function AdminPortalShell({
               icon: LayoutDashboard,
               choice: "user",
             }}
-            searchPlaceholder="Search clients…"
             topBarSyncControl={<AdminPortalSyncControl />}
             contentCardBg="#F4F7FB"
           >
