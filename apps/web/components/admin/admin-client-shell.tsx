@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, HardDrive, Layers, LayoutGrid, Monitor, ScrollText, UserRound, Users } from "lucide-react";
+import { ArrowLeft, HardDrive, Layers, LayoutGrid, Monitor, ScrollText, Tv, UserRound } from "lucide-react";
 import type { AdminUserDirectoryEntry } from "@signage/types";
 import { useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { AdminAccountActions } from "@/components/admin/admin-account-actions";
@@ -29,8 +29,8 @@ function AccountStatusBadge({ isDisabled }: { isDisabled: boolean }) {
 const NAV_ITEMS = [
   { segment: "overview", label: "Overview", icon: UserRound, match: (path: string, base: string) => path === base },
   { segment: "devices", label: "Screens", icon: Monitor, match: (path: string, base: string) => path.startsWith(`${base}/devices`) },
-  { segment: "groups", label: "Groups", icon: Users, match: (path: string, base: string) => path.startsWith(`${base}/groups`) },
-  { segment: "playlists", label: "Content", icon: Layers, match: (path: string, base: string) => path.startsWith(`${base}/playlists`) || path.startsWith(`${base}/media`) },
+  { segment: "groups", label: "Groups", icon: Tv, match: (path: string, base: string) => path.startsWith(`${base}/groups`) },
+  { segment: "content", label: "Content", icon: Layers, match: (path: string, base: string) => path.startsWith(`${base}/content`) || path.startsWith(`${base}/playlists`) || path.startsWith(`${base}/media`) },
   { segment: "audit", label: "Audit log", icon: ScrollText, match: (path: string, base: string) => path.startsWith(`${base}/audit`) },
 ] as const;
 

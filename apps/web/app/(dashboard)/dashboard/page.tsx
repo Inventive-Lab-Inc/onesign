@@ -1,7 +1,7 @@
 "use client";
 
 import type { DeviceStatus, Playlist, PlaylistItemWithMedia } from "@signage/types";
-import { Image as ImageIcon, ListVideo, Monitor } from "lucide-react";
+import { Image as ImageIcon, Monitor, Play } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
@@ -137,7 +137,6 @@ export default function DashboardHomePage() {
   const plan = usePlanQuota();
   const storeDeviceCount = useConsoleDataStore((s) => s.devices.length);
   const ownerId = useConsoleDataStore((s) => s.ownerId);
-  const playlistCount = useConsoleDataStore((s) => s.playlists.length);
   const mediaCount = useConsoleDataStore((s) => s.media.length);
   const devices = useConsoleDataStore((s) => s.devices) as DeviceWithAssignments[];
   const playlists = useConsoleDataStore((s) => s.playlists) as Playlist[];
@@ -175,21 +174,14 @@ export default function DashboardHomePage() {
   const stats = [
     {
       href: "/devices",
-      label: "Devices",
-      description: "Linked TV players & assignments",
+      label: "Screens",
+      description: "Linked TV players",
       count: storeDeviceCount,
       icon: Monitor,
     },
     {
-      href: "/playlists?view=playlists",
-      label: "Playlists",
-      description: "Loops assigned to screens",
-      count: playlistCount,
-      icon: ListVideo,
-    },
-    {
-      href: "/playlists?view=library",
-      label: "Library",
+      href: "/content",
+      label: "Content library",
       description: "Files in cloud storage",
       count: mediaCount,
       icon: ImageIcon,
@@ -319,14 +311,14 @@ export default function DashboardHomePage() {
                               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/40 text-muted-foreground"
                               title="Set NEXT_PUBLIC_MEDIA_BASE_URL to preview media"
                             >
-                              <ListVideo className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} aria-hidden />
+                              <Play className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} aria-hidden />
                             </span>
                           ) : (
                             <span
                               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-border bg-muted/60 text-muted-foreground shadow-sm"
                               aria-hidden
                             >
-                              <ListVideo className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} />
+                              <Play className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} />
                             </span>
                           )}
                           <span className="min-w-0 flex-1 truncate text-muted-foreground">{row.playlistLabel}</span>

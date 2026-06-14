@@ -1,15 +1,16 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Media, Playlist, PlaylistItemWithMedia } from "@signage/types";
-import type { ConsoleSnapshot, DeviceGroupWithMembers, DeviceWithAssignments, PlaylistGroupWithMembers } from "@/lib/console-sync";
+import type { ConsoleSnapshot, DeviceGroupWithMembers, DeviceWithAssignments, MediaGroupWithMembers, PlaylistGroupWithMembers } from "@/lib/console-sync";
 
-export type { DeviceWithAssignments, PlaylistGroupWithMembers };
+export type { DeviceWithAssignments, MediaGroupWithMembers, PlaylistGroupWithMembers };
 
 type ConsoleDataState = {
   ownerId: string | null;
   devices: DeviceWithAssignments[];
   deviceGroups: DeviceGroupWithMembers[];
   playlistGroups: PlaylistGroupWithMembers[];
+  mediaGroups: MediaGroupWithMembers[];
   playlists: Playlist[];
   media: Media[];
   playlistItemsByPlaylistId: Record<string, PlaylistItemWithMedia[]>;
@@ -32,6 +33,7 @@ const emptyState = (): ConsoleDataState => ({
   devices: [],
   deviceGroups: [],
   playlistGroups: [],
+  mediaGroups: [],
   playlists: [],
   media: [],
   playlistItemsByPlaylistId: {},
@@ -51,6 +53,7 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
           devices: snapshot.devices,
           deviceGroups: snapshot.deviceGroups,
           playlistGroups: snapshot.playlistGroups,
+          mediaGroups: snapshot.mediaGroups,
           playlists: snapshot.playlists,
           media: snapshot.media,
           playlistItemsByPlaylistId: snapshot.playlistItemsByPlaylistId,
@@ -68,13 +71,14 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
       reset: () => set(emptyState()),
     }),
     {
-      name: "signage-console-cache-v2",
+      name: "signage-console-cache-v3",
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         ownerId: s.ownerId,
         devices: s.devices,
         deviceGroups: s.deviceGroups,
         playlistGroups: s.playlistGroups,
+        mediaGroups: s.mediaGroups,
         playlists: s.playlists,
         media: s.media,
         playlistItemsByPlaylistId: s.playlistItemsByPlaylistId,
@@ -87,6 +91,7 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
 export function clearConsoleCachePersist() {
   useConsoleDataStore.getState().reset();
   try {
+    localStorage.removeItem("signage-console-cache-v3");
     localStorage.removeItem("signage-console-cache-v2");
     localStorage.removeItem("signage-console-cache-v1");
   } catch {

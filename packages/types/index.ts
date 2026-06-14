@@ -127,6 +127,8 @@ export interface Device {
   playback_disabled?: boolean;
   /** Paused because the client exceeded their screen plan limit. */
   paused_by_quota?: boolean;
+  /** Optional thumbnail image in object storage (not counted in media library quota). */
+  thumbnail_storage_path?: string | null;
 }
 
 export interface AppRelease {
@@ -155,11 +157,15 @@ export interface Media {
   duration_seconds?: number | null;
 }
 
+export type PlaylistTransitionStyle = "none" | "fade" | "dissolve";
+
 export interface Playlist {
   id: string;
   owner_id: string;
   name: string;
   created_at: string;
+  transition_style?: PlaylistTransitionStyle;
+  shuffle_enabled?: boolean;
 }
 
 export interface PlaylistItem {
@@ -188,6 +194,8 @@ export interface DeviceGroup {
   name: string;
   /** Hex accent for UI chips, e.g. #047857 */
   accent_color: string | null;
+  /** Shared playlist played on all screens in this group. */
+  playlist_id: string | null;
   created_at: string;
 }
 
@@ -211,6 +219,22 @@ export interface PlaylistGroupMember {
   id: string;
   group_id: string;
   playlist_id: string;
+  created_at: string;
+}
+
+export interface MediaGroup {
+  id: string;
+  owner_id: string;
+  name: string;
+  /** Hex accent for UI chips, e.g. #047857 */
+  accent_color: string | null;
+  created_at: string;
+}
+
+export interface MediaGroupMember {
+  id: string;
+  group_id: string;
+  media_id: string;
   created_at: string;
 }
 

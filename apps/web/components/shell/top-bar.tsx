@@ -666,7 +666,6 @@ export function TopBar({
         navItems={navItems}
         bottomNavItem={bottomNavItem}
         pendingPath={pendingPath}
-        centerNav
       />
       {centerSlot}
       <div

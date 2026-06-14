@@ -4,7 +4,7 @@ import type { DeviceWithAssignments } from "@/lib/console-sync";
 import { ensureMediaVideoDuration } from "@/lib/media";
 import { buildPlaylistItemInsertRow } from "@/lib/playlist-timing";
 
-async function assignPlaylistToDevice(
+export async function assignPlaylistToDevice(
   supabase: SupabaseClient,
   deviceId: string,
   playlistId: string,

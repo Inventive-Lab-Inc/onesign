@@ -32,6 +32,8 @@ import { PlaylistAssetsPanel } from "@/components/playlist-assets-panel";
 import { PlaylistPreviewButton } from "@/components/playlist-preview";
 import { ReadonlyVideoDuration } from "@/components/readonly-video-duration";
 import { useEnsurePlaylistVideoDurations } from "@/hooks/use-ensure-playlist-video-durations";
+import { usePlanQuota } from "@/components/console/plan-quota-context";
+import { isStorageFull } from "@/lib/plan-quota";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
@@ -73,6 +75,8 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
   const adminStaff = useOptionalAdminStaff();
   const readOnly = adminStaff != null && !adminStaff.canWrite;
   const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const plan = usePlanQuota();
+  const storageFull = plan != null && isStorageFull(plan);
   const { syncNow } = useConsoleSync();
   const cachedItems = useConsoleDataStore(
     (s) => s.playlistItemsByPlaylistId[playlistId] ?? EMPTY_PLAYLIST_ITEMS,
@@ -525,15 +529,17 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
           </div>
         </div>
 
-      {ownerId && !readOnly ? (
+      {ownerId ? (
         <PlaylistAssetsPanel
           droppableId="playlist-library"
           libraryResetKey={libraryResetKey}
           librarySearch={librarySearch}
-          libraryHref={libraryHref}
           onLibrarySearchChange={setLibrarySearch}
           filteredLibrary={filteredLibrary}
           onAddMedia={(mediaId) => void addMediaAtIndex(mediaId, items.length)}
+          ownerId={ownerId}
+          readOnly={readOnly}
+          storageFull={storageFull}
         />
       ) : null}
       </div>

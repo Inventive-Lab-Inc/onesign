@@ -1,5 +1,5 @@
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getObjectStorageServerConfig, type ObjectStorageServerConfig } from "./env";
 
 let cachedClient: S3Client | null | undefined;
@@ -51,6 +51,7 @@ export async function putMediaObject(
   storagePath: string,
   body: Buffer,
   contentType: string,
+  cacheControl = "public, max-age=86400",
 ): Promise<void> {
   assertOwnerStoragePath(ownerId, storagePath);
   const config = requireConfig();
@@ -62,7 +63,7 @@ export async function putMediaObject(
       Key: storagePath.replace(/^\/+/, ""),
       Body: body,
       ContentType: contentType,
-      CacheControl: "public, max-age=86400",
+      CacheControl: cacheControl,
     }),
   );
 }
@@ -78,6 +79,51 @@ export async function deleteMediaObject(ownerId: string, storagePath: string): P
       Key: storagePath.replace(/^\/+/, ""),
     }),
   );
+}
+
+function assertOwnerStoragePrefix(ownerId: string, prefix: string): string {
+  const normalized = prefix.replace(/^\/+/, "");
+  const ownerPrefix = `${ownerId}/`;
+  if (!normalized.startsWith(ownerPrefix) || normalized.includes("..")) {
+    throw new Error("Invalid storage prefix for this user.");
+  }
+  return normalized;
+}
+
+/** Deletes every object under `prefix`, optionally keeping one key (e.g. the newly uploaded file). */
+export async function deleteMediaObjectsUnderPrefix(
+  ownerId: string,
+  prefix: string,
+  keepStoragePath?: string | null,
+): Promise<void> {
+  const normalizedPrefix = assertOwnerStoragePrefix(ownerId, prefix);
+  const keepKey = keepStoragePath?.replace(/^\/+/, "") ?? null;
+  const config = requireConfig();
+  const client = getClient();
+
+  let continuationToken: string | undefined;
+  do {
+    const listing = await client.send(
+      new ListObjectsV2Command({
+        Bucket: config.mediaBucket,
+        Prefix: normalizedPrefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+
+    for (const object of listing.Contents ?? []) {
+      const key = object.Key;
+      if (!key || key === keepKey) continue;
+      await client.send(
+        new DeleteObjectCommand({
+          Bucket: config.mediaBucket,
+          Key: key,
+        }),
+      );
+    }
+
+    continuationToken = listing.NextContinuationToken;
+  } while (continuationToken);
 }
 
 export async function headMediaObjectSize(ownerId: string, storagePath: string): Promise<number | null> {

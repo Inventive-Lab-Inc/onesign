@@ -1,4 +1,4 @@
-import { Layers, LayoutDashboard, Monitor, Tv, Users } from "lucide-react";
+import { Layers, LayoutDashboard, Monitor, Tv } from "lucide-react";
 import type { AppLayoutConfig } from "@/components/shell/types";
 
 export const layoutConfig: Omit<AppLayoutConfig, "getPageTitle"> = {
@@ -10,9 +10,9 @@ export const layoutConfig: Omit<AppLayoutConfig, "getPageTitle"> = {
   },
   navItems: [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
+    { path: "/content", label: "Content", icon: Layers, end: true },
     { path: "/devices", label: "Screens", icon: Monitor, end: true },
-    { path: "/groups", label: "Groups", icon: Users, end: true },
-    { path: "/playlists", label: "Content", icon: Layers, end: false },
+    { path: "/groups", label: "Groups", icon: Tv, end: true },
   ],
 };
 
@@ -21,13 +21,12 @@ export function getPageTitle(pathname: string): string {
     "/dashboard": "Dashboard",
     "/devices": "Screens",
     "/groups": "Groups",
-    "/playlists": "Content",
-    "/media": "Content",
+    "/content": "Content",
     "/account": "Account",
     "/download-app": "Download App",
   };
   if (titles[pathname]) return titles[pathname];
+  if (pathname.startsWith("/groups/")) return "Group";
   if (pathname.startsWith("/devices/")) return "Screen";
-  if (pathname.startsWith("/playlists/")) return "Playlist";
   return "App";
 }

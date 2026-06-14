@@ -213,6 +213,49 @@
   opacity: 0.85;
 }
 
+.device-group-folder-card--compact .device-group-folder-card__shell {
+  min-height: 5rem;
+}
+
+.device-group-folder-card--compact .device-group-folder-card__tab {
+  max-width: 4.25rem;
+  height: 0.7rem;
+}
+
+.device-group-folder-card--compact .device-group-folder-card__preview {
+  padding: 0.5rem 0.35rem 0.25rem;
+}
+
+.device-group-folder-card--compact .device-group-folder-card__screen svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.device-group-folder-card--compact .device-group-folder-card__screen--back {
+  width: 1.65rem;
+  height: 1.2rem;
+}
+
+.device-group-folder-card--compact .device-group-folder-card__screen--mid {
+  width: 1.75rem;
+  height: 1.3rem;
+}
+
+.device-group-folder-card--compact .device-group-folder-card__screen--front {
+  width: 1.85rem;
+  height: 1.35rem;
+}
+
+.device-group-folder-card--compact .device-group-folder-card__empty {
+  width: 2rem;
+  height: 2rem;
+}
+
+.device-group-folder-card--compact .device-group-folder-card__empty svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
 .device-group-folder-grid {
   animation: device-group-folder-grid-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

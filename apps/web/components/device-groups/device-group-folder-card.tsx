@@ -17,6 +17,7 @@ type DeviceGroupFolderCardProps = {
   onOpen: () => void;
   onEdit?: () => void;
   className?: string;
+  compact?: boolean;
 };
 
 export function DeviceGroupFolderCard({
@@ -30,16 +31,20 @@ export function DeviceGroupFolderCard({
   onOpen,
   onEdit,
   className,
+  compact = false,
 }: DeviceGroupFolderCardProps) {
   const color = variant === "ungrouped" ? "hsl(var(--muted-foreground))" : resolveGroupColor(accentColor);
   const itemLabelPlural = itemCount === 1 ? itemLabel : `${itemLabel}s`;
 
   return (
-    <li className={cn("device-group-folder-card group/folder", className)}>
+    <li className={cn("device-group-folder-card group/folder", compact && "device-group-folder-card--compact", className)}>
       <button
         type="button"
         onClick={onOpen}
-        className="device-group-folder-card__hit relative flex h-full min-h-[11.5rem] w-full flex-col items-stretch text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className={cn(
+          "device-group-folder-card__hit relative flex h-full w-full flex-col items-stretch text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          compact ? "min-h-[8.5rem]" : "min-h-[11.5rem]",
+        )}
         aria-label={`Open folder ${name}, ${itemCount} ${itemLabelPlural}`}
         style={{ "--folder-accent": color } as React.CSSProperties}
       >
@@ -69,8 +74,14 @@ export function DeviceGroupFolderCard({
           </div>
         </div>
 
-        <div className="relative z-[1] px-1 pb-1 pt-3">
-          <p className="line-clamp-2 text-sm font-semibold leading-snug text-foreground" title={name}>
+        <div className="relative z-[1] px-1 pb-1 pt-2">
+          <p
+            className={cn(
+              "line-clamp-2 font-semibold leading-snug text-foreground",
+              compact ? "text-xs" : "text-sm",
+            )}
+            title={name}
+          >
             {name}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -106,17 +117,22 @@ export function GroupFolderCreateCard({
   onClick,
   label = "New folder",
   hint = "Create a group",
+  compact = false,
 }: {
   onClick: () => void;
   label?: string;
   hint?: string;
+  compact?: boolean;
 }) {
   return (
-    <li className="device-group-folder-card device-group-folder-card--create group/folder">
+    <li className={cn("device-group-folder-card device-group-folder-card--create group/folder", compact && "device-group-folder-card--compact")}>
       <button
         type="button"
         onClick={onClick}
-        className="device-group-folder-card__hit device-group-folder-card__hit--create relative flex h-full min-h-[11.5rem] w-full flex-col items-stretch text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className={cn(
+          "device-group-folder-card__hit device-group-folder-card__hit--create relative flex h-full w-full flex-col items-stretch text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          compact ? "min-h-[8.5rem]" : "min-h-[11.5rem]",
+        )}
         aria-label={label}
       >
         <div className="device-group-folder-card__shell device-group-folder-card__shell--create relative mx-auto mt-1 w-[88%] flex-1">

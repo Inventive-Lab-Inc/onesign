@@ -1,12 +1,14 @@
 "use client";
 
-import { LayoutGrid, List, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
-import { devicesListPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { devicesListPath, groupDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
+import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
 import { ListPageHeader } from "@/components/console/list-page-header";
+import { ViewModeToggle } from "@/components/console/view-mode-toggle";
 import { DeviceGroupEditorDialog } from "@/components/device-groups/device-group-editor-dialog";
 import {
   DeviceGroupFolderCardFromGroup,
@@ -74,40 +76,13 @@ export function DeviceGroupsManager() {
         searchPlaceholder="Search groups…"
         primaryAction={
           !readOnly ? (
-            <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={openCreateGroup}>
+            <HeaderPrimaryButton type="button" onClick={openCreateGroup}>
               <Plus className="h-4 w-4" aria-hidden />
               Add group
-            </Button>
+            </HeaderPrimaryButton>
           ) : undefined
         }
-        trailing={
-          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
-            <button
-              type="button"
-              onClick={() => setView("grid")}
-              className={cn(
-                "rounded-md p-1.5 text-muted-foreground transition-colors",
-                view === "grid" ? "bg-card text-foreground shadow-sm" : "hover:text-foreground",
-              )}
-              aria-pressed={view === "grid"}
-              aria-label="Grid view"
-            >
-              <LayoutGrid className="h-4 w-4" strokeWidth={1.75} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("list")}
-              className={cn(
-                "rounded-md p-1.5 text-muted-foreground transition-colors",
-                view === "list" ? "bg-card text-foreground shadow-sm" : "hover:text-foreground",
-              )}
-              aria-pressed={view === "list"}
-              aria-label="List view"
-            >
-              <List className="h-4 w-4" strokeWidth={1.75} />
-            </button>
-          </div>
-        }
+        trailing={<ViewModeToggle view={view} onViewChange={setView} />}
       />
 
       <div className="flex-1 p-4 sm:p-5">
@@ -137,7 +112,7 @@ export function DeviceGroupsManager() {
                 group={group}
                 itemCount={deviceCount}
                 onlineCount={onlineCount}
-                onOpen={() => router.push(devicesListPath(adminRoutes, group.id))}
+                onOpen={() => router.push(groupDetailPath(group.id, adminRoutes))}
                 onEdit={readOnly ? undefined : () => openEditGroup(group)}
               />
             ))}
@@ -153,7 +128,7 @@ export function DeviceGroupsManager() {
                 group={group}
                 itemCount={deviceCount}
                 onlineCount={onlineCount}
-                onOpen={() => router.push(devicesListPath(adminRoutes, group.id))}
+                onOpen={() => router.push(groupDetailPath(group.id, adminRoutes))}
                 onEdit={readOnly ? undefined : () => openEditGroup(group)}
               />
             ))}

@@ -10,6 +10,7 @@ export const config = {
     "/devices/:path*",
     "/groups/:path*",
     "/playlists/:path*",
+    "/content/:path*",
     "/media/:path*",
     "/dashboard/:path*",
     "/account/:path*",

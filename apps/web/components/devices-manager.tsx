@@ -1,26 +1,36 @@
 "use client";
 
 import type { Device, DeviceStatus } from "@signage/types";
-import { ArrowLeft, FolderOutput, LayoutGrid, List, Monitor, Plus, Settings, Trash2, Tv } from "lucide-react";
+import { ArrowLeft, FolderOutput, Monitor, Plus, Settings, Trash2, Tv } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import {
   deviceDetailPath,
+  groupDetailPath,
   groupsListPath,
   useAdminClientRoutes,
 } from "@/components/admin/admin-client-route-context";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
+import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
 import { ListPageHeader } from "@/components/console/list-page-header";
+import { ViewModeToggle } from "@/components/console/view-mode-toggle";
 import { DeviceGroupEditorDialog } from "@/components/device-groups/device-group-editor-dialog";
 import { DeviceScreenCard } from "@/components/devices/device-screen-card";
 import { LinkScreenDialog } from "@/components/devices/link-screen-dialog";
 import { Button } from "@/components/ui/button";
 import type { DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
+import {
+  findGroupContainingDevice,
+  moveDevicesIntoGroup,
+  patchStoreAfterDevicesMovedToGroup,
+  restoreIndividualPlaylistsForDevices,
+} from "@/lib/group-playlist";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
 import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
@@ -96,6 +106,12 @@ export function DevicesManager() {
   const [deleteInProgress, setDeleteInProgress] = useState(false);
   const [groupEditorOpen, setGroupEditorOpen] = useState(false);
   const [groupBeingEdited, setGroupBeingEdited] = useState<DeviceGroupWithMembers | null>(null);
+  const [pendingMoveToGroup, setPendingMoveToGroup] = useState<{
+    device: Device;
+    targetGroup: DeviceGroupWithMembers;
+    sourceGroup: DeviceGroupWithMembers;
+  } | null>(null);
+  const [moveInProgress, setMoveInProgress] = useState(false);
 
   const groupFilter = useMemo(
     () => parseGroupFilterFromSearchParam(searchParams.get("group"), deviceGroups),
@@ -188,7 +204,7 @@ export function DevicesManager() {
 
   const removeDeviceFromFolder = useCallback(
     async (device: Device) => {
-      if (!activeGroup || readOnly) return;
+      if (!activeGroup || readOnly || !ownerId) return;
       try {
         const { error } = await supabase
           .from("device_group_members")
@@ -197,6 +213,13 @@ export function DevicesManager() {
           .eq("device_id", device.id);
         if (error) {
           toast.error(error.message);
+          return;
+        }
+        const { error: restoreError } = await restoreIndividualPlaylistsForDevices(supabase, ownerId, [
+          device as DeviceWithAssignments,
+        ]);
+        if (restoreError) {
+          toast.error(restoreError);
           return;
         }
         toast.success(`“${device.name}” removed from group`);
@@ -216,42 +239,56 @@ export function DevicesManager() {
         toast.error(message);
       }
     },
-    [activeGroup, readOnly, refreshAfterMutation, supabase],
+    [activeGroup, ownerId, readOnly, refreshAfterMutation, supabase],
   );
 
-  const addDeviceToFolder = useCallback(
-    async (device: Device, group: DeviceGroupWithMembers) => {
-      if (readOnly) return;
-      if (group.member_device_ids.includes(device.id)) {
-        toast.error(`“${device.name}” is already in “${group.name}”`);
-        return;
-      }
+  const performMoveToGroup = useCallback(
+    async (device: Device, group: DeviceGroupWithMembers, sourceGroup: DeviceGroupWithMembers | null) => {
+      if (!ownerId) return;
+      setMoveInProgress(true);
       try {
-        const { error } = await supabase
-          .from("device_group_members")
-          .insert({ group_id: group.id, device_id: device.id });
-        if (error) {
-          toast.error(error.message);
+        const { playlistId, error: moveError } = await moveDevicesIntoGroup(supabase, ownerId, group, [device.id]);
+        if (moveError) {
+          toast.error(moveError);
           return;
         }
-        toast.success(`“${device.name}” added to “${group.name}”`);
-        useConsoleDataStore.setState((state) => ({
-          deviceGroups: state.deviceGroups.map((entry) =>
-            entry.id === group.id
-              ? {
-                  ...entry,
-                  member_device_ids: [...entry.member_device_ids, device.id],
-                }
-              : entry,
-          ),
-        }));
+
+        patchStoreAfterDevicesMovedToGroup(group.id, [device.id], playlistId);
+
+        if (sourceGroup) {
+          toast.success(`“${device.name}” moved from “${sourceGroup.name}” to “${group.name}”`);
+        } else {
+          toast.success(`“${device.name}” added to “${group.name}”`);
+        }
         await refreshAfterMutation();
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unable to add screen to group";
         toast.error(message);
+      } finally {
+        setMoveInProgress(false);
+        setPendingMoveToGroup(null);
       }
     },
-    [readOnly, refreshAfterMutation, supabase],
+    [ownerId, refreshAfterMutation, supabase],
+  );
+
+  const addDeviceToFolder = useCallback(
+    async (device: Device, group: DeviceGroupWithMembers) => {
+      if (readOnly || !ownerId) return;
+      if (group.member_device_ids.includes(device.id)) {
+        toast.error(`“${device.name}” is already in “${group.name}”`);
+        return;
+      }
+
+      const previousGroup = findGroupContainingDevice(deviceGroups, device.id, group.id);
+      if (previousGroup) {
+        setPendingMoveToGroup({ device, targetGroup: group, sourceGroup: previousGroup });
+        return;
+      }
+
+      await performMoveToGroup(device, group, null);
+    },
+    [deviceGroups, ownerId, performMoveToGroup, readOnly],
   );
 
   const pageTitle = isGroupView ? groupFilterLabel(groupFilter, activeGroup) : "Screens";
@@ -270,7 +307,7 @@ export function DevicesManager() {
               <Link
                 href={groupsListPath(adminRoutes)}
                 aria-label="Back to groups"
-                className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <ArrowLeft className="h-4 w-4" aria-hidden strokeWidth={2.25} />
               </Link>
@@ -278,16 +315,10 @@ export function DevicesManager() {
           }
           primaryAction={
             !readOnly ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9 gap-1.5"
-                onClick={() => setLinkDialogOpen(true)}
-              >
+              <HeaderPrimaryButton type="button" onClick={() => setLinkDialogOpen(true)}>
                 <Plus className="h-4 w-4" aria-hidden />
                 Link screen
-              </Button>
+              </HeaderPrimaryButton>
             ) : undefined
           }
           search={search}
@@ -298,6 +329,15 @@ export function DevicesManager() {
           onFilterChange={(id) => setStatusFilter(id as StatusFilter)}
           trailing={
             <div className="flex shrink-0 items-center gap-2">
+              {isGroupView && activeGroup ? (
+                <Link
+                  href={groupDetailPath(activeGroup.id, adminRoutes)}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Tv className="h-3.5 w-3.5" aria-hidden />
+                  Group playlist
+                </Link>
+              ) : null}
               {isGroupView && activeGroup && !readOnly ? (
                 <Button
                   type="button"
@@ -310,32 +350,7 @@ export function DevicesManager() {
                   Manage group
                 </Button>
               ) : null}
-              <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setView("grid")}
-                  className={cn(
-                    "rounded-md p-1.5 text-muted-foreground transition-colors",
-                    view === "grid" ? "bg-card text-foreground shadow-sm" : "hover:text-foreground",
-                  )}
-                  aria-pressed={view === "grid"}
-                  aria-label="Grid view"
-                >
-                  <LayoutGrid className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView("list")}
-                  className={cn(
-                    "rounded-md p-1.5 text-muted-foreground transition-colors",
-                    view === "list" ? "bg-card text-foreground shadow-sm" : "hover:text-foreground",
-                  )}
-                  aria-pressed={view === "list"}
-                  aria-label="List view"
-                >
-                  <List className="h-4 w-4" strokeWidth={1.75} />
-                </button>
-              </div>
+              <ViewModeToggle view={view} onViewChange={setView} />
             </div>
           }
         />
@@ -363,7 +378,7 @@ export function DevicesManager() {
               <p className="mt-1 max-w-sm text-xs text-muted-foreground">Try another search or filter.</p>
             </div>
           ) : view === "grid" ? (
-            <ul className="device-screen-grid grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <ul className="device-screen-grid grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {filtered.map((device) => (
                 <DeviceScreenCard
                   key={device.id}
@@ -440,6 +455,32 @@ export function DevicesManager() {
         onClose={() => !deleteInProgress && setDevicePendingDelete(null)}
         onConfirm={confirmDeleteDevice}
         isConfirming={deleteInProgress}
+      />
+
+      <ConfirmActionDialog
+        open={pendingMoveToGroup != null}
+        title="Move screen to another group?"
+        description={
+          pendingMoveToGroup ? (
+            <>
+              <strong className="font-medium text-foreground">{pendingMoveToGroup.device.name}</strong> is currently
+              in <strong className="font-medium text-foreground">{pendingMoveToGroup.sourceGroup.name}</strong>. Adding
+              it to <strong className="font-medium text-foreground">{pendingMoveToGroup.targetGroup.name}</strong> will
+              remove it from the current group and switch it to the new group&apos;s playlist.
+            </>
+          ) : null
+        }
+        confirmLabel="Move screen"
+        onClose={() => !moveInProgress && setPendingMoveToGroup(null)}
+        onConfirm={() => {
+          if (!pendingMoveToGroup) return;
+          void performMoveToGroup(
+            pendingMoveToGroup.device,
+            pendingMoveToGroup.targetGroup,
+            pendingMoveToGroup.sourceGroup,
+          );
+        }}
+        isConfirming={moveInProgress}
       />
 
       {ownerId && groupBeingEdited ? (

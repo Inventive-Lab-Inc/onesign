@@ -14,8 +14,8 @@ type PlanUsageMeterProps = {
   variant: "screens" | "storage";
   used: number;
   limit: number;
-  /** Compact row for tables; card for overview panels */
-  layout?: "compact" | "card";
+  /** Compact row for tables; card for overview panels; inline for header center slots */
+  layout?: "compact" | "card" | "inline";
   className?: string;
 };
 
@@ -74,6 +74,52 @@ export function PlanUsageMeter({
   const Icon = variant === "screens" ? Monitor : HardDrive;
   const title = variant === "screens" ? "Screens" : "Storage";
   const message = statusMessage(variant, tone);
+
+  if (layout === "inline") {
+    const shortUsed = formatStorageBytes(used);
+    const shortLimit = formatStorageBytes(limit);
+    const detail = `${title}: ${usageLabel(variant, used, limit)} (${pct}%)`;
+    const showPct = tone !== "ok";
+
+    return (
+      <div
+        className={cn(
+          "inline-flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-1.5",
+          tone === "ok" && "border-border/60 bg-muted/20",
+          tone === "warn" && "border-amber-500/25 bg-amber-500/8",
+          tone === "full" && "border-red-500/25 bg-red-500/8",
+          className,
+        )}
+        title={detail}
+        role="group"
+        aria-label={detail}
+      >
+        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="min-w-0 truncate text-xs tabular-nums">
+          <span className="font-medium text-foreground">{shortUsed}</span>
+          <span className="text-muted-foreground"> / {shortLimit}</span>
+        </span>
+        <div
+          className={cn("h-1 w-10 shrink-0 overflow-hidden rounded-full sm:w-12", styles.track)}
+        >
+          <div
+            className={cn("h-full rounded-full transition-all duration-500 ease-out", styles.fill)}
+            style={{ width: `${Math.max(pct, pct > 0 ? 10 : 0)}%` }}
+            role="progressbar"
+            aria-valuenow={used}
+            aria-valuemin={0}
+            aria-valuemax={limit}
+            aria-label={detail}
+          />
+        </div>
+        {showPct ? (
+          <span className={cn("shrink-0 text-[0.6875rem] font-semibold tabular-nums", styles.label)}>
+            {pct}%
+          </span>
+        ) : null}
+      </div>
+    );
+  }
 
   if (layout === "compact") {
     return (

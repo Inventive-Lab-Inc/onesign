@@ -9,9 +9,10 @@ type AdminClientRoutes = {
   devicesPath: string;
   devicePath: (deviceId: string) => string;
   groupsPath: string;
+  groupPath: (groupId: string) => string;
   playlistsPath: string;
   playlistPath: (playlistId: string) => string;
-  mediaPath: string;
+  contentPath: string;
   auditPath: string;
 };
 
@@ -33,9 +34,10 @@ export function AdminClientRouteProvider({
       devicesPath: `${basePath}/devices`,
       devicePath: (deviceId: string) => `${basePath}/devices/${deviceId}`,
       groupsPath: `${basePath}/groups`,
+      groupPath: (groupId: string) => `${basePath}/groups/${groupId}`,
       playlistsPath: `${basePath}/playlists`,
       playlistPath: (playlistId: string) => `${basePath}/playlists/${playlistId}`,
-      mediaPath: `${basePath}/playlists?view=library`,
+      contentPath: `${basePath}/content`,
       auditPath: `${basePath}/audit`,
     };
   }, [clientId]);
@@ -57,6 +59,10 @@ export function devicesListPath(adminRoutes: AdminClientRoutes | null, groupId?:
 
 export function groupsListPath(adminRoutes: AdminClientRoutes | null): string {
   return adminRoutes?.groupsPath ?? "/groups";
+}
+
+export function groupDetailPath(groupId: string, adminRoutes: AdminClientRoutes | null): string {
+  return adminRoutes?.groupPath(groupId) ?? `/groups/${groupId}`;
 }
 
 export function deviceDetailPath(
@@ -85,9 +91,10 @@ export function playlistDetailPath(
 
 export type ContentView = "library" | "playlists";
 
-export function contentLibraryPath(adminRoutes: AdminClientRoutes | null): string {
-  const base = adminRoutes?.playlistsPath ?? "/playlists";
-  return `${base}?view=library`;
+export function contentLibraryPath(adminRoutes: AdminClientRoutes | null, groupId?: string | null): string {
+  const base = adminRoutes?.contentPath ?? "/content";
+  if (!groupId || groupId === "all") return base;
+  return `${base}?group=${encodeURIComponent(groupId)}`;
 }
 
 export function contentPlaylistsPath(

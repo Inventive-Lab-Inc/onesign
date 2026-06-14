@@ -14,6 +14,8 @@ import androidx.core.view.WindowInsetsControllerCompat
 import android.view.ViewTreeObserver
 import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -202,7 +204,7 @@ fun PlaybackScreen(
     val recoveryEpoch by viewModel.playbackUiRecoveryEpoch.collectAsState()
     val slideKey =
         state.slides.joinToString("|") { s ->
-            "${s.url}#${s.fileType}#${s.durationSeconds}#${state.contentRevision}#${state.isFromCache}#${state.uiRefreshGeneration}"
+            "${s.url}#${s.fileType}#${s.durationSeconds}#${state.contentRevision}#${state.isFromCache}#${state.uiRefreshGeneration}#${state.transitionStyle}#${state.shuffleEnabled}"
         }
     var index by remember(slideKey) { mutableIntStateOf(0) }
     var visit by remember(slideKey) { mutableIntStateOf(0) }
@@ -252,18 +254,55 @@ fun PlaybackScreen(
                     engine.onPlayerViewDetached()
                     onDispose { }
                 }
-                ImageSlide(
-                    url = slide.url,
-                    durationSeconds = slide.durationSeconds,
-                    recoveryEpoch = recoveryEpoch,
-                    uiRefreshGeneration = state.uiRefreshGeneration,
-                    contentRevision = state.contentRevision,
-                    viewModel = viewModel,
-                    onDone = {
-                        index = (index + 1) % n
-                        visit += 1
-                    },
-                )
+                val imageTransitionStyle =
+                    when (state.transitionStyle.lowercase()) {
+                        "fade", "dissolve" ->
+                            if (previousSlide.fileType == "image" && slide.fileType == "image") {
+                                state.transitionStyle.lowercase()
+                            } else {
+                                "none"
+                            }
+                        else -> "none"
+                    }
+                val transitionMillis =
+                    when (imageTransitionStyle) {
+                        "fade" -> 450
+                        "dissolve" -> 650
+                        else -> 0
+                    }
+                if (transitionMillis == 0) {
+                    ImageSlide(
+                        url = slide.url,
+                        durationSeconds = slide.durationSeconds,
+                        recoveryEpoch = recoveryEpoch,
+                        uiRefreshGeneration = state.uiRefreshGeneration,
+                        contentRevision = state.contentRevision,
+                        viewModel = viewModel,
+                        onDone = {
+                            index = (index + 1) % n
+                            visit += 1
+                        },
+                    )
+                } else {
+                    Crossfade(
+                        targetState = slide.url,
+                        animationSpec = tween(transitionMillis),
+                        label = "imageSlideTransition",
+                    ) {
+                        ImageSlide(
+                            url = it,
+                            durationSeconds = slide.durationSeconds,
+                            recoveryEpoch = recoveryEpoch,
+                            uiRefreshGeneration = state.uiRefreshGeneration,
+                            contentRevision = state.contentRevision,
+                            viewModel = viewModel,
+                            onDone = {
+                                index = (index + 1) % n
+                                visit += 1
+                            },
+                        )
+                    }
+                }
             }
         }
     }

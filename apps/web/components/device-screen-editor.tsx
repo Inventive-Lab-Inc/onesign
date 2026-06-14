@@ -2,25 +2,25 @@
 
 import type { DropResult } from "@hello-pangea/dnd";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
-import type { DeviceStatus } from "@signage/types";
-import type { Media, PlaylistItemWithMedia } from "@signage/types";
+import type { Media, PlaylistItemWithMedia, PlaylistTransitionStyle } from "@signage/types";
 import {
-  Clock,
+  ArrowDown,
+  Copy,
   FileImage,
   FileVideo,
   GripVertical,
   Image as ImageIcon,
   Pencil,
-  Plus,
+  Shuffle,
   Trash2,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { BackNavLink } from "@/components/back-nav-link";
-import { contentLibraryPath, devicesListPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { devicesListPath, groupDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +50,14 @@ import {
 import { DeviceAppUpdateNotice, DeviceAppVersionChip } from "@/components/device-app-version-chip";
 import { DeviceMediaCacheChip } from "@/components/device-media-cache-chip";
 import { useActiveAppRelease } from "@/hooks/use-active-app-release";
+import { ItemActionMenu } from "@/components/console/item-action-menu";
+import { CopyPlaylistToScreensDialog } from "@/components/devices/copy-playlist-to-screens-dialog";
+import { DeviceThumbnailPicker } from "@/components/devices/device-thumbnail-picker";
+import { PlaylistTransitionsDialog } from "@/components/devices/playlist-transitions-dialog";
+import { clearDevicePlaylist, copyPlaylistToDevices } from "@/lib/copy-device-playlist";
+import { isStorageFull } from "@/lib/plan-quota";
 import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
+import { ensureActivePlaylistForDevice } from "@/lib/screen-playlist";
 
 /** Stable fallback so Zustand selectors don’t return a new [] every run (avoids render loops). */
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
@@ -61,34 +68,6 @@ function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
   if (!removed) return list;
   result.splice(endIndex, 0, removed);
   return result;
-}
-
-function statusLabel(status: DeviceStatus): string {
-  switch (status) {
-    case "online":
-      return "Online";
-    case "offline":
-      return "Offline";
-    case "pending_pairing":
-      return "Pending pairing";
-    default:
-      return status;
-  }
-}
-
-function ScreenStatusBadge({ status }: { status: DeviceStatus }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-        status === "online" && "bg-brand-soft text-brand-badge dark:text-brand-onDark",
-        status === "offline" && "bg-muted text-muted-foreground",
-        status === "pending_pairing" && "bg-amber-500/15 text-amber-900 dark:text-amber-200",
-      )}
-    >
-      {statusLabel(status)}
-    </span>
-  );
 }
 
 interface DeviceScreenEditorProps {
@@ -110,7 +89,6 @@ export function DeviceScreenEditor({
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const searchParams = useSearchParams();
   const adminRoutes = useAdminClientRoutes();
-  const libraryHref = contentLibraryPath(adminRoutes);
   const deviceGroups = useConsoleDataStore((s) => s.deviceGroups);
   const { syncNow } = useConsoleSync();
   const activeAppRelease = useActiveAppRelease();
@@ -118,6 +96,7 @@ export function DeviceScreenEditor({
   const accountDisabled = plan?.accountDisabled ?? false;
 
   const storeDevices = useConsoleDataStore((s) => s.devices) as DeviceWithAssignments[];
+  const patchDevice = useConsoleDataStore((s) => s.patchDevice);
   const device = useMemo(
     () => storeDevices.find((d) => d.id === deviceId),
     [storeDevices, deviceId],
@@ -145,7 +124,6 @@ export function DeviceScreenEditor({
     void syncNow();
   }, [deviceId, syncNow]);
 
-  const playlists = useConsoleDataStore((s) => s.playlists);
   const allMedia = useConsoleDataStore((s) => s.media) as Media[];
 
   const activePlaylistId = useMemo(() => {
@@ -153,10 +131,15 @@ export function DeviceScreenEditor({
   }, [device]);
 
   const playlistId = activePlaylistId;
-  const activePlaylistName = useMemo(() => {
-    if (!playlistId) return null;
-    return playlists.find((p) => p.id === playlistId)?.name ?? null;
-  }, [playlists, playlistId]);
+
+  const playlists = useConsoleDataStore((s) => s.playlists);
+  const activePlaylist = useMemo(
+    () => playlists.find((playlist) => playlist.id === playlistId) ?? null,
+    [playlists, playlistId],
+  );
+  const transitionStyle: PlaylistTransitionStyle = activePlaylist?.transition_style ?? "none";
+  const shuffleEnabled = activePlaylist?.shuffle_enabled ?? false;
+  const storageFull = plan != null && isStorageFull(plan);
 
   const deviceDisplayPxForPreview = useMemo(
     () => (device ? getDeviceDisplayDimensionsPx(device) : null),
@@ -170,8 +153,8 @@ export function DeviceScreenEditor({
   const [items, setItems] = useState<PlaylistItemWithMedia[]>(cachedItems);
   const [libraryResetKey, setLibraryResetKey] = useState(0);
   const [librarySearch, setLibrarySearch] = useState("");
-  const [creatingPlaylist, setCreatingPlaylist] = useState(false);
-  const [unassigningPlaylist, setUnassigningPlaylist] = useState(false);
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [transitionsDialogOpen, setTransitionsDialogOpen] = useState(false);
   const [deviceName, setDeviceName] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [isEditingDeviceName, setIsEditingDeviceName] = useState(false);
@@ -187,6 +170,15 @@ export function DeviceScreenEditor({
   const reloadFromServer = useCallback(async () => {
     await syncNow();
   }, [syncNow]);
+
+  useEffect(() => {
+    if (!device || !canManageTvPlaylist || activePlaylistId) return;
+    void (async () => {
+      const { error } = await ensureActivePlaylistForDevice(supabase, ownerId, device);
+      if (error) toast.error(error);
+      else await reloadFromServer();
+    })();
+  }, [activePlaylistId, canManageTvPlaylist, device, ownerId, reloadFromServer, supabase]);
 
   useEnsurePlaylistVideoDurations(items, supabase, reloadFromServer);
 
@@ -224,82 +216,17 @@ export function DeviceScreenEditor({
     setIsEditingDeviceName(false);
   }, [device]);
 
-  const assignPlaylist = useCallback(
-    async (nextPlaylistId: string) => {
-      if (!device) return;
-      const { error } = await supabase.from("device_playlists").upsert(
-        {
-          device_id: device.id,
-          playlist_id: nextPlaylistId,
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "device_id,playlist_id" },
-      );
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      const { error: deactivateError } = await supabase
-        .from("device_playlists")
-        .update({ is_active: false })
-        .eq("device_id", device.id)
-        .neq("playlist_id", nextPlaylistId);
-      if (deactivateError) {
-        toast.error(deactivateError.message);
-        return;
-      }
-      toast.success("Playlist assigned to this screen");
-      await reloadFromServer();
-    },
-    [device, reloadFromServer, supabase],
-  );
-
-  const unassignPlaylist = useCallback(async () => {
-    if (!device) return;
-    setUnassigningPlaylist(true);
-    try {
-      const { error } = await supabase
-        .from("device_playlists")
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .eq("device_id", device.id);
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      toast.success("Playlist unassigned from this screen");
-      await reloadFromServer();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to unassign playlist";
-      toast.error(message);
-    } finally {
-      setUnassigningPlaylist(false);
-    }
-  }, [device, reloadFromServer, supabase]);
-
-  const createPlaylistAndAssign = useCallback(async (): Promise<string | null> => {
+  const resolvePlaylistId = useCallback(async (): Promise<string | null> => {
     if (!device) return null;
-    setCreatingPlaylist(true);
-    try {
-      const { data, error } = await supabase
-        .from("playlists")
-        .insert({ owner_id: ownerId, name: `${device.name} — screen` })
-        .select("id")
-        .single();
-      if (error) {
-        toast.error(error.message);
-        return null;
-      }
-      await assignPlaylist(data.id);
-      return data.id;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to create playlist";
-      toast.error(message);
+    if (playlistId) return playlistId;
+    const { playlistId: ensured, error } = await ensureActivePlaylistForDevice(supabase, ownerId, device);
+    if (error || !ensured) {
+      toast.error(error ?? "Unable to prepare playlist for this screen");
       return null;
-    } finally {
-      setCreatingPlaylist(false);
     }
-  }, [assignPlaylist, device, ownerId, supabase]);
+    await reloadFromServer();
+    return ensured;
+  }, [device, ownerId, playlistId, reloadFromServer, supabase]);
 
   const persistOrder = useCallback(
     async (next: PlaylistItemWithMedia[]) => {
@@ -409,7 +336,7 @@ export function DeviceScreenEditor({
 
       if (draggableId.startsWith("media-") && destination.droppableId === "screen-playlist") {
         const mediaId = draggableId.replace(/^media-/, "");
-        const pid = playlistId || (await createPlaylistAndAssign());
+        const pid = playlistId || (await resolvePlaylistId());
         if (!pid) return;
         await addMediaAtIndex(mediaId, destination.index, pid);
         return;
@@ -433,7 +360,58 @@ export function DeviceScreenEditor({
         await persistOrder(next);
       }
     },
-    [addMediaAtIndex, createPlaylistAndAssign, items, persistOrder, playlistId, removeItem],
+    [addMediaAtIndex, items, persistOrder, playlistId, removeItem, resolvePlaylistId],
+  );
+
+  const otherDevices = useMemo(
+    () => storeDevices.filter((entry) => entry.id !== deviceId),
+    [storeDevices, deviceId],
+  );
+
+  const handleClearPlaylist = useCallback(async () => {
+    if (!playlistId) return;
+    const { error } = await clearDevicePlaylist(supabase, playlistId);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    toast.success("Playlist cleared");
+    await reloadFromServer();
+  }, [playlistId, reloadFromServer, supabase]);
+
+  const handleSavePlaylistSettings = useCallback(
+    async (values: { transitionStyle: PlaylistTransitionStyle; shuffleEnabled: boolean }) => {
+      if (!playlistId) return;
+      const { error } = await supabase
+        .from("playlists")
+        .update({
+          transition_style: values.transitionStyle,
+          shuffle_enabled: values.shuffleEnabled,
+        })
+        .eq("id", playlistId);
+      if (error) {
+        toast.error(error.message);
+        throw error;
+      }
+      toast.success("Playback settings saved");
+      await reloadFromServer();
+    },
+    [playlistId, reloadFromServer, supabase],
+  );
+
+  const handleCopyToScreens = useCallback(
+    async (targetDeviceIds: string[]) => {
+      if (!device) return;
+      const targets = otherDevices.filter((entry) => targetDeviceIds.includes(entry.id));
+      const { copiedCount, error } = await copyPlaylistToDevices(supabase, ownerId, items, targets);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      toast.success(`Playlist copied to ${copiedCount} screen${copiedCount === 1 ? "" : "s"}`);
+      await reloadFromServer();
+    },
+    [device, items, otherDevices, ownerId, reloadFromServer, supabase],
   );
 
   const filteredLibrary = useMemo(() => {
@@ -449,16 +427,21 @@ export function DeviceScreenEditor({
 
   const playlistTimingLabel = useMemo(() => formatPlaylistClockLabel(items), [items]);
 
+  const sharedGroupPlaylist = useMemo(() => {
+    if (!activePlaylistId) return null;
+    return deviceGroups.find((group) => group.playlist_id === activePlaylistId) ?? null;
+  }, [activePlaylistId, deviceGroups]);
+
   const addMediaByClick = useCallback(
     (mediaId: string) => {
       void (async () => {
-        const pid = playlistId || (await createPlaylistAndAssign());
+        const pid = playlistId || (await resolvePlaylistId());
         if (!pid) return;
         const len = useConsoleDataStore.getState().playlistItemsByPlaylistId[pid]?.length ?? items.length;
         await addMediaAtIndex(mediaId, len, pid);
       })();
     },
-    [addMediaAtIndex, createPlaylistAndAssign, items.length, playlistId],
+    [addMediaAtIndex, items.length, playlistId, resolvePlaylistId],
   );
 
   if (!device) {
@@ -473,46 +456,25 @@ export function DeviceScreenEditor({
     );
   }
 
-  const playlistPickerBar = (
-    <>
-      <Label htmlFor="screen-playlist" className="sr-only">
-        Playlist for this screen
-      </Label>
-      <select
-        id="screen-playlist"
-        className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 sm:w-52 lg:w-60"
-        value={activePlaylistId}
-        disabled={creatingPlaylist || unassigningPlaylist}
-        aria-busy={unassigningPlaylist}
-        onChange={(e) => {
-          const value = e.target.value;
-          if (!value) {
-            void unassignPlaylist();
-            return;
-          }
-          void assignPlaylist(value);
-        }}
-      >
-        <option value="">No playlist</option>
-        {playlists.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-      <Button
-        type="button"
-        variant="default"
-        className="h-10 w-full shrink-0 gap-1.5 whitespace-nowrap font-semibold shadow-sm sm:w-auto"
-        disabled={creatingPlaylist || unassigningPlaylist}
-        title="Creates a new playlist and assigns it to this screen"
-        onClick={() => void createPlaylistAndAssign()}
-      >
-        <Plus className="h-4 w-4 shrink-0" aria-hidden />
-        {creatingPlaylist ? "Creating…" : "Create playlist"}
-      </Button>
-    </>
-  );
+  const playlistMenuItems = [
+    {
+      label: "Playlist transitions",
+      onClick: () => setTransitionsDialogOpen(true),
+      icon: <Shuffle className="h-3.5 w-3.5" aria-hidden />,
+    },
+    {
+      label: "Copy playlist to other screens",
+      onClick: () => setCopyDialogOpen(true),
+      icon: <Copy className="h-3.5 w-3.5" aria-hidden />,
+      disabled: otherDevices.length === 0,
+    },
+    {
+      label: "Clear playlist",
+      onClick: () => void handleClearPlaylist(),
+      destructive: true,
+      icon: <Trash2 className="h-3.5 w-3.5" aria-hidden />,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -543,18 +505,31 @@ export function DeviceScreenEditor({
         />
       ) : null}
 
+      {sharedGroupPlaylist ? (
+        <div className="rounded-xl border border-brand/25 bg-brand-soft/40 px-4 py-3 text-sm text-foreground">
+          This screen plays the shared playlist for group{" "}
+          <Link
+            href={groupDetailPath(sharedGroupPlaylist.id, adminRoutes)}
+            className="font-semibold text-brand-badge underline-offset-2 hover:underline dark:text-brand-onDarkSoft"
+          >
+            {sharedGroupPlaylist.name}
+          </Link>
+          . Changes here apply to all screens in that group.
+        </div>
+      ) : null}
+
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto">
-              <div className="relative mx-auto h-24 w-36 shrink-0 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted to-muted/40 shadow-inner sm:mx-0">
-                <div className="flex h-full w-full items-center justify-center">
-                  <ImageIcon className="h-10 w-10 text-muted-foreground/80" strokeWidth={1.25} />
-                </div>
-                <div className="absolute left-2 top-2">
-                  <ScreenStatusBadge status={effectiveDeviceStatus(device)} />
-                </div>
-              </div>
-            </div>
+            <DeviceThumbnailPicker
+              deviceId={device.id}
+              ownerId={ownerId}
+              thumbnailStoragePath={device.thumbnail_storage_path}
+              status={effectiveDeviceStatus(device)}
+              canEdit={canManageTvPlaylist}
+              onUpdated={(thumbnailStoragePath) =>
+                patchDevice(device.id, { thumbnail_storage_path: thumbnailStoragePath })
+              }
+            />
 
             <div className="min-w-0 flex-1 space-y-4">
               {!isEditingDeviceName ? (
@@ -679,54 +654,23 @@ export function DeviceScreenEditor({
         <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm dark:bg-card">
           <div className="border-b border-border bg-muted/30 px-4 py-4 sm:px-5">
             <div className="space-y-1.5">
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">Playlist on this screen</h2>
-              {playlistId ? (
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  Assigned playlist:{" "}
-                  <span className="font-medium text-foreground">{activePlaylistName ?? "Untitled playlist"}</span>{" "}
-                  ({items.length} {items.length === 1 ? "item" : "items"}, {playlistTimingLabel}). Contact your OneSign
-                  administrator to change what plays on this TV.
-                </p>
-              ) : (
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  No playlist is assigned yet. Your OneSign administrator will choose what plays on this TV.
-                </p>
-              )}
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">Playlist</h2>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {items.length > 0
+                  ? `${items.length} ${items.length === 1 ? "item" : "items"} on this screen (${playlistTimingLabel}). Contact your administrator to change what plays.`
+                  : "No content on this screen yet. Your administrator will choose what plays on this TV."}
+              </p>
             </div>
           </div>
-          {playlistId && items.length > 0 ? (
+          {items.length > 0 ? (
             <div className="px-4 py-4 sm:px-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <PlaylistPreviewButton
-                  items={items}
-                  playlistName={activePlaylistName}
-                  frame={{ kind: "device", displayPx: deviceDisplayPxForPreview }}
-                />
-              </div>
+              <PlaylistPreviewButton
+                items={items}
+                playlistName={device.name}
+                frame={{ kind: "device", displayPx: deviceDisplayPxForPreview }}
+              />
             </div>
           ) : null}
-        </section>
-      ) : !playlistId ? (
-        <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm dark:bg-card">
-          <div className="border-b border-border bg-muted/30 px-4 py-4 sm:px-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">Playlist on this screen</h2>
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  Pick which playlist this TV plays, or tap{" "}
-                  <span className="font-medium text-foreground">Create playlist</span> to add a new one for this screen.
-                </p>
-              </div>
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-shrink-0 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
-                {playlistPickerBar}
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <p className="max-w-md text-sm text-muted-foreground">
-              Select a playlist to load the clip editor and asset library.
-            </p>
-          </div>
         </section>
       ) : (
         <DragDropContext onDragEnd={(r) => void onDragEnd(r)}>
@@ -734,62 +678,49 @@ export function DeviceScreenEditor({
             <div className="min-w-0 flex-1 space-y-4">
               <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm dark:bg-card">
                 <div className="border-b border-border bg-muted/30 px-4 py-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      <h3 className="text-sm font-semibold text-foreground">Playlist control</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Drag rows to reorder. Drop media from the library on the right.
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="text-base font-semibold text-foreground">Playlist</h2>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {items.length} {items.length === 1 ? "item" : "items"} · {playlistTimingLabel}
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:pt-0.5">
-                      <span className="inline-flex items-center rounded-full border border-border bg-white px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm dark:bg-card">
-                        {items.length} {items.length === 1 ? "item" : "items"}
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-border bg-white px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm dark:bg-card">
-                        <Clock className="h-3.5 w-3.5" />
-                        {playlistTimingLabel}
-                      </span>
+                    <div className="flex shrink-0 items-center gap-2">
                       <PlaylistPreviewButton
                         items={items}
-                        playlistName={activePlaylistName}
+                        playlistName={device.name}
                         frame={{ kind: "device", displayPx: deviceDisplayPxForPreview }}
                       />
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">{playlistPickerBar}</div>
+                      <ItemActionMenu ariaLabel="Playlist actions" items={playlistMenuItems} />
                     </div>
                   </div>
                 </div>
 
                 <div className="p-3 sm:p-4">
-                  {items.length === 0 && (
-                    <p className="mb-3 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
-                      The TV stays on a placeholder until this playlist has at least one clip.
-                    </p>
-                  )}
-
                   <Droppable droppableId="screen-playlist">
                     {(dropProvided) => (
                       <div ref={dropProvided.innerRef} {...dropProvided.droppableProps} className="overflow-x-auto">
                         <div className="min-w-[520px]">
-                          <div
-                            className="grid grid-cols-[40px_88px_1fr_72px_88px_44px] gap-2 border-b border-border pb-2 text-[0.625rem] font-semibold uppercase tracking-wide text-muted-foreground"
-                            role="row"
-                          >
-                            <span className="pl-1">#</span>
-                            <span>Thumb</span>
-                            <span>Title</span>
-                            <span>Type</span>
-                            <span>Duration</span>
-                            <span className="pr-1 text-right" />
-                          </div>
+                          {items.length > 0 ? (
+                            <div
+                              className="grid grid-cols-[40px_88px_1fr_72px_88px_44px] gap-2 border-b border-border pb-2 text-[0.625rem] font-semibold uppercase tracking-wide text-muted-foreground"
+                              role="row"
+                            >
+                              <span className="pl-1">#</span>
+                              <span>Thumb</span>
+                              <span>Title</span>
+                              <span>Type</span>
+                              <span>Duration</span>
+                              <span className="pr-1 text-right" />
+                            </div>
+                          ) : null}
                           {items.length === 0 ? (
-                            <div className="rounded-xl border border-dashed border-border bg-muted/15 px-4 py-14 text-center">
-                              <p className="text-sm font-medium text-foreground">Nothing in this playlist yet</p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                Add clips from the library on the right, or upload new files in{" "}
-                                <Link href={libraryHref} className="font-medium text-foreground underline-offset-4 hover:underline">
-                                  Library
-                                </Link>
-                                .
+                            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/15 px-4 py-16 text-center">
+                              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                                <ArrowDown className="h-7 w-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+                              </div>
+                              <p className="text-sm font-medium text-foreground">
+                                Add content by dragging content from the right to here
                               </p>
                             </div>
                           ) : (
@@ -895,14 +826,32 @@ export function DeviceScreenEditor({
               droppableId="media-library"
               libraryResetKey={libraryResetKey}
               librarySearch={librarySearch}
-              libraryHref={libraryHref}
               onLibrarySearchChange={setLibrarySearch}
               filteredLibrary={filteredLibrary}
               onAddMedia={addMediaByClick}
+              ownerId={ownerId}
+              readOnly={!canManageTvPlaylist}
+              storageFull={storageFull}
             />
           </div>
         </DragDropContext>
       )}
+
+      <CopyPlaylistToScreensDialog
+        open={copyDialogOpen}
+        onClose={() => setCopyDialogOpen(false)}
+        sourceDeviceName={device.name}
+        devices={otherDevices}
+        onConfirm={handleCopyToScreens}
+      />
+
+      <PlaylistTransitionsDialog
+        open={transitionsDialogOpen}
+        onClose={() => setTransitionsDialogOpen(false)}
+        transitionStyle={transitionStyle}
+        shuffleEnabled={shuffleEnabled}
+        onSave={handleSavePlaylistSettings}
+      />
     </div>
   );
 }

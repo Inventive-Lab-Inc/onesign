@@ -102,6 +102,10 @@ private data class TvGetPlaybackResult(
     val contentRevision: String? = null,
     val playlistId: String? = null,
     val slides: List<TvGetPlaybackSlide> = emptyList(),
+    @SerialName("transitionStyle")
+    val transitionStyle: String = "none",
+    @SerialName("shuffleEnabled")
+    val shuffleEnabled: Boolean = false,
 )
 
 @Serializable
@@ -660,6 +664,8 @@ class MainViewModel(
             playlistId = cached.playlistId,
             screenOrientation = orient,
             playbackDisabledByAdmin = false,
+            transitionStyle = cached.transitionStyle,
+            shuffleEnabled = cached.shuffleEnabled,
         )
     }
 
@@ -683,6 +689,8 @@ class MainViewModel(
                 savedAtMs = System.currentTimeMillis(),
                 slides = slides,
                 screenOrientation = screenOrientation,
+                transitionStyle = res.transitionStyle,
+                shuffleEnabled = res.shuffleEnabled,
             )
         val encoded = cachedPlaybackJson.encodeToString(CachedPlaybackV1.serializer(), payload)
         dataStore.edit { it[DeviceKeys.CACHED_PLAYBACK] = encoded }
@@ -1438,6 +1446,8 @@ class MainViewModel(
                     fileType = s.fileType,
                     durationSeconds = s.durationSeconds,
                 )
+            }.let { mapped ->
+                if (res.shuffleEnabled && mapped.size > 1) mapped.shuffled() else mapped
             }
         if (slides.isEmpty()) {
             clearCachedPlayback()
@@ -1458,6 +1468,8 @@ class MainViewModel(
                 screenOrientation = screenOrientation,
                 playbackDisabledByAdmin = false,
                 uiRefreshGeneration = prevGen,
+                transitionStyle = res.transitionStyle,
+                shuffleEnabled = res.shuffleEnabled,
             ),
         )
     }

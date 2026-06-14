@@ -7,8 +7,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { DeviceGroupWithMembers } from "@/lib/console-sync";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
+import type { DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
 import { DEFAULT_GROUP_COLOR, DEVICE_GROUP_COLORS, resolveGroupColor } from "@/lib/device-group-colors";
+import {
+  findGroupContainingDevice,
+  moveDevicesIntoGroup,
+  patchStoreAfterDevicesMovedToGroup,
+  restoreIndividualPlaylistsForDevices,
+} from "@/lib/group-playlist";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
@@ -35,12 +42,18 @@ export function DeviceGroupEditorDialog({
   const descId = useId();
   const { syncNow } = useConsoleSync();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const deviceGroups = useConsoleDataStore((s) => s.deviceGroups) as DeviceGroupWithMembers[];
 
   const [name, setName] = useState("");
   const [accentColor, setAccentColor] = useState<string>(DEFAULT_GROUP_COLOR);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [pendingMove, setPendingMove] = useState<{
+    deviceId: string;
+    deviceName: string;
+    fromGroupName: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -64,14 +77,38 @@ export function DeviceGroupEditorDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, saving, deleteInProgress]);
 
-  const toggleDevice = useCallback((deviceId: string) => {
-    setSelectedDeviceIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(deviceId)) next.delete(deviceId);
-      else next.add(deviceId);
-      return next;
-    });
-  }, []);
+  const toggleDevice = useCallback(
+    (deviceId: string) => {
+      if (selectedDeviceIds.has(deviceId)) {
+        setSelectedDeviceIds((prev) => {
+          const next = new Set(prev);
+          next.delete(deviceId);
+          return next;
+        });
+        return;
+      }
+
+      const otherGroup = findGroupContainingDevice(deviceGroups, deviceId, group?.id ?? null);
+      if (otherGroup) {
+        const device = devices.find((entry) => entry.id === deviceId);
+        setPendingMove({
+          deviceId,
+          deviceName: device?.name ?? "This screen",
+          fromGroupName: otherGroup.name,
+        });
+        return;
+      }
+
+      setSelectedDeviceIds((prev) => new Set(prev).add(deviceId));
+    },
+    [deviceGroups, devices, group?.id, selectedDeviceIds],
+  );
+
+  const confirmPendingMove = useCallback(() => {
+    if (!pendingMove) return;
+    setSelectedDeviceIds((prev) => new Set(prev).add(pendingMove.deviceId));
+    setPendingMove(null);
+  }, [pendingMove]);
 
   const sortedDevices = useMemo(
     () => [...devices].sort((a, b) => a.name.localeCompare(b.name)),
@@ -97,27 +134,37 @@ export function DeviceGroupEditorDialog({
           return;
         }
         const memberIds = [...selectedDeviceIds];
+        const createdGroup: DeviceGroupWithMembers = {
+          id: created.id,
+          owner_id: ownerId,
+          name: trimmed,
+          accent_color: accentColor,
+          playlist_id: null,
+          created_at: new Date().toISOString(),
+          member_device_ids: [],
+        };
+        let playlistId: string | null = null;
         if (memberIds.length > 0) {
-          const { error: membersError } = await supabase.from("device_group_members").insert(
-            memberIds.map((deviceId) => ({ group_id: created.id, device_id: deviceId })),
+          const { playlistId: ensured, error: moveError } = await moveDevicesIntoGroup(
+            supabase,
+            ownerId,
+            createdGroup,
+            memberIds,
           );
-          if (membersError) {
-            toast.error(membersError.message);
+          if (moveError) {
+            toast.error(moveError);
             return;
           }
+          playlistId = ensured;
         }
         toast.success(`Folder “${trimmed}” created`);
         useConsoleDataStore.setState((state) => ({
           deviceGroups: [
-            ...state.deviceGroups,
-            {
-              id: created.id,
-              owner_id: ownerId,
-              name: trimmed,
-              accent_color: accentColor,
-              created_at: new Date().toISOString(),
-              member_device_ids: memberIds,
-            },
+            ...state.deviceGroups.map((entry) => ({
+              ...entry,
+              member_device_ids: entry.member_device_ids.filter((id) => !memberIds.includes(id)),
+            })),
+            { ...createdGroup, member_device_ids: memberIds, playlist_id: playlistId },
           ],
         }));
       } else if (group) {
@@ -134,6 +181,7 @@ export function DeviceGroupEditorDialog({
         const next = selectedDeviceIds;
         const toAdd = [...next].filter((id) => !previous.has(id));
         const toRemove = [...previous].filter((id) => !next.has(id));
+        let playlistId = group.playlist_id;
 
         if (toRemove.length > 0) {
           const { error: removeError } = await supabase
@@ -145,16 +193,40 @@ export function DeviceGroupEditorDialog({
             toast.error(removeError.message);
             return;
           }
-        }
-        if (toAdd.length > 0) {
-          const { error: addError } = await supabase.from("device_group_members").insert(
-            toAdd.map((deviceId) => ({ group_id: group.id, device_id: deviceId })),
+          const removedDevices = (devices as DeviceWithAssignments[]).filter((device) =>
+            toRemove.includes(device.id),
           );
-          if (addError) {
-            toast.error(addError.message);
+          const { error: restoreError } = await restoreIndividualPlaylistsForDevices(
+            supabase,
+            ownerId,
+            removedDevices,
+          );
+          if (restoreError) {
+            toast.error(restoreError);
             return;
           }
         }
+        if (toAdd.length > 0) {
+          const groupForMove: DeviceGroupWithMembers = {
+            ...group,
+            name: trimmed,
+            accent_color: accentColor,
+            member_device_ids: group.member_device_ids.filter((id) => !toRemove.includes(id)),
+          };
+          const { playlistId: ensured, error: moveError } = await moveDevicesIntoGroup(
+            supabase,
+            ownerId,
+            groupForMove,
+            toAdd,
+          );
+          if (moveError) {
+            toast.error(moveError);
+            return;
+          }
+          playlistId = ensured;
+          patchStoreAfterDevicesMovedToGroup(group.id, toAdd, playlistId);
+        }
+
         toast.success("Folder updated");
         useConsoleDataStore.setState((state) => ({
           deviceGroups: state.deviceGroups.map((entry) =>
@@ -163,6 +235,7 @@ export function DeviceGroupEditorDialog({
                   ...entry,
                   name: trimmed,
                   accent_color: accentColor,
+                  playlist_id: playlistId,
                   member_device_ids: [...selectedDeviceIds],
                 }
               : entry,
@@ -227,8 +300,8 @@ export function DeviceGroupEditorDialog({
               </h2>
               <p id={descId} className="mt-1 text-sm text-muted-foreground">
                 {mode === "create"
-                  ? "Name your folder and choose which screens belong in it."
-                  : "Rename, recolor, or change which screens are in this folder. Uncheck a screen to move it to Ungrouped."}
+                  ? "Name your group and choose screens to assign. Each screen can only belong to one group at a time."
+                  : "Rename, recolor, or change assigned screens. Assigning a screen here moves it out of any other group."}
               </p>
             </div>
             <button
@@ -282,7 +355,7 @@ export function DeviceGroupEditorDialog({
                 </span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Unchecked screens appear under Ungrouped on the main Screens page.
+                Screens already in another group will move here when selected. Unchecked screens return to Ungrouped.
               </p>
               {devices.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
@@ -292,6 +365,7 @@ export function DeviceGroupEditorDialog({
                 <ul className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border bg-background/60 p-2">
                   {sortedDevices.map((device) => {
                     const selected = selectedDeviceIds.has(device.id);
+                    const otherGroup = findGroupContainingDevice(deviceGroups, device.id, group?.id ?? null);
                     return (
                       <li key={device.id}>
                         <button
@@ -316,7 +390,14 @@ export function DeviceGroupEditorDialog({
                             {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
                           </span>
                           <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
-                          <span className="min-w-0 flex-1 truncate font-medium">{device.name}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-medium">{device.name}</span>
+                            {otherGroup && !selected ? (
+                              <span className="block truncate text-xs text-amber-700 dark:text-amber-300">
+                                In {otherGroup.name}
+                              </span>
+                            ) : null}
+                          </span>
                         </button>
                       </li>
                     );
@@ -352,6 +433,23 @@ export function DeviceGroupEditorDialog({
             </div>
           </footer>
         </div>
+
+      <ConfirmActionDialog
+        open={pendingMove != null}
+        title="Move screen to this group?"
+        description={
+          pendingMove ? (
+            <>
+              <strong className="font-medium text-foreground">{pendingMove.deviceName}</strong> is currently in{" "}
+              <strong className="font-medium text-foreground">{pendingMove.fromGroupName}</strong>. Moving it here
+              will remove it from that group and switch it to this group&apos;s playlist.
+            </>
+          ) : null
+        }
+        confirmLabel="Move screen"
+        onClose={() => setPendingMove(null)}
+        onConfirm={confirmPendingMove}
+      />
     </div>
   );
 }

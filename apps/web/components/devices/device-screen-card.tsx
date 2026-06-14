@@ -2,6 +2,7 @@
 
 import type { Device, DeviceStatus } from "@signage/types";
 import { FolderOutput, Settings, Trash2, Tv } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { deviceDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { ItemActionMenu } from "@/components/console/item-action-menu";
@@ -10,6 +11,7 @@ import type { ActiveAppRelease } from "@/hooks/use-active-app-release";
 import type { DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
 import { resolveGroupColor } from "@/lib/device-group-colors";
+import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { cn } from "@/lib/utils";
 import "./device-screen-card.css";
 
@@ -62,6 +64,9 @@ export function DeviceScreenCard({
   const disabledState = deviceDisabledPresentation(device, accountDisabled);
   const detailHref = deviceDetailPath(device.id, adminRoutes, returnGroupId);
   const groupNames = groups.map((group) => group.name).join(", ");
+  const thumbnailUrl = device.thumbnail_storage_path
+    ? mediaPublicUrl(device.thumbnail_storage_path)
+    : null;
 
   const groupMenuItems =
     onAddToFolder && folders.length > 0
@@ -82,17 +87,29 @@ export function DeviceScreenCard({
     <li className={cn("device-screen-card group/screen", className)}>
       <Link
         href={detailHref}
-        className="device-screen-card__link block overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        className="device-screen-card__link block overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         aria-label={`Open screen: ${device.name}`}
       >
         <div className="device-screen-card__preview relative aspect-[16/10] bg-muted/60">
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/50">
-            <Tv className="h-10 w-10" strokeWidth={1.25} aria-hidden />
-          </div>
-          <div className="absolute bottom-2 right-2 flex flex-wrap items-center justify-end gap-1">
+          {thumbnailUrl ? (
+            <Image
+              key={device.thumbnail_storage_path ?? device.id}
+              src={thumbnailUrl}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="(max-width: 640px) 50vw, 180px"
+              unoptimized
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/50">
+              <Tv className="h-7 w-7" strokeWidth={1.25} aria-hidden />
+            </div>
+          )}
+          <div className="absolute bottom-1.5 right-1.5 flex flex-wrap items-center justify-end gap-1">
             <span
               className={cn(
-                "inline-flex rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide shadow-sm",
+                "inline-flex rounded-full px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide shadow-sm",
                 status === "online" && "bg-emerald-500 text-white",
                 status === "offline" && "bg-background/90 text-muted-foreground ring-1 ring-border",
                 status === "pending_pairing" && "bg-amber-500 text-white",
@@ -111,12 +128,12 @@ export function DeviceScreenCard({
           </div>
         </div>
 
-        <div className="flex items-start gap-2 p-3">
+        <div className="flex items-start gap-1 border-t border-border/60 p-2">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-foreground" title={device.name}>
+            <p className="line-clamp-2 text-xs font-semibold leading-snug text-foreground" title={device.name}>
               {device.name}
             </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="mt-0.5 text-[0.6875rem] leading-relaxed text-muted-foreground">
               {formatDeviceLastSeen(device.last_seen)}
               {groupNames ? ` · ${groupNames}` : ""}
             </p>

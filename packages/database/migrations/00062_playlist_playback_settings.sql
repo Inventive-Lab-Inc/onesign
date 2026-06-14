@@ -1,0 +1,342 @@
+-- Per-playlist playback settings (device-owned playlists in AbleSign-style UX).
+
+alter table public.playlists
+  add column if not exists transition_style text not null default 'none',
+  add column if not exists shuffle_enabled boolean not null default false;
+
+alter table public.playlists
+  drop constraint if exists playlists_transition_style_check;
+
+alter table public.playlists
+  add constraint playlists_transition_style_check
+  check (transition_style in ('none', 'fade', 'dissolve'));
+
+-- Include settings in manifest fingerprint so TVs refresh when they change.
+create or replace function public.tv_get_playback_revision(p_device_id uuid, p_playback_secret text default null)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_reg uuid;
+  v_owner uuid;
+  v_device_name text;
+  v_playback_disabled boolean := false;
+  v_screen_orientation text := 'landscape';
+  v_secret text;
+  v_ok_secret boolean := false;
+  v_ok_jwt boolean := false;
+  v_playlist_id uuid;
+  v_dp_updated timestamptz;
+  v_playlist_name text;
+  v_transition_style text := 'none';
+  v_shuffle_enabled boolean := false;
+  v_content_hash text;
+begin
+  if not exists (select 1 from public.devices d where d.id = p_device_id) then
+    return jsonb_build_object('ok', to_jsonb(false));
+  end if;
+
+  select d.registered_session_id, d.owner_id, d.name, d.playback_disabled, d.screen_orientation
+  into v_reg, v_owner, v_device_name, v_playback_disabled, v_screen_orientation
+  from public.devices d
+  where d.id = p_device_id;
+
+  select c.secret
+  into v_secret
+  from public.device_playback_credentials c
+  where c.device_id = p_device_id;
+
+  if v_owner is not null
+     and v_secret is null
+     and auth.uid() is not null
+     and v_reg is not distinct from auth.uid() then
+    v_secret := lower(replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''));
+    insert into public.device_playback_credentials (device_id, secret)
+    values (p_device_id, v_secret);
+  end if;
+
+  if p_playback_secret is not null
+     and trim(p_playback_secret) <> ''
+     and v_secret is not null
+     and trim(v_secret) <> ''
+     and v_secret = p_playback_secret then
+    v_ok_secret := true;
+  end if;
+
+  if not v_ok_secret then
+    if auth.uid() is null then
+      return jsonb_build_object('ok', to_jsonb(false));
+    end if;
+    if v_reg is null or v_reg is distinct from auth.uid() then
+      return jsonb_build_object('ok', to_jsonb(false));
+    end if;
+    v_ok_jwt := true;
+  end if;
+
+  if v_playback_disabled then
+    v_content_hash := md5('playback_disabled|' || p_device_id::text);
+    return jsonb_build_object(
+      'ok', to_jsonb(true),
+      'deviceName', to_jsonb(v_device_name),
+      'playbackDisabled', to_jsonb(true),
+      'contentRevision', to_jsonb(v_content_hash),
+      'playlistId', to_jsonb(null::uuid),
+      'playlistName', to_jsonb(null::text),
+      'screenOrientation', to_jsonb(v_screen_orientation)
+    );
+  end if;
+
+  select dp.playlist_id, dp.updated_at
+  into v_playlist_id, v_dp_updated
+  from public.device_playlists dp
+  where dp.device_id = p_device_id
+    and dp.is_active = true
+  order by dp.updated_at desc nulls last
+  limit 1;
+
+  if v_playlist_id is null then
+    return jsonb_build_object(
+      'ok', to_jsonb(true),
+      'deviceName', to_jsonb(v_device_name),
+      'playbackDisabled', to_jsonb(false),
+      'contentRevision', to_jsonb(null::text),
+      'playlistId', to_jsonb(null::uuid),
+      'playlistName', to_jsonb(null::text),
+      'screenOrientation', to_jsonb(v_screen_orientation)
+    );
+  end if;
+
+  select p.name, p.transition_style, p.shuffle_enabled
+  into v_playlist_name, v_transition_style, v_shuffle_enabled
+  from public.playlists p
+  where p.id = v_playlist_id;
+
+  select
+    coalesce(
+      md5(
+        v_playlist_id::text
+        || '|'
+        || coalesce(v_dp_updated::text, '')
+        || '|'
+        || coalesce(v_transition_style, 'none')
+        || '|'
+        || coalesce(v_shuffle_enabled::text, 'false')
+        || '|'
+        || coalesce((
+            select string_agg(
+              pi.id::text
+              || ':' || pi.sort_order::text
+              || ':' || coalesce(pi.duration_seconds::text, 'n')
+              || ':' || m.storage_path,
+              '>' order by pi.sort_order asc, pi.id asc
+            )
+            from public.playlist_items pi
+            join public.media m on m.id = pi.media_id
+            where pi.playlist_id = v_playlist_id
+              and m.storage_path is not null
+              and length(trim(m.storage_path)) > 0
+        ), '')
+      ),
+      ''
+    )
+  into v_content_hash;
+
+  return jsonb_build_object(
+    'ok', to_jsonb(true),
+    'deviceName', to_jsonb(v_device_name),
+    'playbackDisabled', to_jsonb(false),
+    'contentRevision', to_jsonb(v_content_hash),
+    'playlistId', to_jsonb(v_playlist_id),
+    'playlistName', to_jsonb(v_playlist_name),
+    'screenOrientation', to_jsonb(v_screen_orientation)
+  );
+end;
+$$;
+
+create or replace function public.tv_get_playback_slides(p_device_id uuid, p_playback_secret text default null)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_reg uuid;
+  v_owner uuid;
+  v_device_name text;
+  v_playback_disabled boolean := false;
+  v_secret text;
+  v_ok_secret boolean := false;
+  v_ok_jwt boolean := false;
+  v_playlist_id uuid;
+  v_dp_updated timestamptz;
+  v_playlist_name text;
+  v_transition_style text := 'none';
+  v_shuffle_enabled boolean := false;
+  v_slides jsonb;
+  v_content_hash text;
+begin
+  if not exists (select 1 from public.devices d where d.id = p_device_id) then
+    return jsonb_build_object('ok', to_jsonb(false));
+  end if;
+
+  select d.registered_session_id, d.owner_id, d.name, d.playback_disabled
+  into v_reg, v_owner, v_device_name, v_playback_disabled
+  from public.devices d
+  where d.id = p_device_id;
+
+  select c.secret
+  into v_secret
+  from public.device_playback_credentials c
+  where c.device_id = p_device_id;
+
+  if v_owner is not null
+     and v_secret is null
+     and auth.uid() is not null
+     and v_reg is not distinct from auth.uid() then
+    v_secret := lower(replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''));
+    insert into public.device_playback_credentials (device_id, secret)
+    values (p_device_id, v_secret);
+  end if;
+
+  if p_playback_secret is not null
+     and trim(p_playback_secret) <> ''
+     and v_secret is not null
+     and trim(v_secret) <> ''
+     and v_secret = p_playback_secret then
+    v_ok_secret := true;
+  end if;
+
+  if not v_ok_secret then
+    if auth.uid() is null then
+      return jsonb_build_object('ok', to_jsonb(false));
+    end if;
+    if v_reg is null or v_reg is distinct from auth.uid() then
+      return jsonb_build_object('ok', to_jsonb(false));
+    end if;
+    v_ok_jwt := true;
+  end if;
+
+  if v_playback_disabled then
+    v_content_hash := md5('playback_disabled|' || p_device_id::text);
+    return jsonb_build_object(
+      'ok', to_jsonb(true),
+      'deviceName', to_jsonb(v_device_name),
+      'playbackDisabled', to_jsonb(true),
+      'playbackSecret', case
+        when v_ok_jwt and v_secret is not null then to_jsonb(v_secret)
+        else 'null'::jsonb
+      end,
+      'playlistName', to_jsonb(null::text),
+      'slides', '[]'::jsonb,
+      'contentRevision', to_jsonb(v_content_hash),
+      'playlistId', to_jsonb(null::uuid),
+      'transitionStyle', to_jsonb('none'),
+      'shuffleEnabled', to_jsonb(false)
+    );
+  end if;
+
+  select dp.playlist_id, dp.updated_at
+  into v_playlist_id, v_dp_updated
+  from public.device_playlists dp
+  where dp.device_id = p_device_id
+    and dp.is_active = true
+  order by dp.updated_at desc nulls last
+  limit 1;
+
+  if v_playlist_id is null then
+    return jsonb_build_object(
+      'ok', to_jsonb(true),
+      'deviceName', to_jsonb(v_device_name),
+      'playbackDisabled', to_jsonb(false),
+      'playbackSecret', case
+        when v_ok_jwt and v_secret is not null then to_jsonb(v_secret)
+        else 'null'::jsonb
+      end,
+      'playlistName', to_jsonb(null::text),
+      'slides', '[]'::jsonb,
+      'contentRevision', to_jsonb(null::text),
+      'playlistId', to_jsonb(null::uuid),
+      'transitionStyle', to_jsonb('none'),
+      'shuffleEnabled', to_jsonb(false)
+    );
+  end if;
+
+  select p.name, p.transition_style, p.shuffle_enabled
+  into v_playlist_name, v_transition_style, v_shuffle_enabled
+  from public.playlists p
+  where p.id = v_playlist_id;
+
+  select
+    coalesce(
+      md5(
+        v_playlist_id::text
+        || '|'
+        || coalesce(v_dp_updated::text, '')
+        || '|'
+        || coalesce(v_transition_style, 'none')
+        || '|'
+        || coalesce(v_shuffle_enabled::text, 'false')
+        || '|'
+        || coalesce((
+            select string_agg(
+              pi.id::text
+              || ':' || pi.sort_order::text
+              || ':' || coalesce(pi.duration_seconds::text, 'n')
+              || ':' || m.storage_path,
+              '>' order by pi.sort_order asc, pi.id asc
+            )
+            from public.playlist_items pi
+            join public.media m on m.id = pi.media_id
+            where pi.playlist_id = v_playlist_id
+              and m.storage_path is not null
+              and length(trim(m.storage_path)) > 0
+        ), '')
+      ),
+      ''
+    )
+  into v_content_hash;
+
+  select
+      coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'fileType', m.file_type,
+          'durationSeconds', pi.duration_seconds,
+          'storagePath', m.storage_path
+        )
+        order by pi.sort_order asc, pi.id asc
+      ),
+      '[]'::jsonb
+    )
+  into v_slides
+  from public.playlist_items pi
+  join public.media m on m.id = pi.media_id
+  where pi.playlist_id = v_playlist_id
+    and m.storage_path is not null
+    and length(trim(m.storage_path)) > 0;
+
+  if v_slides is null then
+    v_slides := '[]'::jsonb;
+  end if;
+
+  return jsonb_build_object(
+    'ok', to_jsonb(true),
+    'deviceName', to_jsonb(v_device_name),
+    'playbackDisabled', to_jsonb(false),
+    'playbackSecret', case
+      when v_ok_jwt and v_secret is not null then to_jsonb(v_secret)
+      else 'null'::jsonb
+    end,
+    'playlistName', to_jsonb(v_playlist_name),
+    'contentRevision', to_jsonb(v_content_hash),
+    'playlistId', to_jsonb(v_playlist_id),
+    'transitionStyle', to_jsonb(v_transition_style),
+    'shuffleEnabled', to_jsonb(v_shuffle_enabled),
+    'slides', v_slides
+  );
+end;
+$$;

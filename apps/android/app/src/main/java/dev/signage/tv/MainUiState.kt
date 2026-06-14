@@ -20,7 +20,11 @@ sealed interface MainUiState {
         val deviceId: String,
         val playlistName: String?,
         val slides: List<PlaybackSlide>,
-        /** In-memory; last successful RPC (or cache on cold start) had network payload. */
+        /** Mirrors dashboard playlist transition setting (none, fade, dissolve). */
+    val transitionStyle: String = "none",
+    /** When true, slide order is shuffled each time the manifest loads. */
+    val shuffleEnabled: Boolean = false,
+    /** In-memory; last successful RPC (or cache on cold start) had network payload. */
         val isFromCache: Boolean = false,
         val contentRevision: String? = null,
         val playlistId: String? = null,

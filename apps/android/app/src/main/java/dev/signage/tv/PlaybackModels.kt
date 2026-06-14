@@ -15,6 +15,8 @@ data class CachedPlaybackV1(
     val slides: List<PlaybackSlide> = emptyList(),
     /** Matches devices.screen_orientation when cached; older payloads omit this key. */
     val screenOrientation: String = "landscape",
+    val transitionStyle: String = "none",
+    val shuffleEnabled: Boolean = false,
 )
 
 @Serializable
