@@ -15,8 +15,11 @@ import {
   Trash2,
 } from "lucide-react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { BackNavLink } from "@/components/back-nav-link";
+import { devicesListPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +49,7 @@ import {
 import { DeviceAppUpdateNotice, DeviceAppVersionChip } from "@/components/device-app-version-chip";
 import { DeviceMediaCacheChip } from "@/components/device-media-cache-chip";
 import { useActiveAppRelease } from "@/hooks/use-active-app-release";
+import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
 
 /** Stable fallback so Zustand selectors don’t return a new [] every run (avoids render loops). */
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
@@ -103,6 +107,9 @@ export function DeviceScreenEditor({
 }: DeviceScreenEditorProps) {
   useStaleOnlineTick();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const searchParams = useSearchParams();
+  const adminRoutes = useAdminClientRoutes();
+  const deviceGroups = useConsoleDataStore((s) => s.deviceGroups);
   const { syncNow } = useConsoleSync();
   const activeAppRelease = useActiveAppRelease();
   const plan = usePlanQuota();
@@ -115,6 +122,22 @@ export function DeviceScreenEditor({
   );
   const disabledState = device ? deviceDisabledPresentation(device, accountDisabled) : null;
   const deviceDisabled = disabledState?.show ?? false;
+
+  const returnGroupId = useMemo(
+    () => parseGroupFilterFromSearchParam(searchParams.get("group"), deviceGroups),
+    [searchParams, deviceGroups],
+  );
+  const returnGroup = useMemo(
+    () => (returnGroupId !== "all" && returnGroupId !== "ungrouped"
+      ? deviceGroups.find((group) => group.id === returnGroupId) ?? null
+      : null),
+    [deviceGroups, returnGroupId],
+  );
+  const screensBackHref = devicesListPath(adminRoutes, returnGroupId === "all" ? null : returnGroupId);
+  const screensBackLabel =
+    returnGroupId === "all"
+      ? "Back to screens"
+      : `Back to ${groupFilterLabel(returnGroupId, returnGroup)}`;
 
   useEffect(() => {
     void syncNow();
@@ -503,6 +526,25 @@ export function DeviceScreenEditor({
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2.5">
+        <BackNavLink href={screensBackHref} label={screensBackLabel} />
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground">
+          <span className="text-foreground">Screens</span>
+          {returnGroup ? (
+            <>
+              <span className="text-muted-foreground/70">/</span>
+              <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">
+                {returnGroup.name}
+              </span>
+            </>
+          ) : null}
+          <span className="text-muted-foreground/70">/</span>
+          <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">
+            {device.name}
+          </span>
+        </div>
+      </div>
+
       {deviceDisabled ? (
         <DeviceDisabledNotice
           canControlPlayback={canControlPlayback}

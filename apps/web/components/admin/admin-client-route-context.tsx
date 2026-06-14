@@ -47,10 +47,34 @@ export function useAdminClientRoutes(): AdminClientRoutes | null {
   return useContext(AdminClientRouteContext);
 }
 
-export function deviceDetailPath(deviceId: string, adminRoutes: AdminClientRoutes | null): string {
-  return adminRoutes?.devicePath(deviceId) ?? `/devices/${deviceId}`;
+export function devicesListPath(adminRoutes: AdminClientRoutes | null, groupId?: string | null): string {
+  const base = adminRoutes?.devicesPath ?? "/devices";
+  if (!groupId || groupId === "all") return base;
+  return `${base}?group=${encodeURIComponent(groupId)}`;
 }
 
-export function playlistDetailPath(playlistId: string, adminRoutes: AdminClientRoutes | null): string {
-  return adminRoutes?.playlistPath(playlistId) ?? `/playlists/${playlistId}`;
+export function deviceDetailPath(
+  deviceId: string,
+  adminRoutes: AdminClientRoutes | null,
+  groupId?: string | null,
+): string {
+  const base = adminRoutes?.devicePath(deviceId) ?? `/devices/${deviceId}`;
+  if (!groupId || groupId === "all") return base;
+  return `${base}?group=${encodeURIComponent(groupId)}`;
+}
+
+export function playlistsListPath(adminRoutes: AdminClientRoutes | null, groupId?: string | null): string {
+  const base = adminRoutes?.playlistsPath ?? "/playlists";
+  if (!groupId || groupId === "all") return base;
+  return `${base}?group=${encodeURIComponent(groupId)}`;
+}
+
+export function playlistDetailPath(
+  playlistId: string,
+  adminRoutes: AdminClientRoutes | null,
+  groupId?: string | null,
+): string {
+  const base = adminRoutes?.playlistPath(playlistId) ?? `/playlists/${playlistId}`;
+  if (!groupId || groupId === "all") return base;
+  return `${base}?group=${encodeURIComponent(groupId)}`;
 }

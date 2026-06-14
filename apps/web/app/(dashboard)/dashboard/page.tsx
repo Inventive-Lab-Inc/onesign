@@ -1,10 +1,10 @@
 "use client";
 
 import type { DeviceStatus, Playlist, PlaylistItemWithMedia } from "@signage/types";
-import { ArrowRight, Image as ImageIcon, ListVideo, Monitor } from "lucide-react";
+import { Image as ImageIcon, ListVideo, Monitor } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlaylistPreviewButton } from "@/components/playlist-preview";
 import { getDeviceDisplayDimensionsPx } from "@/components/device-telemetry-panel";
@@ -118,18 +118,21 @@ function DashboardRowPlaylistPreview({
       : { kind: "playlist" as const };
 
   return (
-    <PlaylistPreviewButton
-      items={items}
-      playlistName={playlistLabel}
-      frame={frame}
-      iconOnly
-      className="rounded-lg border-2 border-primary/40 bg-primary/12 text-primary shadow-sm transition hover:bg-primary/18 hover:border-primary/55 focus-visible:ring-2 focus-visible:ring-ring"
-    />
+    <span onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+      <PlaylistPreviewButton
+        items={items}
+        playlistName={playlistLabel}
+        frame={frame}
+        iconOnly
+        className="rounded-lg border-2 border-primary/40 bg-primary/12 text-primary shadow-sm transition hover:bg-primary/18 hover:border-primary/55 focus-visible:ring-2 focus-visible:ring-ring"
+      />
+    </span>
   );
 }
 
 export default function DashboardHomePage() {
   useStaleOnlineTick();
+  const router = useRouter();
 
   const plan = usePlanQuota();
   const storeDeviceCount = useConsoleDataStore((s) => s.devices.length);
@@ -268,13 +271,12 @@ export default function DashboardHomePage() {
                   <th className="px-4 py-3 font-semibold">Status</th>
                   <th className="px-4 py-3 font-semibold">Active playlist</th>
                   <th className="px-4 py-3 font-semibold">Last seen</th>
-                  <th className="px-4 py-3 font-semibold text-right">Screen</th>
                 </tr>
               </thead>
               <tbody>
                 {pairedDeviceRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-muted-foreground">
                       No paired screens yet.{" "}
                       <Link href="/devices" className="font-medium text-foreground underline-offset-4 hover:underline">
                         Link a device
@@ -286,7 +288,16 @@ export default function DashboardHomePage() {
                   pairedDeviceRows.map((row) => (
                     <tr
                       key={row.id}
-                      className="border-b border-border/80 transition-colors last:border-0 hover:bg-muted/30"
+                      role="link"
+                      tabIndex={0}
+                      className="cursor-pointer border-b border-border/80 transition-colors last:border-0 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                      onClick={() => router.push(`/devices/${row.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          router.push(`/devices/${row.id}`);
+                        }
+                      }}
                     >
                       <td className="px-4 py-3">
                         <span className="truncate font-medium text-foreground">{row.name}</span>
@@ -311,31 +322,17 @@ export default function DashboardHomePage() {
                               <ListVideo className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} aria-hidden />
                             </span>
                           ) : (
-                            <Link
-                              prefetch
-                              href={`/devices/${row.id}`}
-                              className={cn(
-                                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-border bg-muted/60 text-muted-foreground shadow-sm transition hover:border-primary/35 hover:bg-primary/8 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                              )}
-                              aria-label="No active playlist — open device to assign"
-                              title="No active playlist — open device"
+                            <span
+                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border-2 border-border bg-muted/60 text-muted-foreground shadow-sm"
+                              aria-hidden
                             >
-                              <ListVideo className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} aria-hidden />
-                            </Link>
+                              <ListVideo className="h-[1.125rem] w-[1.125rem]" strokeWidth={2.35} />
+                            </span>
                           )}
                           <span className="min-w-0 flex-1 truncate text-muted-foreground">{row.playlistLabel}</span>
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted-foreground">{row.lastSeenLabel}</td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/devices/${row.id}`}
-                          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "inline-flex h-8 gap-1 px-2 text-xs")}
-                        >
-                          Screen
-                          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-                        </Link>
-                      </td>
                     </tr>
                   ))
                 )}

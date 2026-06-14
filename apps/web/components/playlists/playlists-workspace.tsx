@@ -1,55 +1,171 @@
 "use client";
 
-import type { Playlist } from "@signage/types";
-import { FolderOpen, Home, ListVideo, Search, Trash2 } from "lucide-react";
+import type { Playlist, PlaylistItemWithMedia } from "@signage/types";
+import { ArrowLeft, ListVideo, Search } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useCallback, useMemo, useState } from "react";
-import { toast } from "sonner";
-import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
-import { playlistDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import {
+  playlistDetailPath,
+  playlistsListPath,
+  useAdminClientRoutes,
+} from "@/components/admin/admin-client-route-context";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
-import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { CreatePlaylistForm } from "@/components/create-playlist-form";
-import { Button } from "@/components/ui/button";
+import { DeviceGroupFolderCard, GroupFolderCreateCard } from "@/components/device-groups/device-group-folder-card";
+import { PlaylistGroupEditorDialog } from "@/components/playlist-groups/playlist-group-editor-dialog";
 import { Input } from "@/components/ui/input";
+import type { PlaylistGroupWithMembers } from "@/lib/console-sync";
+import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
 import { formatPlaylistClockLabel } from "@/lib/playlist-timing";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import "@/components/device-groups/device-groups.css";
 
 export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useAppRouter();
   const adminRoutes = useAdminClientRoutes();
   const adminStaff = useOptionalAdminStaff();
   const readOnly = adminStaff != null && !adminStaff.canWrite;
   const playlistsHomePath = adminRoutes?.playlistsPath ?? "/playlists";
-  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
-  const { syncNow } = useConsoleSync();
   const ownerId = useConsoleDataStore((s) => s.ownerId);
   const playlists = useConsoleDataStore((s) => s.playlists) as Playlist[];
+  const playlistGroups = useConsoleDataStore((s) => s.playlistGroups) as PlaylistGroupWithMembers[];
   const playlistItemsByPlaylistId = useConsoleDataStore((s) => s.playlistItemsByPlaylistId);
   const [query, setQuery] = useState("");
-  const [playlistPendingDelete, setPlaylistPendingDelete] = useState<Playlist | null>(null);
-  const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [groupEditorOpen, setGroupEditorOpen] = useState(false);
+  const [groupEditorMode, setGroupEditorMode] = useState<"create" | "edit">("create");
+  const [groupBeingEdited, setGroupBeingEdited] = useState<PlaylistGroupWithMembers | null>(null);
+
+  const activePlaylistId = useMemo(() => {
+    if (pathname === playlistsHomePath) return null;
+    if (!pathname.startsWith(`${playlistsHomePath}/`)) return null;
+    const id = pathname.slice(playlistsHomePath.length + 1).split("/")[0];
+    return id && id !== "new" ? id : null;
+  }, [pathname, playlistsHomePath]);
+
+  const isPlaylistsHome = activePlaylistId === null;
+
+  const groupFilter = useMemo(
+    () => parseGroupFilterFromSearchParam(searchParams.get("group"), playlistGroups),
+    [searchParams, playlistGroups],
+  );
+
+  const activeGroup = useMemo(
+    () => (groupFilter !== "all" && groupFilter !== "ungrouped"
+      ? playlistGroups.find((g) => g.id === groupFilter) ?? null
+      : null),
+    [playlistGroups, groupFilter],
+  );
+
+  const navigateToGroup = useCallback(
+    (filter: typeof groupFilter) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (filter === "all") {
+        params.delete("group");
+      } else {
+        params.set("group", filter);
+      }
+      const qs = params.toString();
+      router.push(qs ? `${playlistsHomePath}?${qs}` : playlistsHomePath);
+    },
+    [playlistsHomePath, router, searchParams],
+  );
+
+  const backNavLabel = "Back to folders";
+  const activeGroupName = groupFilterLabel(groupFilter, activeGroup);
+
+  const groupedPlaylistIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const group of playlistGroups) {
+      for (const playlistId of group.member_playlist_ids) {
+        ids.add(playlistId);
+      }
+    }
+    return ids;
+  }, [playlistGroups]);
 
   const sorted = useMemo(
     () => [...playlists].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [playlists],
   );
 
+  const groupFiltered = useMemo(() => {
+    if (groupFilter === "ungrouped") {
+      return sorted.filter((p) => !groupedPlaylistIds.has(p.id));
+    }
+    if (groupFilter !== "all") {
+      const memberIds = new Set(activeGroup?.member_playlist_ids ?? []);
+      return sorted.filter((p) => memberIds.has(p.id));
+    }
+    return sorted;
+  }, [sorted, groupFilter, groupedPlaylistIds, activeGroup]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return sorted;
-    return sorted.filter((p) => p.name.toLowerCase().includes(q));
-  }, [query, sorted]);
+    if (!q) return groupFiltered;
+    return groupFiltered.filter((p) => p.name.toLowerCase().includes(q));
+  }, [query, groupFiltered]);
 
-  const activePlaylistId = useMemo(() => {
-    const m = pathname.match(/^\/playlists\/([^/]+)/);
-    return m?.[1] && m[1] !== "new" ? m[1] : null;
-  }, [pathname]);
+  const folderEntries = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const entries = playlistGroups.map((group) => {
+      const memberPlaylists = group.member_playlist_ids
+        .map((id) => playlists.find((p) => p.id === id))
+        .filter((p): p is Playlist => p != null);
+      return { group, memberPlaylists, playlistCount: memberPlaylists.length };
+    });
+    if (!q) return entries;
+    return entries.filter(
+      (entry) =>
+        entry.group.name.toLowerCase().includes(q) ||
+        entry.memberPlaylists.some((p) => p.name.toLowerCase().includes(q)),
+    );
+  }, [playlistGroups, playlists, query]);
+
+  const isLibraryRoot = groupFilter === "all" || groupFilter === "ungrouped";
+  const isInsideFolder = !isLibraryRoot;
+
+  const ungroupedPlaylists = useMemo(() => {
+    const items = playlists.filter((p) => !groupedPlaylistIds.has(p.id));
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((p) => p.name.toLowerCase().includes(q));
+  }, [playlists, groupedPlaylistIds, query]);
+
+  const showFolderGrid = isPlaylistsHome && isLibraryRoot && !query.trim();
+  const showSearchResultsGrid = isPlaylistsHome && isLibraryRoot && query.trim().length > 0;
+  const showFolderContents = isPlaylistsHome && isInsideFolder && !query.trim();
+
+  const searchResultPlaylists = useMemo(() => {
+    if (!showSearchResultsGrid) return [];
+    const q = query.trim().toLowerCase();
+    return playlists.filter((p) => p.name.toLowerCase().includes(q));
+  }, [showSearchResultsGrid, query, playlists]);
+
+  const ungroupedSearchPlaylists = useMemo(
+    () => searchResultPlaylists.filter((p) => !groupedPlaylistIds.has(p.id)),
+    [searchResultPlaylists, groupedPlaylistIds],
+  );
+
+  const groupedSearchPlaylists = useMemo(
+    () => searchResultPlaylists.filter((p) => groupedPlaylistIds.has(p.id)),
+    [searchResultPlaylists, groupedPlaylistIds],
+  );
+
+  const visibleFolderEntries = useMemo(
+    () => (showSearchResultsGrid
+      ? folderEntries.filter((e) => e.group.name.toLowerCase().includes(query.trim().toLowerCase()))
+      : folderEntries),
+    [folderEntries, showSearchResultsGrid, query],
+  );
+
+  const hasUngroupedPlaylists = ungroupedPlaylists.length > 0;
+
+  const playlistsBackHref = playlistsListPath(adminRoutes, activePlaylistId ? searchParams.get("group") : null);
 
   const activePlaylist = useMemo(
     () => (activePlaylistId ? playlists.find((p) => p.id === activePlaylistId) : null),
@@ -61,34 +177,53 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
       const items = playlistItemsByPlaylistId[activePlaylist.id] ?? [];
       return `${items.length} item${items.length === 1 ? "" : "s"} · ${formatPlaylistClockLabel(items)}`;
     }
+    if (showFolderGrid) {
+      const parts = [`${visibleFolderEntries.length} folder${visibleFolderEntries.length === 1 ? "" : "s"}`];
+      if (hasUngroupedPlaylists) {
+        parts.push(`${ungroupedPlaylists.length} ungrouped`);
+      }
+      parts.push(`${playlists.length} playlist${playlists.length === 1 ? "" : "s"}`);
+      return parts.join(" · ");
+    }
+    if (showFolderContents) {
+      return `${filtered.length} playlist${filtered.length === 1 ? "" : "s"}`;
+    }
     const count = playlists.length;
     if (count === 0) return "No playlists yet";
     return `${count} playlist${count === 1 ? "" : "s"}`;
-  }, [activePlaylist, playlistItemsByPlaylistId, playlists.length]);
+  }, [
+    activePlaylist,
+    filtered.length,
+    playlistItemsByPlaylistId,
+    playlists.length,
+    showFolderContents,
+    showFolderGrid,
+    hasUngroupedPlaylists,
+    ungroupedPlaylists.length,
+    visibleFolderEntries.length,
+  ]);
 
-  const confirmDeletePlaylist = useCallback(async () => {
-    if (!playlistPendingDelete) return;
-    setDeleteInProgress(true);
-    try {
-      const deletedId = playlistPendingDelete.id;
-      const { error } = await supabase.from("playlists").delete().eq("id", deletedId);
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      toast.success("Playlist deleted");
-      setPlaylistPendingDelete(null);
-      await syncNow();
-      if (activePlaylistId === deletedId) {
-        router.push("/playlists");
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to delete playlist";
-      toast.error(message);
-    } finally {
-      setDeleteInProgress(false);
+  const openCreateGroup = useCallback(() => {
+    setGroupEditorMode("create");
+    setGroupBeingEdited(null);
+    setGroupEditorOpen(true);
+  }, []);
+
+  const openEditGroup = useCallback((group: PlaylistGroupWithMembers) => {
+    setGroupEditorMode("edit");
+    setGroupBeingEdited(group);
+    setGroupEditorOpen(true);
+  }, []);
+
+  const showBackButton = isInsideFolder || activePlaylistId !== null;
+
+  const handleBack = useCallback(() => {
+    if (activePlaylistId) {
+      router.push(playlistsBackHref);
+      return;
     }
-  }, [activePlaylistId, playlistPendingDelete, router, supabase, syncNow]);
+    navigateToGroup("all");
+  }, [activePlaylistId, navigateToGroup, playlistsBackHref, router]);
 
   if (!ownerId) {
     return (
@@ -130,136 +265,238 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
             </p>
           </div>
         ) : null}
-
-        <nav className="rounded-xl border border-border bg-muted/30 p-2" aria-label="Playlist library">
-          <p className="mb-2 px-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">Library</p>
-          <ul className="space-y-0.5">
-            <li>
-              <Link
-                href={playlistsHomePath}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors",
-                  pathname === playlistsHomePath
-                    ? "bg-card text-foreground shadow-sm ring-1 ring-border"
-                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-                )}
-              >
-                <Home className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.75} />
-                Home
-              </Link>
-            </li>
-          </ul>
-        </nav>
-
-        <nav
-          className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-          aria-label="Your playlists"
-        >
-          <div className="border-b border-border bg-muted/30 px-3 py-2.5">
-            <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
-              Playlists ({playlists.length})
-            </p>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-2 md:max-h-[min(420px,calc(100vh-380px))]">
-            {filtered.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-6 text-center text-xs text-muted-foreground">
-                {query.trim() ? "No matches." : "No playlists yet. Create one above."}
-              </div>
-            ) : (
-              <ul className="space-y-0.5">
-                {filtered.map((p) => {
-                  const items = playlistItemsByPlaylistId[p.id] ?? [];
-                  const timingLabel = formatPlaylistClockLabel(items);
-                  const isActive = activePlaylistId === p.id;
-                  return (
-                    <li
-                      key={p.id}
-                      className={cn(
-                        "group flex items-center gap-0.5 rounded-lg transition-colors",
-                        isActive
-                          ? "bg-card text-foreground shadow-sm ring-1 ring-border"
-                          : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-                      )}
-                    >
-                      <Link
-                        href={playlistDetailPath(p.id, adminRoutes)}
-                        className="flex min-w-0 flex-1 items-start gap-2.5 rounded-lg px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      >
-                        <span
-                          className={cn(
-                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ring-1 ring-border",
-                            isActive ? "bg-brand-soft text-brand-strong dark:text-brand-onDark" : "bg-muted/80 text-muted-foreground",
-                          )}
-                        >
-                          <ListVideo className="h-4 w-4" strokeWidth={1.75} />
-                        </span>
-                        <span className="min-w-0 flex-1 py-0.5">
-                          <span className="block truncate font-medium text-foreground">{p.name}</span>
-                          <span className="mt-0.5 block tabular-nums text-[0.6875rem] text-muted-foreground">
-                            {items.length} item{items.length === 1 ? "" : "s"} · {timingLabel}
-                          </span>
-                        </span>
-                      </Link>
-                      {!readOnly ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="mr-1 h-8 shrink-0 px-2 text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100"
-                          aria-label={`Delete playlist “${p.name}”`}
-                          onClick={() => setPlaylistPendingDelete(p)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </nav>
-
-        <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 px-3 py-3">
-          <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Folders
-          </p>
-          <p className="mt-1 text-[0.6875rem] leading-relaxed text-muted-foreground">
-            Organize into folders soon. For now, use search and naming.
-          </p>
-        </div>
       </aside>
 
       <div className="min-w-0 flex-1">
         <div className="flex min-h-full flex-col rounded-xl border border-border bg-card shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-            <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <span className="text-foreground">Playlists</span>
-                <span className="text-muted-foreground/70">/</span>
-                {activePlaylist ? (
-                  <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">{activePlaylist.name}</span>
-                ) : (
-                  <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">Home</span>
-                )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2.5">
+                {showBackButton ? (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    aria-label={activePlaylistId ? "Back to playlists" : backNavLabel}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-strong shadow-sm transition-colors hover:bg-brand-softer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:text-brand-onDark"
+                  >
+                    <ArrowLeft className="h-4 w-4" aria-hidden strokeWidth={2.25} />
+                  </button>
+                ) : null}
+                <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <button
+                    type="button"
+                    onClick={() => (activePlaylistId ? router.push(playlistsListPath(adminRoutes, null)) : navigateToGroup("all"))}
+                    className={cn(
+                      "transition-colors",
+                      !activePlaylistId && isLibraryRoot
+                        ? "text-foreground"
+                        : "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm",
+                    )}
+                  >
+                    Playlists
+                  </button>
+                  {activePlaylist ? (
+                    <>
+                      <span className="text-muted-foreground/70">/</span>
+                      <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">
+                        {activePlaylist.name}
+                      </span>
+                    </>
+                  ) : isInsideFolder ? (
+                    <>
+                      <span className="text-muted-foreground/70">/</span>
+                      <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">
+                        {activeGroupName}
+                      </span>
+                    </>
+                  ) : showFolderGrid ? (
+                    <>
+                      <span className="text-muted-foreground/70">/</span>
+                      <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">Folders</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-muted-foreground/70">/</span>
+                      <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">Home</span>
+                    </>
+                  )}
+                </div>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{mainPanelSubtitle}</p>
             </div>
           </div>
-          <div className="flex-1 p-4 sm:p-5">{children}</div>
+          <div className="flex-1 p-4 sm:p-5">
+            {activePlaylistId ? (
+              children
+            ) : showFolderGrid ? (
+              <div className="space-y-8">
+                <ul className="device-group-folder-grid grid grid-cols-2 items-stretch gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {visibleFolderEntries.map(({ group, playlistCount }) => (
+                    <DeviceGroupFolderCard
+                      key={group.id}
+                      name={group.name}
+                      accentColor={group.accent_color}
+                      itemCount={playlistCount}
+                      itemLabel="playlist"
+                      previewIcon={ListVideo}
+                      onOpen={() => navigateToGroup(group.id)}
+                      onEdit={readOnly ? undefined : () => openEditGroup(group)}
+                    />
+                  ))}
+                  {!readOnly ? (
+                    <GroupFolderCreateCard onClick={openCreateGroup} hint="Organize playlists" />
+                  ) : null}
+                </ul>
+                {hasUngroupedPlaylists ? (
+                  <div className="space-y-4 border-t border-border pt-8">
+                    <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">Ungrouped</p>
+                    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {ungroupedPlaylists.map((playlist) => (
+                        <PlaylistGridCard
+                          key={playlist.id}
+                          playlist={playlist}
+                          href={playlistDetailPath(playlist.id, adminRoutes, null)}
+                          items={playlistItemsByPlaylistId[playlist.id] ?? []}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : showSearchResultsGrid ? (
+              searchResultPlaylists.length === 0 && visibleFolderEntries.length === 0 && !readOnly ? (
+                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
+                  <p className="text-sm font-medium text-foreground">No playlists match</p>
+                  <p className="mt-1 max-w-sm text-xs text-muted-foreground">Try another search term.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {visibleFolderEntries.length > 0 || !readOnly ? (
+                    <div>
+                      <p className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">Folders</p>
+                      <ul className="device-group-folder-grid grid grid-cols-2 items-stretch gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        {visibleFolderEntries.map(({ group, playlistCount }) => (
+                          <DeviceGroupFolderCard
+                            key={group.id}
+                            name={group.name}
+                            accentColor={group.accent_color}
+                            itemCount={playlistCount}
+                            itemLabel="playlist"
+                            previewIcon={ListVideo}
+                            onOpen={() => {
+                              setQuery("");
+                              navigateToGroup(group.id);
+                            }}
+                            onEdit={readOnly ? undefined : () => openEditGroup(group)}
+                          />
+                        ))}
+                        {!readOnly ? (
+                          <GroupFolderCreateCard onClick={openCreateGroup} hint="Organize playlists" />
+                        ) : null}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {ungroupedSearchPlaylists.length > 0 ? (
+                    <div className="space-y-4 border-t border-border pt-6">
+                      <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">Ungrouped</p>
+                      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {ungroupedSearchPlaylists.map((playlist) => (
+                          <PlaylistGridCard
+                            key={playlist.id}
+                            playlist={playlist}
+                            href={playlistDetailPath(playlist.id, adminRoutes, null)}
+                            items={playlistItemsByPlaylistId[playlist.id] ?? []}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {groupedSearchPlaylists.length > 0 ? (
+                    <div className={ungroupedSearchPlaylists.length > 0 ? "space-y-4 border-t border-border pt-6" : ""}>
+                      <p className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">In folders</p>
+                      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {groupedSearchPlaylists.map((playlist) => (
+                          <PlaylistGridCard
+                            key={playlist.id}
+                            playlist={playlist}
+                            href={playlistDetailPath(playlist.id, adminRoutes, null)}
+                            items={playlistItemsByPlaylistId[playlist.id] ?? []}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              )
+            ) : showFolderContents ? (
+              filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
+                  <p className="text-sm font-medium text-foreground">This folder is empty</p>
+                  <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+                    Assign playlists from the folder editor, or create a new one.
+                  </p>
+                </div>
+              ) : (
+                <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {filtered.map((playlist) => (
+                    <PlaylistGridCard
+                      key={playlist.id}
+                      playlist={playlist}
+                      href={playlistDetailPath(playlist.id, adminRoutes, groupFilter)}
+                      items={playlistItemsByPlaylistId[playlist.id] ?? []}
+                    />
+                  ))}
+                </ul>
+              )
+            ) : (
+              children
+            )}
+          </div>
         </div>
       </div>
 
-      <ConfirmDeleteDialog
-        open={playlistPendingDelete !== null}
-        title={playlistPendingDelete ? `Delete “${playlistPendingDelete.name}”?` : "Delete playlist?"}
-        description="This permanently deletes the playlist and unassigns it from any screens. This cannot be undone."
-        confirmLabel="Delete playlist"
-        onClose={() => !deleteInProgress && setPlaylistPendingDelete(null)}
-        onConfirm={confirmDeletePlaylist}
-        isConfirming={deleteInProgress}
-      />
+      {ownerId ? (
+        <PlaylistGroupEditorDialog
+          open={groupEditorOpen}
+          mode={groupEditorMode}
+          ownerId={ownerId}
+          group={groupBeingEdited}
+          playlists={playlists}
+          onClose={() => setGroupEditorOpen(false)}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function PlaylistGridCard({
+  playlist,
+  href,
+  items,
+}: {
+  playlist: Playlist;
+  href: string;
+  items: PlaylistItemWithMedia[];
+}) {
+  const timingLabel = formatPlaylistClockLabel(items);
+  return (
+    <li>
+      <Link
+        href={href}
+        className="group flex flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <div className="flex items-center gap-3 border-b border-border bg-gradient-to-br from-muted/80 to-muted/40 px-4 py-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-background shadow-sm ring-1 ring-border">
+            <ListVideo className="h-5 w-5 text-foreground" strokeWidth={1.5} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">{playlist.name}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {items.length} item{items.length === 1 ? "" : "s"} · {timingLabel}
+            </p>
+          </div>
+        </div>
+      </Link>
+    </li>
   );
 }

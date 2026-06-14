@@ -41,8 +41,9 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
   const setSyncing = useConsoleDataStore((s) => s.setSyncing);
   const setSyncError = useConsoleDataStore((s) => s.setSyncError);
 
-  /** Coalesce overlapping syncs (timer + manual Sync) so every caller awaits the same pull. */
+  /** Coalesce overlapping syncs; re-pull once if a sync was requested mid-flight. */
   const syncInFlightRef = useRef<Promise<void> | null>(null);
+  const syncAgainRef = useRef(false);
 
   // persist APIs use localStorage — only available after client mount.
   const [cacheReady, setCacheReady] = useState(false);
@@ -64,15 +65,19 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
 
   const syncNow = useCallback(async () => {
     if (syncInFlightRef.current) {
+      syncAgainRef.current = true;
       return syncInFlightRef.current;
     }
     const run = async () => {
       setSyncing(true);
       setSyncError(null);
       try {
-        const supabase = getSupabaseBrowserClient();
-        const snapshot = await pullConsoleData(supabase, userId);
-        applySnapshot(userId, snapshot, Date.now());
+        do {
+          syncAgainRef.current = false;
+          const supabase = getSupabaseBrowserClient();
+          const snapshot = await pullConsoleData(supabase, userId);
+          applySnapshot(userId, snapshot, Date.now());
+        } while (syncAgainRef.current);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Sync failed";
         setSyncError(message);

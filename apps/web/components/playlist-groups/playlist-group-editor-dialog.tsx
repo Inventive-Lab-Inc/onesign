@@ -1,36 +1,37 @@
 "use client";
 
-import type { Device } from "@signage/types";
-import { Check, Monitor, Trash2, X } from "lucide-react";
+import type { Playlist } from "@signage/types";
+import { Check, ListVideo, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { DeviceGroupWithMembers } from "@/lib/console-sync";
+import type { PlaylistGroupWithMembers } from "@/lib/console-sync";
 import { DEFAULT_GROUP_COLOR, DEVICE_GROUP_COLORS, resolveGroupColor } from "@/lib/device-group-colors";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import "@/components/device-groups/device-groups.css";
 
-type DeviceGroupEditorDialogProps = {
+type PlaylistGroupEditorDialogProps = {
   open: boolean;
   mode: "create" | "edit";
   ownerId: string;
-  group: DeviceGroupWithMembers | null;
-  devices: Device[];
+  group: PlaylistGroupWithMembers | null;
+  playlists: Playlist[];
   onClose: () => void;
 };
 
-export function DeviceGroupEditorDialog({
+export function PlaylistGroupEditorDialog({
   open,
   mode,
   ownerId,
   group,
-  devices,
+  playlists,
   onClose,
-}: DeviceGroupEditorDialogProps) {
+}: PlaylistGroupEditorDialogProps) {
   const titleId = useId();
   const descId = useId();
   const { syncNow } = useConsoleSync();
@@ -38,7 +39,7 @@ export function DeviceGroupEditorDialog({
 
   const [name, setName] = useState("");
   const [accentColor, setAccentColor] = useState<string>(DEFAULT_GROUP_COLOR);
-  const [selectedDeviceIds, setSelectedDeviceIds] = useState<Set<string>>(new Set());
+  const [selectedPlaylistIds, setSelectedPlaylistIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
 
@@ -47,11 +48,11 @@ export function DeviceGroupEditorDialog({
     if (mode === "edit" && group) {
       setName(group.name);
       setAccentColor(resolveGroupColor(group.accent_color));
-      setSelectedDeviceIds(new Set(group.member_device_ids));
+      setSelectedPlaylistIds(new Set(group.member_playlist_ids));
     } else {
       setName("");
       setAccentColor(DEFAULT_GROUP_COLOR);
-      setSelectedDeviceIds(new Set());
+      setSelectedPlaylistIds(new Set());
     }
   }, [open, mode, group]);
 
@@ -64,18 +65,18 @@ export function DeviceGroupEditorDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, saving, deleteInProgress]);
 
-  const toggleDevice = useCallback((deviceId: string) => {
-    setSelectedDeviceIds((prev) => {
+  const togglePlaylist = useCallback((playlistId: string) => {
+    setSelectedPlaylistIds((prev) => {
       const next = new Set(prev);
-      if (next.has(deviceId)) next.delete(deviceId);
-      else next.add(deviceId);
+      if (next.has(playlistId)) next.delete(playlistId);
+      else next.add(playlistId);
       return next;
     });
   }, []);
 
-  const sortedDevices = useMemo(
-    () => [...devices].sort((a, b) => a.name.localeCompare(b.name)),
-    [devices],
+  const sortedPlaylists = useMemo(
+    () => [...playlists].sort((a, b) => a.name.localeCompare(b.name)),
+    [playlists],
   );
 
   async function saveGroup() {
@@ -88,7 +89,7 @@ export function DeviceGroupEditorDialog({
     try {
       if (mode === "create") {
         const { data: created, error } = await supabase
-          .from("device_groups")
+          .from("playlist_groups")
           .insert({ owner_id: ownerId, name: trimmed, accent_color: accentColor })
           .select("id")
           .single();
@@ -96,10 +97,10 @@ export function DeviceGroupEditorDialog({
           toast.error(error.message);
           return;
         }
-        const memberIds = [...selectedDeviceIds];
+        const memberIds = [...selectedPlaylistIds];
         if (memberIds.length > 0) {
-          const { error: membersError } = await supabase.from("device_group_members").insert(
-            memberIds.map((deviceId) => ({ group_id: created.id, device_id: deviceId })),
+          const { error: membersError } = await supabase.from("playlist_group_members").insert(
+            memberIds.map((playlistId) => ({ group_id: created.id, playlist_id: playlistId })),
           );
           if (membersError) {
             toast.error(membersError.message);
@@ -108,21 +109,21 @@ export function DeviceGroupEditorDialog({
         }
         toast.success(`Folder “${trimmed}” created`);
         useConsoleDataStore.setState((state) => ({
-          deviceGroups: [
-            ...state.deviceGroups,
+          playlistGroups: [
+            ...state.playlistGroups,
             {
               id: created.id,
               owner_id: ownerId,
               name: trimmed,
               accent_color: accentColor,
               created_at: new Date().toISOString(),
-              member_device_ids: memberIds,
+              member_playlist_ids: memberIds,
             },
           ],
         }));
       } else if (group) {
         const { error } = await supabase
-          .from("device_groups")
+          .from("playlist_groups")
           .update({ name: trimmed, accent_color: accentColor })
           .eq("id", group.id);
         if (error) {
@@ -130,25 +131,25 @@ export function DeviceGroupEditorDialog({
           return;
         }
 
-        const previous = new Set(group.member_device_ids);
-        const next = selectedDeviceIds;
+        const previous = new Set(group.member_playlist_ids);
+        const next = selectedPlaylistIds;
         const toAdd = [...next].filter((id) => !previous.has(id));
         const toRemove = [...previous].filter((id) => !next.has(id));
 
         if (toRemove.length > 0) {
           const { error: removeError } = await supabase
-            .from("device_group_members")
+            .from("playlist_group_members")
             .delete()
             .eq("group_id", group.id)
-            .in("device_id", toRemove);
+            .in("playlist_id", toRemove);
           if (removeError) {
             toast.error(removeError.message);
             return;
           }
         }
         if (toAdd.length > 0) {
-          const { error: addError } = await supabase.from("device_group_members").insert(
-            toAdd.map((deviceId) => ({ group_id: group.id, device_id: deviceId })),
+          const { error: addError } = await supabase.from("playlist_group_members").insert(
+            toAdd.map((playlistId) => ({ group_id: group.id, playlist_id: playlistId })),
           );
           if (addError) {
             toast.error(addError.message);
@@ -157,13 +158,13 @@ export function DeviceGroupEditorDialog({
         }
         toast.success("Folder updated");
         useConsoleDataStore.setState((state) => ({
-          deviceGroups: state.deviceGroups.map((entry) =>
+          playlistGroups: state.playlistGroups.map((entry) =>
             entry.id === group.id
               ? {
                   ...entry,
                   name: trimmed,
                   accent_color: accentColor,
-                  member_device_ids: [...selectedDeviceIds],
+                  member_playlist_ids: [...selectedPlaylistIds],
                 }
               : entry,
           ),
@@ -172,7 +173,7 @@ export function DeviceGroupEditorDialog({
       await syncNow();
       onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unable to save group");
+      toast.error(err instanceof Error ? err.message : "Unable to save folder");
     } finally {
       setSaving(false);
     }
@@ -182,19 +183,19 @@ export function DeviceGroupEditorDialog({
     if (!group) return;
     setDeleteInProgress(true);
     try {
-      const { error } = await supabase.from("device_groups").delete().eq("id", group.id);
+      const { error } = await supabase.from("playlist_groups").delete().eq("id", group.id);
       if (error) {
         toast.error(error.message);
         return;
       }
       toast.success(`Folder “${group.name}” removed`);
       useConsoleDataStore.setState((state) => ({
-        deviceGroups: state.deviceGroups.filter((entry) => entry.id !== group.id),
+        playlistGroups: state.playlistGroups.filter((entry) => entry.id !== group.id),
       }));
       await syncNow();
       onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unable to delete group");
+      toast.error(err instanceof Error ? err.message : "Unable to delete folder");
     } finally {
       setDeleteInProgress(false);
     }
@@ -202,7 +203,7 @@ export function DeviceGroupEditorDialog({
 
   if (!open) return null;
 
-  const dialogTitle = mode === "create" ? "Create folder" : `Manage “${group?.name ?? "folder"}”`;
+  const dialogTitle = mode === "create" ? "Create playlist folder" : `Edit “${group?.name ?? "folder"}”`;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -227,8 +228,8 @@ export function DeviceGroupEditorDialog({
               </h2>
               <p id={descId} className="mt-1 text-sm text-muted-foreground">
                 {mode === "create"
-                  ? "Name your folder and choose which screens belong in it."
-                  : "Rename, recolor, or change which screens are in this folder. Uncheck a screen to move it to Ungrouped."}
+                  ? "Name your folder and pick which playlists belong to it."
+                  : "Rename, recolor, or adjust playlist membership."}
               </p>
             </div>
             <button
@@ -244,12 +245,12 @@ export function DeviceGroupEditorDialog({
 
           <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
             <div className="space-y-2">
-              <Label htmlFor="group-name">Folder name</Label>
+              <Label htmlFor="playlist-folder-name">Folder name</Label>
               <Input
-                id="group-name"
+                id="playlist-folder-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Lobby displays"
+                placeholder="Summer promos"
                 disabled={saving}
                 className="h-10"
               />
@@ -276,33 +277,28 @@ export function DeviceGroupEditorDialog({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <Label>Screens in folder</Label>
+                <Label>Playlists in folder</Label>
                 <span className="text-xs tabular-nums text-muted-foreground">
-                  {selectedDeviceIds.size} of {devices.length} selected
+                  {selectedPlaylistIds.size} of {playlists.length} selected
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Unchecked screens appear under Ungrouped on the main Screens page.
-              </p>
-              {devices.length === 0 ? (
+              {playlists.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
-                  No screens linked yet. Pair a TV first, then assign it here.
+                  No playlists yet. Create one first, then assign it here.
                 </p>
               ) : (
                 <ul className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border bg-background/60 p-2">
-                  {sortedDevices.map((device) => {
-                    const selected = selectedDeviceIds.has(device.id);
+                  {sortedPlaylists.map((playlist) => {
+                    const selected = selectedPlaylistIds.has(playlist.id);
                     return (
-                      <li key={device.id}>
+                      <li key={playlist.id}>
                         <button
                           type="button"
                           disabled={saving}
-                          onClick={() => toggleDevice(device.id)}
+                          onClick={() => togglePlaylist(playlist.id)}
                           className={cn(
                             "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
-                            selected
-                              ? "bg-brand-soft/80 ring-1 ring-brand/25"
-                              : "hover:bg-muted/70",
+                            selected ? "bg-brand-soft/80 ring-1 ring-brand/25" : "hover:bg-muted/70",
                           )}
                         >
                           <span
@@ -315,8 +311,8 @@ export function DeviceGroupEditorDialog({
                           >
                             {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
                           </span>
-                          <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
-                          <span className="min-w-0 flex-1 truncate font-medium">{device.name}</span>
+                          <ListVideo className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+                          <span className="min-w-0 flex-1 truncate font-medium">{playlist.name}</span>
                         </button>
                       </li>
                     );

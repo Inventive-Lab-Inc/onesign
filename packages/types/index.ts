@@ -198,6 +198,22 @@ export interface DeviceGroupMember {
   created_at: string;
 }
 
+export interface PlaylistGroup {
+  id: string;
+  owner_id: string;
+  name: string;
+  /** Hex accent for UI chips, e.g. #047857 */
+  accent_color: string | null;
+  created_at: string;
+}
+
+export interface PlaylistGroupMember {
+  id: string;
+  group_id: string;
+  playlist_id: string;
+  created_at: string;
+}
+
 /** Payload used by the playlist editor (joins media metadata). */
 export interface PlaylistItemWithMedia extends PlaylistItem {
   media: Pick<Media, "id" | "storage_path" | "file_type" | "original_filename" | "duration_seconds">;

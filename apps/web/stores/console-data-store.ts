@@ -1,14 +1,15 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Media, Playlist, PlaylistItemWithMedia } from "@signage/types";
-import type { ConsoleSnapshot, DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
+import type { ConsoleSnapshot, DeviceGroupWithMembers, DeviceWithAssignments, PlaylistGroupWithMembers } from "@/lib/console-sync";
 
-export type { DeviceWithAssignments };
+export type { DeviceWithAssignments, PlaylistGroupWithMembers };
 
 type ConsoleDataState = {
   ownerId: string | null;
   devices: DeviceWithAssignments[];
   deviceGroups: DeviceGroupWithMembers[];
+  playlistGroups: PlaylistGroupWithMembers[];
   playlists: Playlist[];
   media: Media[];
   playlistItemsByPlaylistId: Record<string, PlaylistItemWithMedia[]>;
@@ -30,6 +31,7 @@ const emptyState = (): ConsoleDataState => ({
   ownerId: null,
   devices: [],
   deviceGroups: [],
+  playlistGroups: [],
   playlists: [],
   media: [],
   playlistItemsByPlaylistId: {},
@@ -48,6 +50,7 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
           ownerId,
           devices: snapshot.devices,
           deviceGroups: snapshot.deviceGroups,
+          playlistGroups: snapshot.playlistGroups,
           playlists: snapshot.playlists,
           media: snapshot.media,
           playlistItemsByPlaylistId: snapshot.playlistItemsByPlaylistId,
@@ -71,6 +74,7 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
         ownerId: s.ownerId,
         devices: s.devices,
         deviceGroups: s.deviceGroups,
+        playlistGroups: s.playlistGroups,
         playlists: s.playlists,
         media: s.media,
         playlistItemsByPlaylistId: s.playlistItemsByPlaylistId,

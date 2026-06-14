@@ -213,7 +213,9 @@ export function MediaLibrary({ userId }: MediaLibraryProps) {
                 onClick={() => setView("grid")}
                 className={cn(
                   "rounded-md p-1.5 text-muted-foreground transition-colors",
-                  view === "grid" ? "bg-card text-foreground shadow-sm" : "hover:text-foreground",
+                  view === "grid"
+                    ? "bg-brand-soft text-brand-strong shadow-sm dark:text-brand-onDark"
+                    : "hover:text-foreground",
                 )}
                 aria-pressed={view === "grid"}
                 aria-label="Grid view"
@@ -225,7 +227,9 @@ export function MediaLibrary({ userId }: MediaLibraryProps) {
                 onClick={() => setView("list")}
                 className={cn(
                   "rounded-md p-1.5 text-muted-foreground transition-colors",
-                  view === "list" ? "bg-card text-foreground shadow-sm" : "hover:text-foreground",
+                  view === "list"
+                    ? "bg-brand-soft text-brand-strong shadow-sm dark:text-brand-onDark"
+                    : "hover:text-foreground",
                 )}
                 aria-pressed={view === "list"}
                 aria-label="List view"

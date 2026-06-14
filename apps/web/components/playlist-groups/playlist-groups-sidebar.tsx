@@ -3,23 +3,20 @@
 import { FolderOpen, Layers, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveGroupColor } from "@/lib/device-group-colors";
-import type { DeviceGroupWithMembers } from "@/lib/console-sync";
-
+import type { PlaylistGroupWithMembers } from "@/lib/console-sync";
 import type { GroupFilter } from "@/lib/device-group-navigation";
 
-export type { GroupFilter };
-
-type DeviceGroupsSidebarProps = {
-  groups: DeviceGroupWithMembers[];
+type PlaylistGroupsSidebarProps = {
+  groups: PlaylistGroupWithMembers[];
   activeFilter: GroupFilter;
   onFilterChange: (filter: GroupFilter) => void;
   ungroupedCount: number;
   totalCount: number;
   readOnly?: boolean;
-  onEditGroup: (group: DeviceGroupWithMembers) => void;
+  onEditGroup: (group: PlaylistGroupWithMembers) => void;
 };
 
-export function DeviceGroupsSidebar({
+export function PlaylistGroupsSidebar({
   groups,
   activeFilter,
   onFilterChange,
@@ -27,15 +24,15 @@ export function DeviceGroupsSidebar({
   totalCount,
   readOnly = false,
   onEditGroup,
-}: DeviceGroupsSidebarProps) {
+}: PlaylistGroupsSidebarProps) {
   return (
-    <nav className="rounded-xl border border-border bg-muted/30 p-2" aria-label="Filter by group">
-      <p className="mb-2 px-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">Groups</p>
+    <nav className="rounded-xl border border-border bg-muted/30 p-2" aria-label="Filter by folder">
+      <p className="mb-2 px-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">Folders</p>
 
       <ul className="space-y-0.5">
         <GroupNavItem
           active={activeFilter === "all"}
-          label="All screens"
+          label="All playlists"
           count={totalCount}
           icon={Layers}
           onClick={() => onFilterChange("all")}
@@ -75,7 +72,7 @@ export function DeviceGroupsSidebar({
                   />
                   <span className="min-w-0 flex-1 truncate">{group.name}</span>
                   <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
-                    {group.member_device_ids.length}
+                    {group.member_playlist_ids.length}
                   </span>
                 </button>
                 {!readOnly ? (
@@ -83,7 +80,7 @@ export function DeviceGroupsSidebar({
                     type="button"
                     onClick={() => onEditGroup(group)}
                     className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover/item:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label={`Edit group ${group.name}`}
+                    aria-label={`Edit folder ${group.name}`}
                   >
                     <Settings2 className="h-3.5 w-3.5" strokeWidth={1.75} />
                   </button>
@@ -94,7 +91,7 @@ export function DeviceGroupsSidebar({
         </ul>
       ) : groups.length === 0 ? (
         <p className="mt-2 border-t border-border/70 px-2 pt-3 text-[0.6875rem] leading-relaxed text-muted-foreground">
-          Custom groups appear here once you create folders from the grid.
+          Custom folders appear here once you create them from the grid.
         </p>
       ) : null}
     </nav>
