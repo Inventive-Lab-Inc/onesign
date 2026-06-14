@@ -7,12 +7,16 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useCallback, useMemo, useState } from "react";
 import {
+  contentPlaylistsPath,
+  parseContentView,
   playlistDetailPath,
   playlistsListPath,
   useAdminClientRoutes,
 } from "@/components/admin/admin-client-route-context";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
+import { ContentViewTabs } from "@/components/content/content-view-tabs";
 import { CreatePlaylistForm } from "@/components/create-playlist-form";
+import { MediaLibrary } from "@/components/media-library";
 import { DeviceGroupFolderCard, GroupFolderCreateCard } from "@/components/device-groups/device-group-folder-card";
 import { PlaylistGroupEditorDialog } from "@/components/playlist-groups/playlist-group-editor-dialog";
 import { Input } from "@/components/ui/input";
@@ -31,6 +35,7 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
   const adminStaff = useOptionalAdminStaff();
   const readOnly = adminStaff != null && !adminStaff.canWrite;
   const playlistsHomePath = adminRoutes?.playlistsPath ?? "/playlists";
+  const contentView = parseContentView(searchParams);
   const ownerId = useConsoleDataStore((s) => s.ownerId);
   const playlists = useConsoleDataStore((s) => s.playlists) as Playlist[];
   const playlistGroups = useConsoleDataStore((s) => s.playlistGroups) as PlaylistGroupWithMembers[];
@@ -47,6 +52,7 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
     return id && id !== "new" ? id : null;
   }, [pathname, playlistsHomePath]);
 
+  const isLibraryView = contentView === "library" && activePlaylistId === null;
   const isPlaylistsHome = activePlaylistId === null;
 
   const groupFilter = useMemo(
@@ -64,13 +70,14 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
   const navigateToGroup = useCallback(
     (filter: typeof groupFilter) => {
       const params = new URLSearchParams(searchParams.toString());
+      params.set("view", "playlists");
       if (filter === "all") {
         params.delete("group");
       } else {
         params.set("group", filter);
       }
       const qs = params.toString();
-      router.push(qs ? `${playlistsHomePath}?${qs}` : playlistsHomePath);
+      router.push(qs ? `${playlistsHomePath}?${qs}` : `${playlistsHomePath}?view=playlists`);
     },
     [playlistsHomePath, router, searchParams],
   );
@@ -136,9 +143,9 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
     return items.filter((p) => p.name.toLowerCase().includes(q));
   }, [playlists, groupedPlaylistIds, query]);
 
-  const showFolderGrid = isPlaylistsHome && isLibraryRoot && !query.trim();
-  const showSearchResultsGrid = isPlaylistsHome && isLibraryRoot && query.trim().length > 0;
-  const showFolderContents = isPlaylistsHome && isInsideFolder && !query.trim();
+  const showFolderGrid = isPlaylistsHome && isLibraryRoot && !query.trim() && contentView === "playlists";
+  const showSearchResultsGrid = isPlaylistsHome && isLibraryRoot && query.trim().length > 0 && contentView === "playlists";
+  const showFolderContents = isPlaylistsHome && isInsideFolder && !query.trim() && contentView === "playlists";
 
   const searchResultPlaylists = useMemo(() => {
     if (!showSearchResultsGrid) return [];
@@ -239,6 +246,17 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
   }
 
   return (
+    <div className="space-y-5">
+      {!activePlaylistId ? (
+        <ContentViewTabs
+          activeView={contentView}
+          groupId={groupFilter !== "all" && groupFilter !== "ungrouped" ? groupFilter : null}
+        />
+      ) : null}
+
+      {isLibraryView ? (
+        <MediaLibrary userId={ownerId} embedded />
+      ) : (
     <div className="flex min-h-[min(70vh,720px)] flex-col gap-6 lg:flex-row lg:gap-8">
       <aside className="flex w-full shrink-0 flex-col gap-4 lg:w-56 xl:w-60">
         <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
@@ -261,7 +279,7 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
             </p>
             <CreatePlaylistForm ownerId={ownerId} variant="cta" />
             <p className="mt-3 text-[0.6875rem] leading-relaxed text-muted-foreground">
-              Opens the editor right away. Name it on the right, then drag media from your library.
+              Opens the editor right away. Add clips from your library, then assign playlists to screens.
             </p>
           </div>
         ) : null}
@@ -285,18 +303,30 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
                 <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-muted-foreground">
                   <button
                     type="button"
-                    onClick={() => (activePlaylistId ? router.push(playlistsListPath(adminRoutes, null)) : navigateToGroup("all"))}
+                    onClick={() =>
+                      activePlaylistId
+                        ? router.push(playlistsListPath(adminRoutes, null))
+                        : navigateToGroup("all")
+                    }
                     className={cn(
                       "transition-colors",
-                      !activePlaylistId && isLibraryRoot
+                      !activePlaylistId && isLibraryRoot && contentView === "playlists"
                         ? "text-foreground"
                         : "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm",
                     )}
                   >
-                    Playlists
+                    Content
                   </button>
                   {activePlaylist ? (
                     <>
+                      <span className="text-muted-foreground/70">/</span>
+                      <button
+                        type="button"
+                        onClick={() => router.push(contentPlaylistsPath(adminRoutes, null))}
+                        className="transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
+                      >
+                        Playlists
+                      </button>
                       <span className="text-muted-foreground/70">/</span>
                       <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">
                         {activePlaylist.name}
@@ -317,7 +347,7 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
                   ) : (
                     <>
                       <span className="text-muted-foreground/70">/</span>
-                      <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">Home</span>
+                      <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">Playlists</span>
                     </>
                   )}
                 </div>
@@ -465,6 +495,8 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
           onClose={() => setGroupEditorOpen(false)}
         />
       ) : null}
+    </div>
+      )}
     </div>
   );
 }

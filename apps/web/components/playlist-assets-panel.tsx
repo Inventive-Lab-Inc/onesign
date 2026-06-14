@@ -2,12 +2,11 @@
 
 import type { Media } from "@signage/types";
 import { Draggable, Droppable } from "@hello-pangea/dnd";
-import { FileImage, Plus, Search, Upload } from "lucide-react";
+import { ArrowUpRight, FileImage, Plus, Search } from "lucide-react";
 import Image from "next/image";
-import { toast } from "sonner";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useMediaUpload } from "@/hooks/use-media-upload";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { cn, mediaLibraryAddButtonClassName } from "@/lib/utils";
 
@@ -29,73 +28,53 @@ function LibraryThumb({ media }: { media: Media }) {
 }
 
 interface PlaylistAssetsPanelProps {
-  ownerId: string;
   droppableId: string;
   libraryResetKey: number;
   librarySearch: string;
+  libraryHref: string;
   onLibrarySearchChange: (value: string) => void;
   filteredLibrary: Media[];
   onAddMedia: (mediaId: string) => void;
-  onUploaded: (media: Media[]) => void | Promise<void>;
-  uploadDisabled?: boolean;
-  uploadDisabledHint?: string;
+  addDisabled?: boolean;
+  addDisabledHint?: string;
 }
 
 export function PlaylistAssetsPanel({
-  ownerId,
   droppableId,
   libraryResetKey,
   librarySearch,
+  libraryHref,
   onLibrarySearchChange,
   filteredLibrary,
   onAddMedia,
-  onUploaded,
-  uploadDisabled = false,
-  uploadDisabledHint,
+  addDisabled = false,
+  addDisabledHint,
 }: PlaylistAssetsPanelProps) {
-  const { uploading, open, getInputProps } = useMediaUpload(ownerId, {
-    onComplete: onUploaded,
-  });
-
-  function tryOpenUpload() {
-    if (uploadDisabled) {
-      if (uploadDisabledHint) toast.error(uploadDisabledHint);
-      return;
-    }
-    open();
-  }
-
   return (
     <aside className="w-full shrink-0 lg:w-[300px]">
-      <input {...getInputProps()} />
       <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm dark:bg-card">
         <div className="border-b border-border bg-muted/30 px-4 py-3">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-foreground">Media</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">Upload here, then drag or tap Add.</p>
+              <h2 className="text-sm font-semibold text-foreground">From library</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Search, drag, or tap Add. Upload new files in Library.</p>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="default"
-              className="h-8 shrink-0 gap-1.5 px-2.5 text-xs font-semibold shadow-sm"
-              disabled={uploading || uploadDisabled}
-              title={uploadDisabled ? uploadDisabledHint : "Upload images or videos"}
-              onClick={tryOpenUpload}
+            <Link
+              href={libraryHref}
+              className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-xs font-semibold text-foreground shadow-sm transition hover:bg-muted"
             >
-              <Upload className="h-3.5 w-3.5" />
-              {uploading ? "…" : "Upload"}
-            </Button>
+              Library
+              <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+            </Link>
           </div>
           <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={librarySearch}
               onChange={(e) => onLibrarySearchChange(e.target.value)}
-              placeholder="Search…"
+              placeholder="Search library…"
               className="h-9 border-border bg-background pl-8 text-sm"
-              aria-label="Search media"
+              aria-label="Search library"
             />
           </div>
         </div>
@@ -105,19 +84,14 @@ export function PlaylistAssetsPanel({
               <ul ref={libProvided.innerRef} {...libProvided.droppableProps} className="space-y-2">
                 {filteredLibrary.length === 0 ? (
                   <li className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
-                    {uploadDisabled && uploadDisabledHint ? (
-                      uploadDisabledHint
+                    {addDisabled && addDisabledHint ? (
+                      addDisabledHint
                     ) : (
                       <>
-                        No media yet.{" "}
-                        <button
-                          type="button"
-                          className="font-medium text-brand-strong underline-offset-4 hover:underline"
-                          disabled={uploading || uploadDisabled}
-                          onClick={tryOpenUpload}
-                        >
-                          Upload files
-                        </button>
+                        No files in your library yet.{" "}
+                        <Link href={libraryHref} className="font-medium text-brand-strong underline-offset-4 hover:underline">
+                          Upload in Library
+                        </Link>
                       </>
                     )}
                   </li>
@@ -144,7 +118,8 @@ export function PlaylistAssetsPanel({
                             size="sm"
                             variant="secondary"
                             className={mediaLibraryAddButtonClassName}
-                            disabled={uploadDisabled}
+                            disabled={addDisabled}
+                            title={addDisabled ? addDisabledHint : "Add to playlist"}
                             onClick={() => onAddMedia(m.id)}
                           >
                             <Plus className="h-3 w-3" />

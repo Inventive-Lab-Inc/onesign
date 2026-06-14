@@ -15,11 +15,12 @@ import {
   Trash2,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BackNavLink } from "@/components/back-nav-link";
-import { devicesListPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { contentLibraryPath, devicesListPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,6 +110,7 @@ export function DeviceScreenEditor({
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const searchParams = useSearchParams();
   const adminRoutes = useAdminClientRoutes();
+  const libraryHref = contentLibraryPath(adminRoutes);
   const deviceGroups = useConsoleDataStore((s) => s.deviceGroups);
   const { syncNow } = useConsoleSync();
   const activeAppRelease = useActiveAppRelease();
@@ -459,18 +461,6 @@ export function DeviceScreenEditor({
     [addMediaAtIndex, createPlaylistAndAssign, items.length, playlistId],
   );
 
-  const addUploadedToScreenPlaylist = useCallback(
-    async (uploaded: Media[]) => {
-      const pid = playlistId || (await createPlaylistAndAssign());
-      if (!pid) return;
-      for (const row of uploaded) {
-        const len = useConsoleDataStore.getState().playlistItemsByPlaylistId[pid]?.length ?? 0;
-        await addMediaAtIndex(row.id, len, pid);
-      }
-    },
-    [addMediaAtIndex, createPlaylistAndAssign, playlistId],
-  );
-
   if (!device) {
     return null;
   }
@@ -795,8 +785,11 @@ export function DeviceScreenEditor({
                             <div className="rounded-xl border border-dashed border-border bg-muted/15 px-4 py-14 text-center">
                               <p className="text-sm font-medium text-foreground">Nothing in this playlist yet</p>
                               <p className="mt-1 text-xs text-muted-foreground">
-                                Upload in the <strong className="font-medium text-foreground">Media</strong> panel on the
-                                right — a playlist will be created for this screen if needed.
+                                Add clips from the library on the right, or upload new files in{" "}
+                                <Link href={libraryHref} className="font-medium text-foreground underline-offset-4 hover:underline">
+                                  Library
+                                </Link>
+                                .
                               </p>
                             </div>
                           ) : (
@@ -899,14 +892,13 @@ export function DeviceScreenEditor({
             </div>
 
             <PlaylistAssetsPanel
-              ownerId={ownerId}
               droppableId="media-library"
               libraryResetKey={libraryResetKey}
               librarySearch={librarySearch}
+              libraryHref={libraryHref}
               onLibrarySearchChange={setLibrarySearch}
               filteredLibrary={filteredLibrary}
               onAddMedia={addMediaByClick}
-              onUploaded={addUploadedToScreenPlaylist}
             />
           </div>
         </DragDropContext>

@@ -4,15 +4,10 @@ import type { Device, DeviceStatus } from "@signage/types";
 import { FolderOutput, Settings, Trash2, Tv } from "lucide-react";
 import Link from "next/link";
 import { deviceDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
-import { DeviceAppVersionChip } from "@/components/device-app-version-chip";
+import { ItemActionMenu } from "@/components/console/item-action-menu";
 import { DeviceDisabledBadge, deviceDisabledPresentation } from "@/components/device-disabled-notice";
-import { DeviceGroupChip } from "@/components/device-groups/device-group-chip";
-import { DeviceMediaCacheChip } from "@/components/device-media-cache-chip";
-import { DevicePlaybackPowerButton } from "@/components/device-playback-toggle";
-import { deviceTelemetrySummaryLine } from "@/components/device-telemetry-panel";
 import type { ActiveAppRelease } from "@/hooks/use-active-app-release";
 import type { DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
-import { DeviceAddToFolderButton } from "@/components/devices/device-add-to-folder-button";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
 import { resolveGroupColor } from "@/lib/device-group-colors";
 import { cn } from "@/lib/utils";
@@ -31,31 +26,20 @@ function statusLabel(status: DeviceStatus): string {
   }
 }
 
-function resolveDeviceAccent(
-  status: DeviceStatus,
-  groups: DeviceGroupWithMembers[],
-): string {
-  const primaryGroup = groups.at(0);
-  if (primaryGroup) return resolveGroupColor(primaryGroup.accent_color);
-  if (status === "online") return "var(--theme)";
-  if (status === "pending_pairing") return "#b45309";
-  return "#64748b";
-}
-
 export function DeviceScreenCard({
   device,
   groups,
   returnGroupId = null,
-  activeAppRelease,
+  activeAppRelease: _activeAppRelease,
   accountDisabled = false,
-  canControlPlayback = false,
+  canControlPlayback: _canControlPlayback = false,
   canDelete = true,
   onRequestDelete,
   onRemoveFromFolder,
   folderName,
   folders = [],
   onAddToFolder,
-  onCreateFolder,
+  onCreateFolder: _onCreateFolder,
   className,
 }: {
   device: DeviceWithAssignments | Device;
@@ -75,141 +59,103 @@ export function DeviceScreenCard({
 }) {
   const adminRoutes = useAdminClientRoutes();
   const status = effectiveDeviceStatus(device);
-  const accent = resolveDeviceAccent(status, groups);
-  const deviceSummary = deviceTelemetrySummaryLine(device);
   const disabledState = deviceDisabledPresentation(device, accountDisabled);
   const detailHref = deviceDetailPath(device.id, adminRoutes, returnGroupId);
+  const groupNames = groups.map((group) => group.name).join(", ");
+
+  const groupMenuItems =
+    onAddToFolder && folders.length > 0
+      ? folders.map((group) => ({
+          label: `Add to ${group.name}`,
+          onClick: () => onAddToFolder(group.id),
+          icon: (
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ background: resolveGroupColor(group.accent_color) }}
+              aria-hidden
+            />
+          ),
+        }))
+      : [];
 
   return (
-    <li
-      className={cn("device-screen-card group/screen", className)}
-      style={{ "--screen-accent": accent } as React.CSSProperties}
-    >
-      <div className="device-screen-card__glass">
-        <div className="device-screen-card__sheen" aria-hidden />
-        <div className="device-screen-card__glow" aria-hidden />
-        <Link
-          href={detailHref}
-          className="device-screen-card__link ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          aria-label={`Open screen: ${device.name}`}
-        />
-
-        <div className="device-screen-card__header pointer-events-none">
-          <div className="device-screen-card__icon" aria-hidden>
-            <Tv strokeWidth={1.5} />
+    <li className={cn("device-screen-card group/screen", className)}>
+      <Link
+        href={detailHref}
+        className="device-screen-card__link block overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        aria-label={`Open screen: ${device.name}`}
+      >
+        <div className="device-screen-card__preview relative aspect-[16/10] bg-muted/60">
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/50">
+            <Tv className="h-10 w-10" strokeWidth={1.25} aria-hidden />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="device-screen-card__title" title={device.name}>
-              {device.name}
-            </p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-1">
-              {deviceSummary ? (
-                <span className="device-screen-card__model" title={deviceSummary}>
-                  {deviceSummary}
-                </span>
-              ) : null}
-            </div>
-            <p className="device-screen-card__subtitle">
-              Active · {formatDeviceLastSeen(device.last_seen)}
-            </p>
-            {groups.length > 0 ? (
-              <div className="device-screen-card__groups">
-                {groups.map((group) => (
-                  <DeviceGroupChip key={group.id} name={group.name} accentColor={group.accent_color} />
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="device-screen-card__meta pointer-events-none">
-          <div className="device-screen-card__meta-row">
+          <div className="absolute bottom-2 right-2 flex flex-wrap items-center justify-end gap-1">
             <span
               className={cn(
-                "device-screen-card__status",
-                status === "online" && "device-screen-card__status--online",
-                status === "offline" && "device-screen-card__status--offline",
-                status === "pending_pairing" && "device-screen-card__status--pending",
+                "inline-flex rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide shadow-sm",
+                status === "online" && "bg-emerald-500 text-white",
+                status === "offline" && "bg-background/90 text-muted-foreground ring-1 ring-border",
+                status === "pending_pairing" && "bg-amber-500 text-white",
               )}
             >
               {statusLabel(status)}
             </span>
             {disabledState.show ? (
-              <DeviceDisabledBadge
-                accountSuspended={disabledState.accountSuspended}
-                pausedByQuota={disabledState.pausedByQuota}
-              />
+              <span className="pointer-events-none">
+                <DeviceDisabledBadge
+                  accountSuspended={disabledState.accountSuspended}
+                  pausedByQuota={disabledState.pausedByQuota}
+                />
+              </span>
             ) : null}
-          </div>
-          <div className="device-screen-card__meta-row">
-            <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} compact />
-            <DeviceMediaCacheChip device={device} compact />
           </div>
         </div>
 
-        <div className="device-screen-card__footer">
-          <div className="device-screen-card__footer-group">
-            {onAddToFolder ? (
-              <DeviceAddToFolderButton
-                deviceName={device.name}
-                folders={folders}
-                onAddToFolder={onAddToFolder}
-                onCreateFolder={onCreateFolder}
-                layout="grid"
-              />
-            ) : null}
-            {onRemoveFromFolder ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onRemoveFromFolder();
-                }}
-                className="device-screen-card__btn device-screen-card__btn--folder"
-                title={folderName ? `Remove from ${folderName}` : "Remove from folder"}
-                aria-label={`Remove ${device.name} from folder`}
-              >
-                <FolderOutput className="h-3.5 w-3.5" aria-hidden />
-              </button>
-            ) : null}
-            {canDelete ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onRequestDelete();
-                }}
-                className="device-screen-card__btn device-screen-card__btn--danger"
-                aria-label={`Remove ${device.name}`}
-              >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden />
-              </button>
-            ) : null}
-          </div>
-          <div className="device-screen-card__footer-group">
-            {canControlPlayback ? (
-              <DevicePlaybackPowerButton
-                device={device}
-                variant="secondary"
-                className="device-screen-card__btn"
-                onPointerDown={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-              />
-            ) : null}
-            <Link
-              href={detailHref}
-              aria-label={`Settings for ${device.name}`}
-              className="device-screen-card__btn"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Settings className="h-3.5 w-3.5" aria-hidden />
-            </Link>
+        <div className="flex items-start gap-2 p-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground" title={device.name}>
+              {device.name}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {formatDeviceLastSeen(device.last_seen)}
+              {groupNames ? ` · ${groupNames}` : ""}
+            </p>
           </div>
         </div>
+      </Link>
+
+      <div className="absolute right-2 top-2 z-10">
+        <ItemActionMenu
+          ariaLabel={`Actions for ${device.name}`}
+          className="rounded-md bg-background/90 shadow-sm ring-1 ring-border/80 backdrop-blur-sm"
+          items={[
+            {
+              label: "Open settings",
+              href: detailHref,
+              icon: <Settings className="h-3.5 w-3.5" aria-hidden />,
+            },
+            ...groupMenuItems,
+            ...(onRemoveFromFolder
+              ? [
+                  {
+                    label: folderName ? `Remove from ${folderName}` : "Remove from group",
+                    onClick: onRemoveFromFolder,
+                    icon: <FolderOutput className="h-3.5 w-3.5" aria-hidden />,
+                  },
+                ]
+              : []),
+            ...(canDelete
+              ? [
+                  {
+                    label: "Remove screen",
+                    onClick: onRequestDelete,
+                    destructive: true,
+                    icon: <Trash2 className="h-3.5 w-3.5" aria-hidden />,
+                  },
+                ]
+              : []),
+          ]}
+        />
       </div>
     </li>
   );

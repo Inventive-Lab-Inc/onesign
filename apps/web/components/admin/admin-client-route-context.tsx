@@ -8,6 +8,7 @@ type AdminClientRoutes = {
   overviewPath: string;
   devicesPath: string;
   devicePath: (deviceId: string) => string;
+  groupsPath: string;
   playlistsPath: string;
   playlistPath: (playlistId: string) => string;
   mediaPath: string;
@@ -31,9 +32,10 @@ export function AdminClientRouteProvider({
       overviewPath: basePath,
       devicesPath: `${basePath}/devices`,
       devicePath: (deviceId: string) => `${basePath}/devices/${deviceId}`,
+      groupsPath: `${basePath}/groups`,
       playlistsPath: `${basePath}/playlists`,
       playlistPath: (playlistId: string) => `${basePath}/playlists/${playlistId}`,
-      mediaPath: `${basePath}/media`,
+      mediaPath: `${basePath}/playlists?view=library`,
       auditPath: `${basePath}/audit`,
     };
   }, [clientId]);
@@ -53,6 +55,10 @@ export function devicesListPath(adminRoutes: AdminClientRoutes | null, groupId?:
   return `${base}?group=${encodeURIComponent(groupId)}`;
 }
 
+export function groupsListPath(adminRoutes: AdminClientRoutes | null): string {
+  return adminRoutes?.groupsPath ?? "/groups";
+}
+
 export function deviceDetailPath(
   deviceId: string,
   adminRoutes: AdminClientRoutes | null,
@@ -64,9 +70,7 @@ export function deviceDetailPath(
 }
 
 export function playlistsListPath(adminRoutes: AdminClientRoutes | null, groupId?: string | null): string {
-  const base = adminRoutes?.playlistsPath ?? "/playlists";
-  if (!groupId || groupId === "all") return base;
-  return `${base}?group=${encodeURIComponent(groupId)}`;
+  return contentPlaylistsPath(adminRoutes, groupId);
 }
 
 export function playlistDetailPath(
@@ -77,4 +81,28 @@ export function playlistDetailPath(
   const base = adminRoutes?.playlistPath(playlistId) ?? `/playlists/${playlistId}`;
   if (!groupId || groupId === "all") return base;
   return `${base}?group=${encodeURIComponent(groupId)}`;
+}
+
+export type ContentView = "library" | "playlists";
+
+export function contentLibraryPath(adminRoutes: AdminClientRoutes | null): string {
+  const base = adminRoutes?.playlistsPath ?? "/playlists";
+  return `${base}?view=library`;
+}
+
+export function contentPlaylistsPath(
+  adminRoutes: AdminClientRoutes | null,
+  groupId?: string | null,
+): string {
+  const base = adminRoutes?.playlistsPath ?? "/playlists";
+  const params = new URLSearchParams();
+  params.set("view", "playlists");
+  if (groupId && groupId !== "all") {
+    params.set("group", groupId);
+  }
+  return `${base}?${params.toString()}`;
+}
+
+export function parseContentView(searchParams: URLSearchParams): ContentView {
+  return searchParams.get("view") === "library" ? "library" : "playlists";
 }

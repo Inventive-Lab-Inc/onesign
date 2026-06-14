@@ -21,6 +21,8 @@ import { useConsoleDataStore } from "@/stores/console-data-store";
 
 interface MediaLibraryProps {
   userId: string;
+  /** When true, omits standalone page chrome (used inside Content workspace). */
+  embedded?: boolean;
 }
 
 type TypeFilter = "all" | "image" | "video" | "unknown";
@@ -46,7 +48,7 @@ const FILTER_ROWS: { id: TypeFilter; label: string; icon: typeof ImageIcon }[] =
   { id: "unknown", label: "Other", icon: FileImage },
 ];
 
-export function MediaLibrary({ userId }: MediaLibraryProps) {
+export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   const { syncNow } = useConsoleSync();
   const plan = usePlanQuota();
   const adminStaff = useOptionalAdminStaff();
@@ -110,7 +112,12 @@ export function MediaLibrary({ userId }: MediaLibraryProps) {
   }
 
   return (
-    <div className="flex min-h-[min(70vh,720px)] flex-col gap-6 lg:flex-row lg:gap-8">
+    <div
+      className={cn(
+        "flex flex-col gap-6 lg:flex-row lg:gap-8",
+        embedded ? "min-h-0" : "min-h-[min(70vh,720px)]",
+      )}
+    >
       <aside className="w-full shrink-0 space-y-4 lg:w-56 xl:w-60">
         {plan ? (
           <PlanUsageMeter
@@ -197,11 +204,15 @@ export function MediaLibrary({ userId }: MediaLibraryProps) {
         >
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
             <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <span className="text-foreground">Media library</span>
-                <span className="text-muted-foreground/70">/</span>
-                <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">All files</span>
-              </div>
+              {!embedded ? (
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <span className="text-foreground">Media library</span>
+                  <span className="text-muted-foreground/70">/</span>
+                  <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">All files</span>
+                </div>
+              ) : (
+                <h2 className="text-sm font-semibold text-foreground">All files</h2>
+              )}
               <p className="mt-1 text-xs text-muted-foreground">
                 {filtered.length} file{filtered.length === 1 ? "" : "s"}
                 {items.length !== filtered.length ? ` (${items.length} total)` : ""}

@@ -32,9 +32,9 @@ export default function PlaylistsPage() {
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand-strong dark:text-brand-onDark">
         <ListVideo className="h-7 w-7" />
       </div>
-      <h1 className="text-xl font-semibold tracking-tight text-foreground">Playlist workspace</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-foreground">Content workspace</h1>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-        Build loops of images and video, set how long each image shows (videos always play in full), then assign playlists to screens.
+        Upload files in Library, build playlist loops, then assign them to screens.
       </p>
       <div className="mt-8 flex flex-col items-center gap-3">
         <CreatePlaylistForm ownerId={ownerId} variant="empty" />

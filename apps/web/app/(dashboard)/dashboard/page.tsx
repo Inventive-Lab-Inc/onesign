@@ -181,15 +181,15 @@ export default function DashboardHomePage() {
       icon: Monitor,
     },
     {
-      href: "/playlists",
+      href: "/playlists?view=playlists",
       label: "Playlists",
       description: "Loops assigned to screens",
       count: playlistCount,
       icon: ListVideo,
     },
     {
-      href: "/media",
-      label: "Media",
+      href: "/playlists?view=library",
+      label: "Library",
       description: "Files in cloud storage",
       count: mediaCount,
       icon: ImageIcon,

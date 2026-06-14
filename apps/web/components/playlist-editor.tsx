@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
+import { contentLibraryPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ensureMediaVideoDuration } from "@/lib/media";
 import { getMediaPublicBaseUrl, mediaPublicUrl } from "@/lib/object-storage/urls";
@@ -67,6 +68,8 @@ interface PlaylistEditorProps {
 
 export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const adminRoutes = useAdminClientRoutes();
+  const libraryHref = contentLibraryPath(adminRoutes);
   const adminStaff = useOptionalAdminStaff();
   const readOnly = adminStaff != null && !adminStaff.canWrite;
   const ownerId = useConsoleDataStore((s) => s.ownerId);
@@ -275,17 +278,6 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
     [addMediaAtIndex, items, persistOrder, readOnly, removeItem],
   );
 
-  const addUploadedToPlaylist = useCallback(
-    async (uploaded: Media[]) => {
-      for (const row of uploaded) {
-        const len =
-          useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? items.length;
-        await addMediaAtIndex(row.id, len);
-      }
-    },
-    [addMediaAtIndex, items.length, playlistId],
-  );
-
   if (!getMediaPublicBaseUrl()) {
     return (
       <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
@@ -417,7 +409,11 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
                         <div className="rounded-xl border border-dashed border-border bg-muted/15 px-4 py-14 text-center">
                           <p className="text-sm font-medium text-foreground">Nothing in this playlist yet</p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Upload in the Media panel on the right, or drag files into this playlist.
+                            Add clips from the library on the right, or{" "}
+                            <Link href={libraryHref} className="font-medium text-foreground underline-offset-4 hover:underline">
+                              upload files in Library
+                            </Link>
+                            .
                           </p>
                         </div>
                       ) : (
@@ -531,14 +527,13 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
 
       {ownerId && !readOnly ? (
         <PlaylistAssetsPanel
-          ownerId={ownerId}
           droppableId="playlist-library"
           libraryResetKey={libraryResetKey}
           librarySearch={librarySearch}
+          libraryHref={libraryHref}
           onLibrarySearchChange={setLibrarySearch}
           filteredLibrary={filteredLibrary}
           onAddMedia={(mediaId) => void addMediaAtIndex(mediaId, items.length)}
-          onUploaded={addUploadedToPlaylist}
         />
       ) : null}
       </div>
