@@ -1,6 +1,17 @@
 "use client";
 
 import type { Device, DeviceStatus } from "@signage/types";
+import { DeviceFiltersPopover } from "@/components/devices/device-filters-popover";
+import {
+  applyDeviceFilters,
+  applyDeviceSearchFilter,
+  collectDeviceTags,
+  DEFAULT_DEVICE_FILTERS,
+  DEVICE_SORT_OPTIONS,
+  sortDeviceList,
+  type DeviceFiltersState,
+  type DeviceSort,
+} from "@/lib/device-display";
 import { ArrowLeft, FolderOutput, Monitor, Plus, Settings, Trash2, Tv } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -36,21 +47,13 @@ import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status
 import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { DeviceDisabledBadge, deviceDisabledPresentation } from "@/components/device-disabled-notice";
 import { DevicePlaybackPowerButton } from "@/components/device-playback-toggle";
 import { useActiveAppRelease, type ActiveAppRelease } from "@/hooks/use-active-app-release";
 import { DeviceAddToFolderButton } from "@/components/devices/device-add-to-folder-button";
 import { ItemActionMenu } from "@/components/console/item-action-menu";
-
-type StatusFilter = "all" | DeviceStatus;
-
-const STATUS_FILTER_OPTIONS: { id: StatusFilter; label: string }[] = [
-  { id: "all", label: "All screens" },
-  { id: "online", label: "Online" },
-  { id: "offline", label: "Offline" },
-  { id: "pending_pairing", label: "Pending" },
-];
 
 function statusLabel(status: DeviceStatus): string {
   switch (status) {
@@ -85,7 +88,7 @@ export function DevicesManager() {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const devices = useConsoleDataStore((s) => s.devices) as DeviceWithAssignments[];
   const deviceGroups = useConsoleDataStore((s) => s.deviceGroups) as DeviceGroupWithMembers[];
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
   const activeAppRelease = useActiveAppRelease();
 
   const { syncNow } = useConsoleSync();
@@ -100,7 +103,8 @@ export function DevicesManager() {
 
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [deviceSort, setDeviceSort] = useState<DeviceSort>("created-desc");
+  const [deviceFilters, setDeviceFilters] = useState<DeviceFiltersState>(DEFAULT_DEVICE_FILTERS);
   const [view, setView] = useState<"grid" | "list">("grid");
   const [devicePendingDelete, setDevicePendingDelete] = useState<Device | null>(null);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
@@ -174,23 +178,20 @@ export function DevicesManager() {
     return ids;
   }, [deviceGroups]);
 
+  const knownTags = useMemo(() => collectDeviceTags(devices), [devices]);
+
   const filtered = useMemo(() => {
     let list = devices;
-    if (statusFilter !== "all") {
-      list = list.filter((device) => effectiveDeviceStatus(device) === statusFilter);
-    }
     if (groupFilter === "ungrouped") {
       list = list.filter((device) => !groupedDeviceIds.has(device.id));
     } else if (activeGroup) {
       const memberIds = new Set(activeGroup.member_device_ids);
       list = list.filter((device) => memberIds.has(device.id));
     }
-    const q = search.trim().toLowerCase();
-    if (q) {
-      list = list.filter((device) => device.name.toLowerCase().includes(q));
-    }
-    return list;
-  }, [devices, statusFilter, search, groupFilter, groupedDeviceIds, activeGroup]);
+    list = applyDeviceFilters(list, deviceFilters);
+    list = applyDeviceSearchFilter(list, search);
+    return sortDeviceList(list, deviceSort);
+  }, [devices, deviceFilters, deviceSort, search, groupFilter, groupedDeviceIds, activeGroup]);
 
   const openEditGroup = useCallback((group: DeviceGroupWithMembers) => {
     setGroupBeingEdited(group);
@@ -315,9 +316,16 @@ export function DevicesManager() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search screens…"
-          filterOptions={STATUS_FILTER_OPTIONS}
-          activeFilterId={statusFilter}
-          onFilterChange={(id) => setStatusFilter(id as StatusFilter)}
+          sortOptions={DEVICE_SORT_OPTIONS}
+          activeSortId={deviceSort}
+          onSortChange={(id) => setDeviceSort(id as DeviceSort)}
+          filtersContent={
+            <DeviceFiltersPopover
+              value={deviceFilters}
+              onApply={setDeviceFilters}
+              knownTags={knownTags}
+            />
+          }
           trailing={
             <div className="flex shrink-0 items-center gap-2">
               {isGroupView && activeGroup ? (

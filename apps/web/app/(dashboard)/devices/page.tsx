@@ -2,18 +2,14 @@
 
 import { Suspense } from "react";
 import { DevicesManager } from "@/components/devices-manager";
-import { useConsoleDataStore } from "@/stores/console-data-store";
+import { ConsolePageSkeleton } from "@/components/console/console-page-skeleton";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 
 function DevicesPageContent() {
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
 
   if (!ownerId) {
-    return (
-      <div className="space-y-4">
-        <div className="h-8 w-40 animate-pulse rounded-md bg-muted" />
-        <div className="h-48 animate-pulse rounded-xl bg-muted/60" />
-      </div>
-    );
+    return <ConsolePageSkeleton />;
   }
 
   return <DevicesManager />;
@@ -21,14 +17,7 @@ function DevicesPageContent() {
 
 export default function DevicesPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="space-y-4">
-          <div className="h-8 w-40 animate-pulse rounded-md bg-muted" />
-          <div className="h-48 animate-pulse rounded-xl bg-muted/60" />
-        </div>
-      }
-    >
+    <Suspense fallback={<ConsolePageSkeleton />}>
       <DevicesPageContent />
     </Suspense>
   );

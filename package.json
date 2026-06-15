@@ -4,6 +4,7 @@
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev": "pnpm --filter @signage/web dev",
+    "dev:forever": "bash scripts/dev-forever.sh",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",

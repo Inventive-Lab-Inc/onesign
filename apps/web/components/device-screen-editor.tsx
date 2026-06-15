@@ -10,7 +10,7 @@ import {
   FileVideo,
   GripVertical,
   Image as ImageIcon,
-  Pencil,
+  Info,
   Shuffle,
   Trash2,
 } from "lucide-react";
@@ -38,12 +38,13 @@ import { useConsoleDataStore } from "@/stores/console-data-store";
 import { DevicePlaybackToggle } from "@/components/device-playback-toggle";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { DeviceDisabledNotice, deviceDisabledPresentation } from "@/components/device-disabled-notice";
-import { DeviceScreenOrientationSettings } from "@/components/device-screen-orientation-settings";
+import { DeviceDetailsDrawer } from "@/components/devices/device-details-drawer";
+import { DeviceSettingsDrawerButton } from "@/components/devices/device-settings-drawer";
+import { DeviceScreenOrientationIcon } from "@/components/devices/device-screen-orientation-icon";
 import { PlaylistPreviewButton } from "@/components/playlist-preview";
 import { ReadonlyVideoDuration } from "@/components/readonly-video-duration";
 import { useEnsurePlaylistVideoDurations } from "@/hooks/use-ensure-playlist-video-durations";
 import {
-  DeviceTelemetryMoreButton,
   deviceScreenBasics,
   getDeviceDisplayDimensionsPx,
 } from "@/components/device-telemetry-panel";
@@ -58,6 +59,10 @@ import { clearDevicePlaylist, copyPlaylistToDevices } from "@/lib/copy-device-pl
 import { isStorageFull } from "@/lib/plan-quota";
 import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
 import { ensureActivePlaylistForDevice } from "@/lib/screen-playlist";
+import {
+  formatDeviceScreenOrientationSubtitle,
+  normalizeDeviceScreenOrientation,
+} from "@/lib/device-screen-orientation";
 
 /** Stable fallback so Zustand selectors don’t return a new [] every run (avoids render loops). */
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
@@ -155,17 +160,11 @@ export function DeviceScreenEditor({
   const [librarySearch, setLibrarySearch] = useState("");
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [transitionsDialogOpen, setTransitionsDialogOpen] = useState(false);
-  const [deviceName, setDeviceName] = useState("");
-  const [savingName, setSavingName] = useState(false);
-  const [isEditingDeviceName, setIsEditingDeviceName] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     setItems(cachedItems);
   }, [cachedItems]);
-
-  useEffect(() => {
-    if (device) setDeviceName(device.name);
-  }, [device]);
 
   const reloadFromServer = useCallback(async () => {
     await syncNow();
@@ -181,40 +180,6 @@ export function DeviceScreenEditor({
   }, [activePlaylistId, canManageTvPlaylist, device, ownerId, reloadFromServer, supabase]);
 
   useEnsurePlaylistVideoDurations(items, supabase, reloadFromServer);
-
-  const saveDeviceName = useCallback(async () => {
-    if (!device) return;
-    const trimmed = deviceName.trim();
-    if (!trimmed) {
-      toast.error("Enter a screen name.");
-      return;
-    }
-    if (trimmed === device.name) {
-      setIsEditingDeviceName(false);
-      return;
-    }
-    setSavingName(true);
-    try {
-      const { error } = await supabase.from("devices").update({ name: trimmed }).eq("id", device.id);
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-      toast.success("Screen name updated");
-      await reloadFromServer();
-      setIsEditingDeviceName(false);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to save name";
-      toast.error(message);
-    } finally {
-      setSavingName(false);
-    }
-  }, [device, deviceName, reloadFromServer, supabase]);
-
-  const cancelEditingDeviceName = useCallback(() => {
-    if (device) setDeviceName(device.name);
-    setIsEditingDeviceName(false);
-  }, [device]);
 
   const resolvePlaylistId = useCallback(async (): Promise<string | null> => {
     if (!device) return null;
@@ -425,6 +390,13 @@ export function DeviceScreenEditor({
     [device],
   );
 
+  const screenOrientation = normalizeDeviceScreenOrientation(device?.screen_orientation);
+
+  const lastPlaylistChangeAt = useMemo(() => {
+    const active = device?.device_playlists?.find((row) => row.is_active);
+    return active?.updated_at ?? null;
+  }, [device?.device_playlists]);
+
   const playlistTimingLabel = useMemo(() => formatPlaylistClockLabel(items), [items]);
 
   const sharedGroupPlaylist = useMemo(() => {
@@ -531,74 +503,39 @@ export function DeviceScreenEditor({
               }
             />
 
-            <div className="min-w-0 flex-1 space-y-4">
-              {!isEditingDeviceName ? (
-                <div className="flex max-w-full flex-wrap items-center gap-1.5">
-                  <h1 className="min-w-0 w-fit max-w-full text-balance text-2xl font-semibold tracking-tight text-foreground leading-snug">
-                    <span className="break-words [overflow-wrap:anywhere]">{device.name}</span>
-                  </h1>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="inline-flex h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      setDeviceName(device.name);
-                      setIsEditingDeviceName(true);
-                    }}
-                    aria-label="Edit screen name"
-                  >
-                    <Pencil className="h-4 w-4" strokeWidth={2} />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex min-w-0 max-w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                  <Input
-                    id="device-screen-name"
-                    value={deviceName}
-                    onChange={(e) => setDeviceName(e.target.value)}
-                    className="h-11 min-w-0 flex-1 text-lg font-semibold sm:max-w-xl"
-                    aria-label="Screen name"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void saveDeviceName();
-                      }
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        cancelEditingDeviceName();
-                      }
-                    }}
-                  />
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={savingName || !deviceName.trim()}
-                      onClick={() => void saveDeviceName()}
-                    >
-                      {savingName ? "Saving…" : "Save"}
-                    </Button>
-                    <Button type="button" variant="ghost" disabled={savingName} onClick={cancelEditingDeviceName}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="space-y-1">
+                <h1 className="min-w-0 w-fit max-w-full text-balance text-2xl font-semibold tracking-tight text-foreground leading-snug">
+                  <span className="break-words [overflow-wrap:anywhere]">{device.name}</span>
+                </h1>
+                {device.description ? (
+                  <p className="max-w-2xl text-sm text-muted-foreground">{device.description}</p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                <span>{formatDeviceLastSeen(device.last_seen)}</span>
+                <button
+                  type="button"
+                  onClick={() => setDetailsOpen(true)}
+                  className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                >
+                  <Info className="h-3.5 w-3.5" aria-hidden />
+                  Details
+                </button>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <DeviceScreenOrientationIcon orientation={screenOrientation} className="h-4 w-4" />
+                <span>{formatDeviceScreenOrientationSubtitle(screenOrientation)}</span>
+              </div>
+
               <div className="space-y-1">
                 <div
                   className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 overflow-x-auto py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   role="list"
-                  aria-label="Last activity"
+                  aria-label="Device status"
                 >
-                  <span
-                    role="listitem"
-                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/80 bg-muted/35 px-2.5 py-0.5 text-[0.6875rem] leading-tight tabular-nums"
-                  >
-                    <span className="shrink-0 text-muted-foreground">Last seen</span>
-                    <span className="min-w-0 font-medium text-foreground">{formatDeviceLastSeen(device.last_seen)}</span>
-                  </span>
                   <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} />
                   <DeviceMediaCacheChip device={device} />
                 </div>
@@ -642,8 +579,7 @@ export function DeviceScreenEditor({
 
             <div className="flex w-full shrink-0 flex-wrap justify-start gap-2 border-t border-border pt-6 lg:w-auto lg:self-center lg:justify-end lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
               {canControlPlayback ? <DevicePlaybackToggle device={device} /> : null}
-              <DeviceScreenOrientationSettings device={device} />
-              <DeviceTelemetryMoreButton device={device} />
+              <DeviceSettingsDrawerButton device={device} canEdit={canManageTvPlaylist} />
             </div>
           </div>
         </div>
@@ -851,6 +787,13 @@ export function DeviceScreenEditor({
         transitionStyle={transitionStyle}
         shuffleEnabled={shuffleEnabled}
         onSave={handleSavePlaylistSettings}
+      />
+
+      <DeviceDetailsDrawer
+        device={device}
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        lastPlaylistChangeAt={lastPlaylistChangeAt}
       />
     </div>
   );

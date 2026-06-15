@@ -47,6 +47,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import java.security.cert.CertPathValidatorException
+import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -146,6 +147,7 @@ private data class TvGetPlaybackRevisionResult(
     @SerialName("playlistId") val playlistId: String? = null,
     @SerialName("playlistName") val playlistName: String? = null,
     @SerialName("screenOrientation") val screenOrientation: String? = null,
+    @SerialName("screenshotRequestedAt") val screenshotRequestedAt: String? = null,
 )
 
 private const val TELEMETRY_INTERVAL_MS = 120_000L
@@ -285,6 +287,10 @@ class MainViewModel(
 
     private val isPlaybackProcessForeground = AtomicBoolean(false)
 
+    private var foregroundActivityRef: WeakReference<ComponentActivity>? = null
+    private var lastHandledScreenshotRequestAt: String? = null
+    private val liveScreenshotMutex = Mutex()
+
     private val playbackProcessLifecycleObserver =
         object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
@@ -381,6 +387,7 @@ class MainViewModel(
     }
 
     fun onActivityResumed(activity: ComponentActivity) {
+        foregroundActivityRef = WeakReference(activity)
         refreshInstallPermissionState()
         if (_state.value is MainUiState.DeviceSetup && hasInstallPermissionGrant()) {
             continueAfterDeviceSetup()
@@ -458,6 +465,37 @@ class MainViewModel(
             ).decodeAs<TvGetPlaybackRevisionResult>()
             persistPlaybackSecret(res.playbackSecret)
             res
+        }
+    }
+
+    private fun maybeCaptureLiveScreenshot(
+        deviceId: String,
+        screenshotRequestedAt: String?,
+    ) {
+        val requestedAt = screenshotRequestedAt?.trim()?.takeIf { it.isNotBlank() } ?: return
+        if (requestedAt == lastHandledScreenshotRequestAt) {
+            return
+        }
+        val activity = foregroundActivityRef?.get() ?: return
+        viewModelScope.launch {
+            liveScreenshotMutex.withLock {
+                if (requestedAt == lastHandledScreenshotRequestAt) {
+                    return@withLock
+                }
+                val session = supabase.auth.currentSessionOrNull() ?: return@withLock
+                val token = session.accessToken?.takeIf { it.isNotBlank() } ?: return@withLock
+                val bytes =
+                    withContext(Dispatchers.Main) {
+                        activity.captureLiveScreenshotWebP()
+                    } ?: return@withLock
+                val ok = LiveScreenshotUploader.upload(deviceId, bytes, token)
+                if (ok) {
+                    lastHandledScreenshotRequestAt = requestedAt
+                    Log.d(LOG_TAG, "live screenshot uploaded for device=$deviceId")
+                } else {
+                    Log.w(LOG_TAG, "live screenshot upload failed for device=$deviceId")
+                }
+            }
         }
     }
 
@@ -1249,6 +1287,7 @@ class MainViewModel(
                                 }
                                 return@launch
                             }
+                            maybeCaptureLiveScreenshot(deviceId, rev.screenshotRequestedAt)
                             lastContentRevision.set(rev.contentRevision)
                             val cur = _state.value as? MainUiState.Playback
                             val canSkipFullFetch =

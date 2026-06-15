@@ -10,7 +10,7 @@ import type {
 } from "@signage/types";
 
 export type DeviceWithAssignments = Device & {
-  device_playlists: Array<{ playlist_id: string; is_active: boolean }> | null;
+  device_playlists: Array<{ playlist_id: string; is_active: boolean; updated_at?: string }> | null;
 };
 
 type RawPlaylistItemRow = {
@@ -78,7 +78,7 @@ export async function pullConsoleData(supabase: SupabaseClient, userId: string):
   const [devicesRes, deviceGroupsRes, playlistGroupsRes, mediaGroupsRes, playlistsRes, mediaRes] = await Promise.all([
     supabase
       .from("devices")
-      .select("*, device_playlists(playlist_id,is_active)")
+      .select("*, device_playlists(playlist_id,is_active,updated_at)")
       .eq("owner_id", userId)
       .order("created_at", { ascending: false }),
     supabase

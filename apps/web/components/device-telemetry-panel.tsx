@@ -2,8 +2,6 @@
 
 import type { Device, DeviceTelemetry } from "@signage/types";
 import { Info } from "lucide-react";
-import { useEffect, useId, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 function formatWhen(iso: string | null | undefined): string {
@@ -147,7 +145,7 @@ function TelemetryFieldsTable({ device }: { device: Device }) {
   );
 }
 
-function DeviceTelemetryDialogBody({ device }: { device: Device }) {
+function DeviceTelemetryPanelContent({ device }: { device: Device }) {
   const t = device.telemetry;
   const at = device.telemetry_at;
   if (!hasTelemetryData(t)) {
@@ -170,56 +168,7 @@ function DeviceTelemetryDialogBody({ device }: { device: Device }) {
   );
 }
 
-/** Opens full telemetry (table + summary) in a modal — used on the screen detail layout instead of an inline card. */
-export function DeviceTelemetryMoreButton({ device }: { device: Device }) {
-  const [open, setOpen] = useState(false);
-  const titleId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  return (
-    <>
-      <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => setOpen(true)}>
-        More Device Info
-      </Button>
-      {open ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/50"
-            aria-label="Dismiss"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            className="relative z-10 flex max-h-[min(90vh,720px)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg"
-          >
-            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border bg-muted/30 px-5 py-4">
-              <h2 id={titleId} className="text-lg font-semibold text-foreground">
-                Device information
-              </h2>
-              <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setOpen(false)}>
-                Close
-              </Button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <DeviceTelemetryDialogBody device={device} />
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </>
-  );
-}
+export { DeviceTelemetryPanelContent };
 
 export function deviceTelemetrySummaryLine(device: Device): string | null {
   const t = device.telemetry;

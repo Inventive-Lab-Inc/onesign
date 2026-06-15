@@ -41,6 +41,11 @@ private fun sanitizedReleasesBaseFromLocal(props: Properties): String {
     return if (raw.contains("YOUR_", ignoreCase = true) || raw.isBlank()) "" else raw.trimEnd('/')
 }
 
+private fun sanitizedConsoleBaseFromLocal(props: Properties): String {
+    val raw = (props.getProperty("console.base.url") ?: "").trim()
+    return if (raw.contains("YOUR_", ignoreCase = true) || raw.isBlank()) "" else raw.trimEnd('/')
+}
+
 android {
     namespace = "dev.signage.tv"
     compileSdk = 35
@@ -49,19 +54,21 @@ android {
         applicationId = "dev.signage.tv"
         minSdk = 24
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.9.9"
+        versionCode = 19
+        versionName = "0.9.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val (supabaseUrl, supabaseAnonKey) = sanitizedSupabaseFromLocal(localProperties)
         val mediaBaseUrl = sanitizedMediaBaseFromLocal(localProperties)
         val releasesBaseUrl = sanitizedReleasesBaseFromLocal(localProperties)
+        val consoleBaseUrl = sanitizedConsoleBaseFromLocal(localProperties)
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
         buildConfigField("String", "MEDIA_BASE_URL", "\"$mediaBaseUrl\"")
         buildConfigField("String", "RELEASES_BASE_URL", "\"$releasesBaseUrl\"")
+        buildConfigField("String", "CONSOLE_BASE_URL", "\"$consoleBaseUrl\"")
     }
 
     signingConfigs {

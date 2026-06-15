@@ -133,6 +133,14 @@ export interface Device {
   paused_by_quota?: boolean;
   /** Optional thumbnail image in object storage (not counted in media library quota). */
   thumbnail_storage_path?: string | null;
+  /** When the console last asked this screen to capture a live frame. */
+  screenshot_requested_at?: string | null;
+  /** When the TV last uploaded a live screenshot. */
+  live_screenshot_at?: string | null;
+  /** Optional labels for organizing and filtering screens. */
+  tags?: string[];
+  /** Optional subtitle shown under the screen name in the console. */
+  description?: string | null;
 }
 
 export interface AppRelease {

@@ -16,6 +16,7 @@ type ConsoleSyncContextValue = {
 };
 
 const ConsoleSyncContext = createContext<ConsoleSyncContextValue | null>(null);
+const ConsoleOwnerContext = createContext<string | null>(null);
 
 export function useConsoleSync() {
   const ctx = useContext(ConsoleSyncContext);
@@ -23,6 +24,13 @@ export function useConsoleSync() {
     throw new Error("useConsoleSync must be used within ConsoleSyncProvider");
   }
   return ctx;
+}
+
+/** Tenant owner id — available immediately from auth/sync provider, before cache hydration. */
+export function useConsoleOwnerId(): string | null {
+  const tenantId = useContext(ConsoleOwnerContext);
+  const storeOwnerId = useConsoleDataStore((s) => s.ownerId);
+  return storeOwnerId ?? tenantId;
 }
 
 function readIntervalMs(): number {
@@ -130,5 +138,9 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
     [syncNow, lastSyncedAt, isSyncing, syncError, cacheReady],
   );
 
-  return <ConsoleSyncContext.Provider value={value}>{children}</ConsoleSyncContext.Provider>;
+  return (
+    <ConsoleOwnerContext.Provider value={userId}>
+      <ConsoleSyncContext.Provider value={value}>{children}</ConsoleSyncContext.Provider>
+    </ConsoleOwnerContext.Provider>
+  );
 }
