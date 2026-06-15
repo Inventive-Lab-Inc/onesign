@@ -2,6 +2,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { pullConsoleData } from "@/lib/console-sync";
+import {
+  applyDevicePresenceRows,
+  fetchDevicePresence,
+  patchDevicePresenceFromRow,
+  PRESENCE_POLL_INTERVAL_MS,
+  type DevicePresenceRow,
+} from "@/lib/device-presence";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { clearConsoleCachePersist, useConsoleDataStore } from "@/stores/console-data-store";
 
@@ -125,6 +132,75 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
       void syncNowRef.current();
     }, ms);
     return () => window.clearInterval(id);
+  }, [cacheReady, userId]);
+
+  /**
+   * TV heartbeats update `last_seen` / `status` in Postgres every ~30s, but full sync runs
+   * much less often. Poll + Realtime keep the console cache aligned so badges do not flip
+   * offline while a screen is still playing.
+   */
+  useEffect(() => {
+    if (!cacheReady || !userId) return;
+
+    const supabase = getSupabaseBrowserClient();
+    let cancelled = false;
+
+    const refreshPresence = async () => {
+      try {
+        const rows = await fetchDevicePresence(supabase, userId);
+        if (!cancelled) applyDevicePresenceRows(rows);
+      } catch (err) {
+        console.warn("[ConsoleSyncProvider] device presence refresh failed:", err);
+      }
+    };
+
+    void refreshPresence();
+
+    const pollId = window.setInterval(() => {
+      void refreshPresence();
+    }, PRESENCE_POLL_INTERVAL_MS);
+
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") {
+        void refreshPresence();
+      }
+    };
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    window.addEventListener("focus", refreshOnFocus);
+
+    const channel = supabase
+      .channel(`device-presence:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "devices",
+          filter: `owner_id=eq.${userId}`,
+        },
+        (payload) => {
+          const row = payload.new as { id?: string; status?: string; last_seen?: string | null };
+          if (!row.id || !row.status) return;
+          patchDevicePresenceFromRow({
+            id: row.id,
+            status: row.status as DevicePresenceRow["status"],
+            last_seen: row.last_seen ?? null,
+          });
+        },
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          void refreshPresence();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(pollId);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+      window.removeEventListener("focus", refreshOnFocus);
+      void supabase.removeChannel(channel);
+    };
   }, [cacheReady, userId]);
 
   const value = useMemo<ConsoleSyncContextValue>(

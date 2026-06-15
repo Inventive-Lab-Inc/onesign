@@ -1,22 +1,30 @@
 import type { Device, DeviceStatus } from "@signage/types";
 
 /**
- * Max age of `last_seen` while we still show Online (~4s manifest polls while running).
- * Keep in sync with `mark_stale_devices_offline` in migrations (00013 + 00014).
+ * Max age of `last_seen` while we still show Online (TV heartbeats every ~30s).
+ * Allow two missed heartbeats plus network margin — do not tie this to sync-side
+ * `mark_stale_devices_offline` (removed from console pull; that RPC uses 45s in DB).
  */
-export const STALE_ONLINE_MS = 45_000;
+export const STALE_ONLINE_MS = 90_000;
 
 /**
- * DB `status` stays `online` until `mark_stale_devices_offline` runs (e.g. on sync).
- * Treat stale `last_seen` as offline so the badge matches reality between syncs.
+ * DB `status` can lag behind TV heartbeats (e.g. after mark_stale_devices_offline on sync).
+ * Fresh `last_seen` is the source of truth for whether the screen is reachable right now,
+ * except when the TV explicitly reports offline via [tv_device_offline] on shutdown.
  */
 export function effectiveDeviceStatus(device: Pick<Device, "status" | "last_seen">): DeviceStatus {
   if (device.status === "pending_pairing") return "pending_pairing";
-  if (device.status !== "online") return device.status;
-  if (device.last_seen == null) return "offline";
-  const ageMs = Date.now() - new Date(device.last_seen).getTime();
-  if (!Number.isFinite(ageMs) || ageMs > STALE_ONLINE_MS) return "offline";
-  return "online";
+  if (device.status === "offline") return "offline";
+
+  if (device.last_seen != null) {
+    const ageMs = Date.now() - new Date(device.last_seen).getTime();
+    if (Number.isFinite(ageMs) && ageMs <= STALE_ONLINE_MS) {
+      return "online";
+    }
+  }
+
+  if (device.status === "online") return "offline";
+  return device.status ?? "offline";
 }
 
 /**

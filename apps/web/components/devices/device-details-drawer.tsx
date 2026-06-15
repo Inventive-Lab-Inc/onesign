@@ -5,7 +5,9 @@ import { useMemo, useState } from "react";
 import { DeviceSideDrawer } from "@/components/devices/device-side-drawer";
 import { DeviceLiveScreenshotTab as ScreenshotsTab } from "@/components/devices/device-live-screenshot-tab";
 import { DeviceTelemetryPanelContent } from "@/components/device-telemetry-panel";
+import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { buildDeviceHistoryEvents, buildDeviceInformationRows } from "@/lib/device-information";
+import { useConsoleDataStore } from "@/stores/console-data-store";
 import { cn } from "@/lib/utils";
 
 type DetailsTab = "information" | "history" | "screenshots";
@@ -55,7 +57,7 @@ function HistoryTab({ device, lastPlaylistChangeAt }: { device: Device; lastPlay
 }
 
 export function DeviceDetailsDrawer({
-  device,
+  device: deviceProp,
   open,
   onClose,
   lastPlaylistChangeAt,
@@ -65,6 +67,10 @@ export function DeviceDetailsDrawer({
   onClose: () => void;
   lastPlaylistChangeAt?: string | null;
 }) {
+  useStaleOnlineTick();
+
+  const device =
+    useConsoleDataStore((s) => s.devices.find((entry) => entry.id === deviceProp.id) ?? deviceProp);
   const [tab, setTab] = useState<DetailsTab>("information");
   const infoRows = useMemo(
     () => buildDeviceInformationRows(device, { lastPlaylistChangeAt }),

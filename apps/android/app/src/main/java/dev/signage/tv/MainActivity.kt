@@ -192,6 +192,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        viewModel.reportDeviceOffline()
         ProcessLifecycleOwner.get().lifecycle.removeObserver(processForegroundObserver)
         super.onDestroy()
     }

@@ -4,8 +4,10 @@ import { Suspense } from "react";
 import { DevicesManager } from "@/components/devices-manager";
 import { ConsolePageSkeleton } from "@/components/console/console-page-skeleton";
 import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
+import { useDevicePageAutoSync } from "@/hooks/use-device-page-auto-sync";
 
 function DevicesPageContent() {
+  useDevicePageAutoSync();
   const ownerId = useConsoleOwnerId();
 
   if (!ownerId) {

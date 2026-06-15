@@ -39,9 +39,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -163,6 +165,7 @@ private const val POLL_INTERVAL_MS = 4_000L
  * Must stay under the portal / DB stale window (~45s) so last_seen and online status stay fresh.
  */
 private const val HEARTBEAT_INTERVAL_MS = 30_000L
+private const val OFFLINE_REPORT_TIMEOUT_MS = 4_000L
 
 /** Avoid double UI recovery when both activity resume and [android.content.Intent.ACTION_SCREEN_ON] fire. */
 private const val FOREGROUND_RECOVERY_DEBOUNCE_MS = 750L
@@ -262,6 +265,7 @@ class MainViewModel(
     private var playbackHealthMonitorJob: Job? = null
     private var telemetryJob: Job? = null
     private var telemetryDeviceId: String? = null
+    private val offlineReported = AtomicBoolean(false)
     private val lastContentRevision = AtomicReference<String?>(null)
     private var signageExo: SignageExoController? = null
     private var playlistCacheCoordinator: PlaylistMediaCacheCoordinator? = null
@@ -492,6 +496,7 @@ class MainViewModel(
                 if (ok) {
                     lastHandledScreenshotRequestAt = requestedAt
                     Log.d(LOG_TAG, "live screenshot uploaded for device=$deviceId")
+                    pulseDeviceHeartbeat()
                 } else {
                     Log.w(LOG_TAG, "live screenshot upload failed for device=$deviceId")
                 }
@@ -523,7 +528,45 @@ class MainViewModel(
         }
     }
 
+    private suspend fun sendDeviceOffline(deviceId: String) {
+        val storedPlaybackSecret = storedPlaybackSecretOrNull()
+        withAuthRefreshOnExpiry("tv_device_offline") {
+            supabase.postgrest.rpc(
+                "tv_device_offline",
+                TvGetPlaybackParams(
+                    pDeviceId = deviceId,
+                    pPlaybackSecret = storedPlaybackSecret,
+                ),
+            )
+        }.onFailure { e ->
+            Log.w(LOG_TAG, "tv_device_offline failed", e)
+        }
+    }
+
+    private suspend fun resolveDeviceIdOrNull(): String? {
+        telemetryDeviceId?.takeIf { it.isNotBlank() }?.let { return it }
+        return dataStore.data.first()[DeviceKeys.DEVICE_ID]?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Best-effort offline signal when the app is closing. Uses a short blocking RPC so the
+     * request can finish before the process is torn down.
+     */
+    fun reportDeviceOffline() {
+        if (!offlineReported.compareAndSet(false, true)) {
+            return
+        }
+        stopDeviceHeartbeatLoop()
+        runBlocking(Dispatchers.IO) {
+            withTimeout(OFFLINE_REPORT_TIMEOUT_MS) {
+                val deviceId = resolveDeviceIdOrNull() ?: return@withTimeout
+                sendDeviceOffline(deviceId)
+            }
+        }
+    }
+
     private fun startDeviceHeartbeatLoop(deviceId: String) {
+        offlineReported.set(false)
         heartbeatJob?.cancel()
         heartbeatJob =
             viewModelScope.launch {
@@ -1223,7 +1266,6 @@ class MainViewModel(
         playbackHealthMonitorJob?.cancel()
         playbackRealtime?.disconnect()
         startDeviceTelemetryLoop(deviceId)
-        startDeviceHeartbeatLoop(deviceId)
         ensureSignageExo()
         signalPlaybackHealthy()
         playbackHealthMonitorJob =
@@ -1393,6 +1435,7 @@ class MainViewModel(
 
     private fun startDeviceTelemetryLoop(deviceId: String) {
         telemetryDeviceId = deviceId
+        startDeviceHeartbeatLoop(deviceId)
         telemetryJob?.cancel()
         telemetryJob =
             viewModelScope.launch {
@@ -1532,6 +1575,7 @@ class MainViewModel(
     }
 
     fun resetRegistration() {
+        reportDeviceOffline()
         val deviceIdSnapshot = telemetryDeviceId
         telemetryJob?.cancel()
         telemetryJob = null
@@ -1576,6 +1620,7 @@ class MainViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        reportDeviceOffline()
         ProcessLifecycleOwner.get().lifecycle.removeObserver(playbackProcessLifecycleObserver)
         telemetryJob?.cancel()
         stopDeviceHeartbeatLoop()

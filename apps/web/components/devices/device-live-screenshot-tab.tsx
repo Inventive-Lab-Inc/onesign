@@ -6,7 +6,9 @@ import { Camera, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { effectiveDeviceStatus } from "@/lib/device-status";
+import { applyDevicePresenceRows, fetchDevicePresence } from "@/lib/device-presence";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import {
   deviceLiveScreenshotObjectPath,
@@ -14,11 +16,17 @@ import {
 } from "@/lib/upload-device-live-screenshot";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 
 const POLL_INTERVAL_MS = 2_000;
 const POLL_TIMEOUT_MS = 90_000;
 
-export function DeviceLiveScreenshotTab({ device }: { device: Device }) {
+export function DeviceLiveScreenshotTab({ device: deviceProp }: { device: Device }) {
+  useStaleOnlineTick();
+
+  const device =
+    useConsoleDataStore((s) => s.devices.find((entry) => entry.id === deviceProp.id) ?? deviceProp);
+  const ownerId = useConsoleOwnerId() ?? device.owner_id;
   const patchDevice = useConsoleDataStore((s) => s.patchDevice);
   const [requesting, setRequesting] = useState(false);
   const pollDeadlineRef = useRef<number | null>(null);
@@ -78,7 +86,19 @@ export function DeviceLiveScreenshotTab({ device }: { device: Device }) {
 
   const handleTakeScreenshot = useCallback(async () => {
     if (requesting) return;
-    if (!isOnline) {
+
+    if (ownerId) {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const rows = await fetchDevicePresence(supabase, ownerId);
+        applyDevicePresenceRows(rows);
+      } catch {
+        /* fall through — use cached liveness */
+      }
+    }
+
+    const freshDevice = useConsoleDataStore.getState().devices.find((entry) => entry.id === device.id) ?? device;
+    if (effectiveDeviceStatus(freshDevice) !== "online") {
       toast.error("The screen must be online to capture a live screenshot.");
       return;
     }
@@ -114,7 +134,7 @@ export function DeviceLiveScreenshotTab({ device }: { device: Device }) {
         }
       })();
     }, POLL_INTERVAL_MS);
-  }, [device.id, device.live_screenshot_at, isOnline, patchDevice, pollForScreenshot, requesting, stopPolling]);
+  }, [device, device.id, device.live_screenshot_at, ownerId, patchDevice, pollForScreenshot, requesting, stopPolling]);
 
   return (
     <div className="space-y-4">
