@@ -1,7 +1,7 @@
 "use client";
 
 import type { AppRelease } from "@signage/types";
-import { CheckCircle2, Download, History, Package } from "lucide-react";
+import { CheckCircle2, Download, Package } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { buttonVariants } from "@/components/ui/button";
@@ -75,18 +75,18 @@ export function AppReleasesManager() {
   const [loading, setLoading] = useState(true);
 
   const activeRelease = useMemo(() => releases.find((r) => r.is_active) ?? null, [releases]);
-  const previousReleases = useMemo(() => releases.filter((r) => !r.is_active), [releases]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("app_releases")
       .select("*")
-      .order("version_code", { ascending: false });
+      .eq("is_active", true)
+      .maybeSingle();
     if (error) {
       toast.error(error.message);
     } else {
-      setReleases((data ?? []) as AppRelease[]);
+      setReleases(data ? [data as AppRelease] : []);
     }
     setLoading(false);
   }, [supabase]);
@@ -120,29 +120,6 @@ export function AppReleasesManager() {
           <ReleaseRow release={activeRelease} showDownload />
         ) : (
           <div className="px-4 py-6 text-sm text-muted-foreground">No active release configured.</div>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-border bg-card">
-        <div className="border-b border-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            <History className="h-4 w-4 text-muted-foreground" aria-hidden />
-            <h3 className="text-sm font-semibold text-foreground">Previous releases</h3>
-          </div>
-          <p className="text-xs text-muted-foreground">Older builds kept for reference.</p>
-        </div>
-        {loading ? (
-          <div className="px-4 py-6 text-sm text-muted-foreground">Loading…</div>
-        ) : previousReleases.length === 0 ? (
-          <div className="px-4 py-6 text-sm text-muted-foreground">No previous releases.</div>
-        ) : (
-          <ul className="divide-y divide-border">
-            {previousReleases.map((release) => (
-              <li key={release.id}>
-                <ReleaseRow release={release} />
-              </li>
-            ))}
-          </ul>
         )}
       </div>
     </section>

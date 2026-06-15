@@ -119,6 +119,8 @@ private data class TvGetPlaybackSlide(
     val durationSeconds: Int? = null,
     @SerialName("storagePath")
     val storagePath: String,
+    @SerialName("zoomLevel")
+    val zoomLevel: Int? = null,
 )
 
 @Serializable
@@ -1529,9 +1531,10 @@ class MainViewModel(
         val slides =
             res.slides.map { s ->
                 PlaybackSlide(
-                    url = publicMediaUrl(s.storagePath),
+                    url = if (s.fileType == "website") s.storagePath else publicMediaUrl(s.storagePath),
                     fileType = s.fileType,
                     durationSeconds = s.durationSeconds,
+                    zoomLevel = s.zoomLevel,
                 )
             }.let { mapped ->
                 if (res.shuffleEnabled && mapped.size > 1) mapped.shuffled() else mapped

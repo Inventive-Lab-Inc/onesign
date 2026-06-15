@@ -1,0 +1,126 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Website } from "@signage/types";
+import type { DeviceWithAssignments } from "@/lib/console-sync";
+import { ensureActivePlaylistForDevice } from "@/lib/screen-playlist";
+
+export type AddWebsitePlaylistPosition = "start" | "end";
+
+export type AddWebsiteToPlaylistsOptions = {
+  position: AddWebsitePlaylistPosition;
+  durationSeconds: number;
+};
+
+export function countWebsitePlaylistReferences(
+  websitePlaylistRefCounts: Record<string, number>,
+  websiteId: string,
+): number {
+  return websitePlaylistRefCounts[websiteId] ?? 0;
+}
+
+async function shiftPlaylistSortOrders(
+  supabase: SupabaseClient,
+  playlistId: string,
+  existingItems: { id: string; sort_order: number }[],
+  offset: number,
+): Promise<{ error: string | null }> {
+  const sorted = [...existingItems].sort((a, b) => a.sort_order - b.sort_order);
+  for (let index = 0; index < sorted.length; index += 1) {
+    const item = sorted[index];
+    if (!item) continue;
+    const { error } = await supabase
+      .from("playlist_items")
+      .update({ sort_order: index + offset })
+      .eq("id", item.id);
+    if (error) {
+      return { error: error.message };
+    }
+  }
+  return { error: null };
+}
+
+export async function addWebsitesToDevicePlaylists(
+  supabase: SupabaseClient,
+  ownerId: string,
+  websiteItems: Website[],
+  devices: DeviceWithAssignments[],
+  playlistItemsByPlaylistId: Record<string, { id: string; sort_order: number }[]>,
+  options: AddWebsiteToPlaylistsOptions = { position: "end", durationSeconds: 30 },
+): Promise<{ addedCount: number; error: string | null }> {
+  if (websiteItems.length === 0 || devices.length === 0) {
+    return { addedCount: 0, error: null };
+  }
+
+  let addedCount = 0;
+  const duration = Math.max(5, Math.min(3600, Math.round(options.durationSeconds)));
+
+  for (const device of devices) {
+    const { playlistId, error: ensureError } = await ensureActivePlaylistForDevice(supabase, ownerId, device);
+    if (ensureError || !playlistId) {
+      return { addedCount, error: ensureError ?? `Unable to prepare playlist for ${device.name}` };
+    }
+
+    const existingItems = playlistItemsByPlaylistId[playlistId] ?? [];
+
+    if (options.position === "start") {
+      const { error: shiftError } = await shiftPlaylistSortOrders(
+        supabase,
+        playlistId,
+        existingItems,
+        websiteItems.length,
+      );
+      if (shiftError) {
+        return { addedCount, error: shiftError };
+      }
+    }
+
+    for (let index = 0; index < websiteItems.length; index += 1) {
+      const website = websiteItems[index];
+      if (!website) continue;
+      const sortOrder =
+        options.position === "start"
+          ? index
+          : existingItems.length > 0
+            ? Math.max(...existingItems.map((item) => item.sort_order)) + 1 + index
+            : index;
+
+      const { error: insertError } = await supabase.from("playlist_items").insert({
+        playlist_id: playlistId,
+        website_id: website.id,
+        sort_order: sortOrder,
+        duration_seconds: duration,
+      });
+
+      if (insertError) {
+        return { addedCount, error: insertError.message };
+      }
+      addedCount += 1;
+    }
+  }
+
+  return { addedCount, error: null };
+}
+
+export async function removeWebsiteFromAllPlaylists(
+  supabase: SupabaseClient,
+  websiteId: string,
+): Promise<{ removedCount: number; error: string | null }> {
+  const { data, error: fetchError } = await supabase
+    .from("playlist_items")
+    .select("id")
+    .eq("website_id", websiteId);
+
+  if (fetchError) {
+    return { removedCount: 0, error: fetchError.message };
+  }
+
+  if (!data?.length) {
+    return { removedCount: 0, error: null };
+  }
+
+  const { error: deleteError } = await supabase.from("playlist_items").delete().eq("website_id", websiteId);
+  if (deleteError) {
+    return { removedCount: 0, error: deleteError.message };
+  }
+
+  return { removedCount: data.length, error: null };
+}

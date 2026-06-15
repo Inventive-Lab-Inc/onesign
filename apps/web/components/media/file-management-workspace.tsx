@@ -21,7 +21,7 @@ import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
-import { contentLibraryPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { contentLibraryPath, mediaDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { DeviceGroupFolderCard } from "@/components/device-groups/device-group-folder-card";
 import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
 import { ListPageHeader } from "@/components/console/list-page-header";
@@ -570,7 +570,10 @@ export function FileManagementWorkspace({ userId }: { userId: string }) {
                       </td>
                       {visibleColumns.has("title") ? (
                         <td className="py-3 pr-4 align-middle">
-                          <div className="flex min-w-[12rem] items-center gap-3">
+                          <Link
+                            href={mediaDetailPath(item.id, adminRoutes, activeFolderId)}
+                            className="flex min-w-[12rem] items-center gap-3 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
                             <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded border border-border bg-muted">
                               {item.file_type === "image" ? (
                                 <Image src={url} alt="" fill className="object-cover" sizes="56px" />
@@ -578,10 +581,10 @@ export function FileManagementWorkspace({ userId }: { userId: string }) {
                                 <video className="h-full w-full object-cover" src={url} muted playsInline preload="metadata" />
                               ) : null}
                             </div>
-                            <span className="truncate text-sm font-medium text-foreground" title={name}>
+                            <span className="truncate text-sm font-medium text-foreground hover:underline" title={name}>
                               {name}
                             </span>
-                          </div>
+                          </Link>
                         </td>
                       ) : null}
                       {visibleColumns.has("type") ? (

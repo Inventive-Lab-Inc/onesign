@@ -16,6 +16,7 @@ import {
   Upload,
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useDropzone } from "react-dropzone";
@@ -28,7 +29,7 @@ import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { isStorageFull } from "@/lib/plan-quota";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
-import { contentFileManagementPath, contentLibraryPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { contentFileManagementPath, contentLibraryPath, mediaDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { DeviceGroupFolderCard } from "@/components/device-groups/device-group-folder-card";
 import { MediaGroupEditorDialog } from "@/components/media-groups/media-group-editor-dialog";
 import { AddMediaToScreensDialog } from "@/components/media/add-media-to-screens-dialog";
@@ -445,6 +446,8 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
     readOnly,
     buildActionItems: buildMediaActionItems,
     onRemove: readOnly ? undefined : (item: Media) => setDeleteTarget(item),
+    returnGroupId:
+      groupFilter !== "all" && groupFilter !== "ungrouped" ? groupFilter : null,
   };
 
   return (
@@ -728,18 +731,27 @@ function MediaFileGrid({
   view,
   buildActionItems,
   onRemove,
+  returnGroupId = null,
 }: {
   items: Media[];
   view: "grid" | "list";
   readOnly: boolean;
   buildActionItems: (item: Media) => ActionMenuItem[];
   onRemove?: (item: Media) => void;
+  returnGroupId?: string | null;
 }) {
+  const adminRoutes = useAdminClientRoutes();
+
   if (view === "grid") {
     return (
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {items.map((item) => (
-          <MediaCard key={item.id} item={item} actionItems={buildActionItems(item)} />
+          <MediaCard
+            key={item.id}
+            item={item}
+            actionItems={buildActionItems(item)}
+            detailHref={mediaDetailPath(item.id, adminRoutes, returnGroupId)}
+          />
         ))}
       </ul>
     );
@@ -748,7 +760,12 @@ function MediaFileGrid({
   return (
     <ul className="divide-y divide-border rounded-lg border border-border bg-card">
       {items.map((item) => (
-        <MediaListRow key={item.id} item={item} actionItems={buildActionItems(item)} />
+        <MediaListRow
+          key={item.id}
+          item={item}
+          actionItems={buildActionItems(item)}
+          detailHref={mediaDetailPath(item.id, adminRoutes, returnGroupId)}
+        />
       ))}
     </ul>
   );
@@ -757,9 +774,11 @@ function MediaFileGrid({
 function MediaCard({
   item,
   actionItems,
+  detailHref,
 }: {
   item: Media;
   actionItems: ActionMenuItem[];
+  detailHref: string;
 }) {
   const url = mediaPublicUrl(item.storage_path);
   const name = item.original_filename ?? item.storage_path;
@@ -767,33 +786,39 @@ function MediaCard({
 
   return (
     <li className="group flex flex-col rounded-lg border border-border/80 bg-card shadow-sm transition-shadow hover:shadow-md">
-      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-t-lg bg-muted/70">
-        {item.file_type === "image" ? (
-          <Image
-            src={url}
-            alt=""
-            fill
-            className="object-contain p-0.5 transition-transform group-hover:scale-[1.01]"
-            sizes="(max-width: 640px) 50vw, 180px"
-          />
-        ) : item.file_type === "video" ? (
-          <video className="h-full w-full object-contain" src={url} muted playsInline preload="metadata" />
-        ) : (
-          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No preview</div>
-        )}
-        {durationLabel ? (
-          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[0.625rem] font-medium tabular-nums text-white">
-            {durationLabel}
-          </span>
-        ) : null}
-      </div>
+      <Link
+        href={detailHref}
+        className="block overflow-hidden rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        aria-label={`Open content: ${name}`}
+      >
+        <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted/70">
+          {item.file_type === "image" ? (
+            <Image
+              src={url}
+              alt=""
+              fill
+              className="object-contain p-0.5 transition-transform group-hover:scale-[1.01]"
+              sizes="(max-width: 640px) 50vw, 180px"
+            />
+          ) : item.file_type === "video" ? (
+            <video className="h-full w-full object-contain" src={url} muted playsInline preload="metadata" />
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">No preview</div>
+          )}
+          {durationLabel ? (
+            <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[0.625rem] font-medium tabular-nums text-white">
+              {durationLabel}
+            </span>
+          ) : null}
+        </div>
+      </Link>
       <div className="flex items-start gap-1 border-t border-border/60 bg-card p-2">
-        <div className="min-w-0 flex-1">
+        <Link href={detailHref} className="min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <p className="line-clamp-2 text-xs font-semibold leading-snug text-foreground" title={name}>
             {name}
           </p>
           <p className="mt-0.5 text-[0.6875rem] leading-relaxed text-muted-foreground">{formatMediaMeta(item)}</p>
-        </div>
+        </Link>
         <ItemActionMenu ariaLabel={`Actions for ${name}`} items={actionItems} className="shrink-0" />
       </div>
     </li>
@@ -803,30 +828,38 @@ function MediaCard({
 function MediaListRow({
   item,
   actionItems,
+  detailHref,
 }: {
   item: Media;
   actionItems: ActionMenuItem[];
+  detailHref: string;
 }) {
   const url = mediaPublicUrl(item.storage_path);
   const name = item.original_filename ?? item.storage_path;
 
   return (
     <li className="flex items-center gap-4 px-3 py-3 transition-colors hover:bg-muted/40">
-      <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
-        {item.file_type === "image" ? (
-          <Image src={url} alt="" fill className="object-cover" sizes="80px" />
-        ) : item.file_type === "video" ? (
-          <video className="h-full w-full object-cover" src={url} muted playsInline preload="metadata" />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <FileImage className="h-5 w-5 text-muted-foreground" />
-          </div>
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-foreground">{name}</p>
-        <p className="text-xs text-muted-foreground">{formatUpdatedAt(item.created_at)}</p>
-      </div>
+      <Link
+        href={detailHref}
+        className="flex min-w-0 flex-1 items-center gap-4 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`Open content: ${name}`}
+      >
+        <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+          {item.file_type === "image" ? (
+            <Image src={url} alt="" fill className="object-cover" sizes="80px" />
+          ) : item.file_type === "video" ? (
+            <video className="h-full w-full object-cover" src={url} muted playsInline preload="metadata" />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <FileImage className="h-5 w-5 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">{name}</p>
+          <p className="text-xs text-muted-foreground">{formatUpdatedAt(item.created_at)}</p>
+        </div>
+      </Link>
       <div className="flex shrink-0 items-center gap-2">
         <a
           href={url}

@@ -8,6 +8,8 @@ import android.view.LayoutInflater
 import android.view.TextureView
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -250,6 +252,21 @@ fun PlaybackScreen(
                         engine = engine,
                     )
                 }
+            }
+            "website" -> {
+                DisposableEffect(index, slide.url, state.contentRevision) {
+                    engine.onPlayerViewDetached()
+                    onDispose { }
+                }
+                WebsiteSlide(
+                    url = slide.url,
+                    durationSeconds = slide.durationSeconds,
+                    zoomLevel = slide.zoomLevel,
+                    onDone = {
+                        index = (index + 1) % n
+                        visit += 1
+                    },
+                )
             }
             else -> {
                 DisposableEffect(index, slide.url, state.contentRevision) {
@@ -538,4 +555,48 @@ private fun ImageSlide(
             }
         }
     }
+}
+
+@Composable
+private fun WebsiteSlide(
+    url: String,
+    durationSeconds: Int?,
+    zoomLevel: Int?,
+    onDone: () -> Unit,
+) {
+    val dwellMs = (durationSeconds ?: 30).coerceIn(5, 3_600) * 1000L
+    val zoom = (zoomLevel ?: 100).coerceIn(25, 200) / 100f
+
+    LaunchedEffect(url, dwellMs) {
+        delay(dwellMs)
+        onDone()
+    }
+
+    AndroidView(
+        factory = { context ->
+            WebView(context).apply {
+                layoutParams =
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.loadWithOverviewMode = true
+                settings.useWideViewPort = true
+                webViewClient = WebViewClient()
+                loadUrl(url)
+            }
+        },
+        update = { webView ->
+            webView.scaleX = zoom
+            webView.scaleY = zoom
+            webView.pivotX = 0f
+            webView.pivotY = 0f
+            if (webView.url != url) {
+                webView.loadUrl(url)
+            }
+        },
+        modifier = Modifier.fillMaxSize().background(ComposeColor.Black),
+    )
 }

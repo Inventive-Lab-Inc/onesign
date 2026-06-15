@@ -7,6 +7,7 @@ import type {
   Playlist,
   PlaylistGroup,
   PlaylistItemWithMedia,
+  Website,
 } from "@signage/types";
 
 export type DeviceWithAssignments = Device & {
@@ -16,25 +17,28 @@ export type DeviceWithAssignments = Device & {
 type RawPlaylistItemRow = {
   id: string;
   playlist_id: string;
-  media_id: string;
+  media_id: string | null;
+  website_id?: string | null;
   sort_order: number;
   duration_seconds: number | null;
   display_from: string | null;
   display_until: string | null;
   created_at: string;
-  media: PlaylistItemWithMedia["media"] | PlaylistItemWithMedia["media"][];
+  media: PlaylistItemWithMedia["media"] | PlaylistItemWithMedia["media"][] | null;
 };
 
-function mapPlaylistItemRow(row: RawPlaylistItemRow): PlaylistItemWithMedia {
+function mapPlaylistItemRow(row: RawPlaylistItemRow): PlaylistItemWithMedia | null {
+  if (!row.media_id) return null;
   const mediaField = row.media;
   const media = Array.isArray(mediaField) ? mediaField[0] : mediaField;
   if (!media) {
-    throw new Error("Playlist item is missing joined media metadata.");
+    return null;
   }
   return {
     id: row.id,
     playlist_id: row.playlist_id,
     media_id: row.media_id,
+    website_id: row.website_id ?? null,
     sort_order: row.sort_order,
     duration_seconds: row.duration_seconds,
     display_from: row.display_from,
@@ -63,14 +67,16 @@ export type ConsoleSnapshot = {
   mediaGroups: MediaGroupWithMembers[];
   playlists: Playlist[];
   media: Media[];
+  websites: Website[];
   playlistItemsByPlaylistId: Record<string, PlaylistItemWithMedia[]>;
+  websitePlaylistRefCounts: Record<string, number>;
 };
 
 /**
  * Single bulk pull from Supabase (devices, playlists, media, all playlist items for those playlists).
  */
 export async function pullConsoleData(supabase: SupabaseClient, userId: string): Promise<ConsoleSnapshot> {
-  const [devicesRes, deviceGroupsRes, playlistGroupsRes, mediaGroupsRes, playlistsRes, mediaRes] = await Promise.all([
+  const [devicesRes, deviceGroupsRes, playlistGroupsRes, mediaGroupsRes, playlistsRes, mediaRes, websitesRes] = await Promise.all([
     supabase
       .from("devices")
       .select("*, device_playlists(playlist_id,is_active,updated_at)")
@@ -93,6 +99,7 @@ export async function pullConsoleData(supabase: SupabaseClient, userId: string):
       .order("created_at", { ascending: true }),
     supabase.from("playlists").select("*").eq("owner_id", userId).order("created_at", { ascending: false }),
     supabase.from("media").select("*").eq("owner_id", userId).order("created_at", { ascending: false }),
+    supabase.from("websites").select("*").eq("owner_id", userId).order("created_at", { ascending: false }),
   ]);
 
   if (devicesRes.error) throw new Error(`devices: ${devicesRes.error.message}`);
@@ -101,6 +108,7 @@ export async function pullConsoleData(supabase: SupabaseClient, userId: string):
   if (mediaGroupsRes.error) throw new Error(`media_groups: ${mediaGroupsRes.error.message}`);
   if (playlistsRes.error) throw new Error(`playlists: ${playlistsRes.error.message}`);
   if (mediaRes.error) throw new Error(`media: ${mediaRes.error.message}`);
+  if (websitesRes.error) throw new Error(`websites: ${websitesRes.error.message}`);
 
   const devices = (devicesRes.data as DeviceWithAssignments[]) ?? [];
   const deviceGroups = mapDeviceGroups(deviceGroupsRes.data);
@@ -108,15 +116,17 @@ export async function pullConsoleData(supabase: SupabaseClient, userId: string):
   const mediaGroups = mapMediaGroups(mediaGroupsRes.data);
   const playlists = (playlistsRes.data as Playlist[]) ?? [];
   const media = (mediaRes.data as Media[]) ?? [];
+  const websites = (websitesRes.data as Website[]) ?? [];
 
   const playlistIds = playlists.map((p) => p.id);
   const playlistItemsByPlaylistId: Record<string, PlaylistItemWithMedia[]> = {};
+  const websitePlaylistRefCounts: Record<string, number> = {};
 
   if (playlistIds.length > 0) {
     const { data: itemRows, error: itemsError } = await supabase
       .from("playlist_items")
       .select(
-        "id,playlist_id,media_id,sort_order,duration_seconds,display_from,display_until,created_at,media(*)",
+        "id,playlist_id,media_id,website_id,sort_order,duration_seconds,display_from,display_until,created_at,media(*)",
       )
       .in("playlist_id", playlistIds)
       .order("sort_order", { ascending: true })
@@ -125,14 +135,29 @@ export async function pullConsoleData(supabase: SupabaseClient, userId: string):
     if (itemsError) throw itemsError;
     const rows = (itemRows as RawPlaylistItemRow[] | null) ?? [];
     for (const row of rows) {
+      if (row.website_id) {
+        websitePlaylistRefCounts[row.website_id] = (websitePlaylistRefCounts[row.website_id] ?? 0) + 1;
+        continue;
+      }
       const mapped = mapPlaylistItemRow(row);
+      if (!mapped) continue;
       const list = playlistItemsByPlaylistId[mapped.playlist_id] ?? [];
       list.push(mapped);
       playlistItemsByPlaylistId[mapped.playlist_id] = list;
     }
   }
 
-  return { devices, deviceGroups, playlistGroups, mediaGroups, playlists, media, playlistItemsByPlaylistId };
+  return {
+    devices,
+    deviceGroups,
+    playlistGroups,
+    mediaGroups,
+    playlists,
+    media,
+    websites,
+    playlistItemsByPlaylistId,
+    websitePlaylistRefCounts,
+  };
 }
 
 type RawMediaGroupRow = MediaGroup & {

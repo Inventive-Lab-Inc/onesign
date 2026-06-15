@@ -11,7 +11,7 @@ export type AddMediaToPlaylistsOptions = {
 };
 
 export function countPlaylistReferences(
-  playlistItemsByPlaylistId: Record<string, { media_id: string }[]>,
+  playlistItemsByPlaylistId: Record<string, { media_id: string | null }[]>,
   mediaId: string,
 ): number {
   let count = 0;

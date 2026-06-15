@@ -56,10 +56,12 @@ export async function copyPlaylistToDevices(
       continue;
     }
 
-    const rows = sourceItems.map((item, index) => {
+    const rows = sourceItems
+      .filter((item) => item.media_id != null)
+      .map((item, index) => {
       const base = buildPlaylistItemInsertRow({
         playlistId,
-        mediaId: item.media_id,
+        mediaId: item.media_id!,
         sortOrder: index,
         fileType: item.media.file_type,
       });

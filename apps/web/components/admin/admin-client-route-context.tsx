@@ -14,6 +14,9 @@ type AdminClientRoutes = {
   playlistPath: (playlistId: string) => string;
   contentPath: string;
   fileManagementPath: string;
+  mediaPath: (mediaId: string) => string;
+  websitesPath: string;
+  websitePath: (websiteId: string) => string;
   auditPath: string;
 };
 
@@ -40,6 +43,9 @@ export function AdminClientRouteProvider({
       playlistPath: (playlistId: string) => `${basePath}/playlists/${playlistId}`,
       contentPath: `${basePath}/content`,
       fileManagementPath: `${basePath}/content/file-management`,
+      mediaPath: (mediaId: string) => `${basePath}/content/${mediaId}`,
+      websitesPath: `${basePath}/websites`,
+      websitePath: (websiteId: string) => `${basePath}/websites/${websiteId}`,
       auditPath: `${basePath}/audit`,
     };
   }, [clientId]);
@@ -103,6 +109,16 @@ export function contentFileManagementPath(adminRoutes: AdminClientRoutes | null)
   return adminRoutes?.fileManagementPath ?? "/content/file-management";
 }
 
+export function mediaDetailPath(
+  mediaId: string,
+  adminRoutes: AdminClientRoutes | null,
+  groupId?: string | null,
+): string {
+  const base = adminRoutes?.mediaPath(mediaId) ?? `/content/${mediaId}`;
+  if (!groupId || groupId === "all" || groupId === "ungrouped") return base;
+  return `${base}?group=${encodeURIComponent(groupId)}`;
+}
+
 export function contentPlaylistsPath(
   adminRoutes: AdminClientRoutes | null,
   groupId?: string | null,
@@ -118,4 +134,12 @@ export function contentPlaylistsPath(
 
 export function parseContentView(searchParams: URLSearchParams): ContentView {
   return searchParams.get("view") === "library" ? "library" : "playlists";
+}
+
+export function websitesListPath(adminRoutes: AdminClientRoutes | null): string {
+  return adminRoutes?.websitesPath ?? "/websites";
+}
+
+export function websiteDetailPath(websiteId: string, adminRoutes: AdminClientRoutes | null): string {
+  return adminRoutes?.websitePath(websiteId) ?? `/websites/${websiteId}`;
 }

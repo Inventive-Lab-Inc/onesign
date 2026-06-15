@@ -167,6 +167,18 @@ export interface Media {
   size_bytes?: number;
   /** Video intrinsic length in seconds; null for images or not yet probed. */
   duration_seconds?: number | null;
+  /** Optional subtitle for this file in the console. */
+  description?: string | null;
+  /** Optional labels for organizing and filtering content. */
+  tags?: string[];
+  /** Optional start date after which this content may be shown. */
+  display_from?: string | null;
+  /** Optional expiry date after which this content should not be shown. */
+  display_until?: string | null;
+  /** Intrinsic width in pixels; null until probed. */
+  width_pixels?: number | null;
+  /** Intrinsic height in pixels; null until probed. */
+  height_pixels?: number | null;
 }
 
 export type PlaylistTransitionStyle = "none" | "fade" | "dissolve";
@@ -183,7 +195,8 @@ export interface Playlist {
 export interface PlaylistItem {
   id: string;
   playlist_id: string;
-  media_id: string;
+  media_id: string | null;
+  website_id?: string | null;
   sort_order: number;
   /** Image dwell time in seconds; ignored for video (always plays to completion). */
   duration_seconds: number | null;
@@ -252,7 +265,39 @@ export interface MediaGroupMember {
   created_at: string;
 }
 
+export type WebsiteSourceType = "url" | "html" | "file";
+export type WebsiteThumbnailStatus = "pending" | "ready" | "failed";
+
+export interface Website {
+  id: string;
+  owner_id: string;
+  name: string;
+  source_type: WebsiteSourceType;
+  url: string | null;
+  html_content: string | null;
+  storage_path: string | null;
+  playback_url: string;
+  thumbnail_storage_path: string | null;
+  thumbnail_status: WebsiteThumbnailStatus | null;
+  description: string | null;
+  tags: string[];
+  zoom_level: number;
+  display_from: string | null;
+  display_until: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Payload used by the playlist editor (joins media metadata). */
 export interface PlaylistItemWithMedia extends PlaylistItem {
-  media: Pick<Media, "id" | "storage_path" | "file_type" | "original_filename" | "duration_seconds">;
+  media: Pick<
+    Media,
+    | "id"
+    | "storage_path"
+    | "file_type"
+    | "original_filename"
+    | "duration_seconds"
+    | "display_from"
+    | "display_until"
+  >;
 }

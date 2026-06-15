@@ -17,10 +17,7 @@ trap cleanup EXIT
 
 while true; do
   echo "[$(date -Iseconds)] starting pnpm dev..." >>"$LOG"
-  if pnpm dev >>"$LOG" 2>&1; then
-    echo "[$(date -Iseconds)] pnpm dev exited cleanly" >>"$LOG"
-    break
-  fi
-  echo "[$(date -Iseconds)] pnpm dev crashed, restarting in 2s..." >>"$LOG"
+  pnpm dev >>"$LOG" 2>&1 || true
+  echo "[$(date -Iseconds)] pnpm dev stopped, restarting in 2s..." >>"$LOG"
   sleep 2
 done

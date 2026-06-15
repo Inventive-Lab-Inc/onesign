@@ -2,8 +2,9 @@
 
 import type { PlaylistItemWithMedia } from "@signage/types";
 import { ListVideo } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { playbackScheduleIsActive } from "@/lib/media-schedule";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { cn } from "@/lib/utils";
 
@@ -116,31 +117,36 @@ export function PlaylistPreviewButton({
   const titleId = useId();
   const [index, setIndex] = useState(0);
 
-  const empty = items.length === 0;
+  const scheduledItems = useMemo(
+    () => items.filter((entry) => playbackScheduleIsActive(entry.media)),
+    [items],
+  );
+
+  const empty = scheduledItems.length === 0;
 
   useEffect(() => {
     if (!open) return;
     setIndex(0);
-  }, [open, items]);
+  }, [open, scheduledItems]);
 
   const advance = useCallback(() => {
-    setIndex((i) => (i + 1) % items.length);
-  }, [items.length]);
+    setIndex((i) => (i + 1) % scheduledItems.length);
+  }, [scheduledItems.length]);
 
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
       if (e.key === "ArrowRight") advance();
-      if (e.key === "ArrowLeft") setIndex((i) => (i - 1 + items.length) % items.length);
+      if (e.key === "ArrowLeft") setIndex((i) => (i - 1 + scheduledItems.length) % scheduledItems.length);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, advance, items.length]);
+  }, [open, advance, scheduledItems.length]);
 
-  const item = items[index];
+  const item = scheduledItems[index];
   const slideLabel =
-    items.length > 0 ? `${index + 1} / ${items.length}` : "";
+    scheduledItems.length > 0 ? `${index + 1} / ${scheduledItems.length}` : "";
 
   const displayPx = frame.kind === "device" ? frame.displayPx : null;
   const hasDeviceDisplay = displayPx != null;
