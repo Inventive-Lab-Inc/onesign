@@ -90,6 +90,7 @@ export async function appendMediaToPlaylist(
   playlistId: string,
   media: Media,
   sortOrder: number,
+  durationSeconds?: number,
 ): Promise<{ error: string | null }> {
   if (media.file_type === "video") {
     await ensureMediaVideoDuration(supabase, media);
@@ -101,6 +102,7 @@ export async function appendMediaToPlaylist(
       mediaId: media.id,
       sortOrder,
       fileType: media.file_type,
+      durationSeconds,
     }),
   );
 

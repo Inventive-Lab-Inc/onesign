@@ -2,6 +2,7 @@
 
 import { ChevronRight, FolderOpen, ListVideo, Plus, Settings2, Tv } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
 import { cn } from "@/lib/utils";
 import { resolveGroupColor } from "@/lib/device-group-colors";
 import type { DeviceGroupWithMembers } from "@/lib/console-sync";
@@ -36,19 +37,29 @@ export function DeviceGroupFolderCard({
   const color = variant === "ungrouped" ? "hsl(var(--muted-foreground))" : resolveGroupColor(accentColor);
   const itemLabelPlural = itemCount === 1 ? itemLabel : `${itemLabel}s`;
 
+  const menuItems: ActionMenuItem[] = onEdit
+    ? [
+        {
+          label: "Edit folder",
+          icon: <Settings2 className="h-4 w-4 shrink-0" aria-hidden />,
+          onClick: onEdit,
+        },
+      ]
+    : [];
+
   return (
-    <li className={cn("device-group-folder-card group/folder", compact && "device-group-folder-card--compact", className)}>
+    <li className={cn("device-group-folder-card", compact && "device-group-folder-card--compact", className)}>
       <button
         type="button"
         onClick={onOpen}
         className={cn(
-          "device-group-folder-card__hit relative flex h-full w-full flex-col items-stretch text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          compact ? "min-h-[8.5rem]" : "min-h-[11.5rem]",
+          "device-group-folder-card__hit relative flex w-full flex-col items-stretch text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          compact ? "min-h-[7rem]" : "min-h-[10rem]",
         )}
         aria-label={`Open folder ${name}, ${itemCount} ${itemLabelPlural}`}
         style={{ "--folder-accent": color } as React.CSSProperties}
       >
-        <div className="device-group-folder-card__shell relative mx-auto mt-1 w-[88%] flex-1">
+        <div className="device-group-folder-card__shell relative mt-1 flex-1">
           <div className="device-group-folder-card__tab" aria-hidden />
           <div className="device-group-folder-card__body">
             <div className="device-group-folder-card__glow" aria-hidden />
@@ -73,42 +84,46 @@ export function DeviceGroupFolderCard({
             </div>
           </div>
         </div>
-
-        <div className="relative z-[1] px-1 pb-1 pt-2">
-          <p
-            className={cn(
-              "line-clamp-2 font-semibold leading-snug text-foreground",
-              compact ? "text-xs" : "text-sm",
-            )}
-            title={name}
-          >
-            {name}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {itemCount} {itemLabelPlural}
-            {secondaryHint ? (
-              <>
-                {" "}
-                · <span className="text-brand-badge dark:text-brand-onDarkSoft">{secondaryHint}</span>
-              </>
-            ) : null}
-          </p>
-        </div>
       </button>
 
-      {onEdit ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-          className="device-group-folder-card__edit absolute right-2 top-2 z-[2] rounded-md bg-background/90 p-1.5 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border/80 backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground group-hover/folder:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={`Edit group ${name}`}
-        >
-          <Settings2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-        </button>
-      ) : null}
+      <div className="device-group-folder-card__meta">
+        <div className="device-group-folder-card__title-row">
+          <button
+            type="button"
+            onClick={onOpen}
+            className="device-group-folder-card__name-btn"
+          >
+            <p
+              className={cn(
+                "device-group-folder-card__name font-semibold leading-snug text-foreground",
+                compact ? "text-sm" : "text-base",
+              )}
+              title={name}
+            >
+              {name}
+            </p>
+          </button>
+          {menuItems.length > 0 ? (
+            <ItemActionMenu
+              ariaLabel={`Actions for ${name}`}
+              items={menuItems}
+              className={cn(
+                "device-group-folder-card__menu shrink-0",
+                compact && "device-group-folder-card__menu--compact",
+              )}
+            />
+          ) : null}
+        </div>
+        <p className="device-group-folder-card__count" title={`${itemCount} ${itemLabelPlural}`}>
+          {itemCount} {itemLabelPlural}
+          {secondaryHint ? (
+            <>
+              {" "}
+              · <span className="text-brand-badge dark:text-brand-onDarkSoft">{secondaryHint}</span>
+            </>
+          ) : null}
+        </p>
+      </div>
     </li>
   );
 }
@@ -135,7 +150,7 @@ export function GroupFolderCreateCard({
         )}
         aria-label={label}
       >
-        <div className="device-group-folder-card__shell device-group-folder-card__shell--create relative mx-auto mt-1 w-[88%] flex-1">
+        <div className="device-group-folder-card__shell device-group-folder-card__shell--create relative mt-1 flex-1">
           <div className="device-group-folder-card__tab device-group-folder-card__tab--create" aria-hidden />
           <div className="device-group-folder-card__body device-group-folder-card__body--create">
             <div className="device-group-folder-card__preview" aria-hidden>
@@ -203,8 +218,18 @@ export function DeviceGroupFolderListRow({
   const color = resolveGroupColor(accentColor);
   const itemLabelPlural = itemCount === 1 ? itemLabel : `${itemLabel}s`;
 
+  const menuItems: ActionMenuItem[] = onEdit
+    ? [
+        {
+          label: "Edit folder",
+          icon: <Settings2 className="h-4 w-4 shrink-0" aria-hidden />,
+          onClick: onEdit,
+        },
+      ]
+    : [];
+
   return (
-    <li className="device-group-folder-list-row group/folder-row" style={{ "--folder-accent": color } as React.CSSProperties}>
+    <li className="device-group-folder-list-row flex items-center gap-0.5" style={{ "--folder-accent": color } as React.CSSProperties}>
       <button
         type="button"
         onClick={onOpen}
@@ -228,18 +253,12 @@ export function DeviceGroupFolderListRow({
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/70" aria-hidden />
       </button>
-      {onEdit ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-          className="device-group-folder-list-row__edit rounded-md p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover/folder-row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label={`Edit group ${name}`}
-        >
-          <Settings2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-        </button>
+      {menuItems.length > 0 ? (
+        <ItemActionMenu
+          ariaLabel={`Actions for ${name}`}
+          items={menuItems}
+          className="device-group-folder-list-row__menu shrink-0"
+        />
       ) : null}
     </li>
   );

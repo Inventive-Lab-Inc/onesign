@@ -64,13 +64,10 @@ export function DeviceGroupsManager() {
       .filter((entry) => !q || entry.group.name.toLowerCase().includes(q));
   }, [deviceGroups, devices, search]);
 
-  const subtitle = `${deviceGroups.length} group${deviceGroups.length === 1 ? "" : "s"} · ${devices.length} screen${devices.length === 1 ? "" : "s"}`;
-
   return (
     <div className="flex min-h-[min(70vh,720px)] flex-col rounded-xl border border-border bg-card shadow-sm">
       <ListPageHeader
         title="Screen groups"
-        subtitle={subtitle}
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search groups…"

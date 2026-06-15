@@ -192,11 +192,6 @@ export function DevicesManager() {
     return list;
   }, [devices, statusFilter, search, groupFilter, groupedDeviceIds, activeGroup]);
 
-  const onlineCount = useMemo(
-    () => devices.filter((device) => effectiveDeviceStatus(device) === "online").length,
-    [devices],
-  );
-
   const openEditGroup = useCallback((group: DeviceGroupWithMembers) => {
     setGroupBeingEdited(group);
     setGroupEditorOpen(true);
@@ -292,16 +287,12 @@ export function DevicesManager() {
   );
 
   const pageTitle = isGroupView ? groupFilterLabel(groupFilter, activeGroup) : "Screens";
-  const pageSubtitle = isGroupView
-    ? `${filtered.length} screen${filtered.length === 1 ? "" : "s"} in this group`
-    : `${devices.length} screen${devices.length === 1 ? "" : "s"} · ${onlineCount} online`;
 
   return (
     <>
       <div className="flex min-h-[min(70vh,720px)] flex-col rounded-xl border border-border bg-card shadow-sm">
         <ListPageHeader
           title={pageTitle}
-          subtitle={pageSubtitle}
           backButton={
             isGroupView ? (
               <Link

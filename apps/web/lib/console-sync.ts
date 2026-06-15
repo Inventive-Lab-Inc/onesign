@@ -152,6 +152,7 @@ function mapMediaGroups(rows: RawMediaGroupRow[] | null): MediaGroupWithMembers[
       owner_id: row.owner_id,
       name: row.name,
       accent_color: row.accent_color,
+      parent_id: row.parent_id ?? null,
       created_at: row.created_at,
       member_media_ids: members.map((m) => m.media_id),
     };

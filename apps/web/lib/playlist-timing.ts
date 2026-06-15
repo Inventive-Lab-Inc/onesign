@@ -6,6 +6,7 @@ export function buildPlaylistItemInsertRow(params: {
   mediaId: string;
   sortOrder: number;
   fileType?: string;
+  durationSeconds?: number;
 }): {
   playlist_id: string;
   media_id: string;
@@ -18,7 +19,7 @@ export function buildPlaylistItemInsertRow(params: {
     sort_order: params.sortOrder,
   };
   if (params.fileType === "video") return row;
-  return { ...row, duration_seconds: 10 };
+  return { ...row, duration_seconds: params.durationSeconds ?? 10 };
 }
 
 /** Seconds for timed summary; videos play in full and are counted separately. */

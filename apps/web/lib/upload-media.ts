@@ -56,4 +56,42 @@ export async function uploadMediaFiles(
   return { uploaded, errors };
 }
 
+export async function replaceMediaFile(
+  file: File,
+  mediaId: string,
+  ownerId: string,
+): Promise<{ media: Media | null; error: string | null }> {
+  if (!isAcceptedSignageMime(file.type)) {
+    return { media: null, error: `${file.name} is not a supported image/video type.` };
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("mediaId", mediaId);
+  formData.append("ownerId", ownerId);
+
+  let response: Response;
+  try {
+    response = await fetch("/api/media/replace", {
+      method: "POST",
+      body: formData,
+    });
+  } catch {
+    return { media: null, error: "Network error during replace." };
+  }
+
+  let payload: { media?: Media; error?: string };
+  try {
+    payload = (await response.json()) as { media?: Media; error?: string };
+  } catch {
+    return { media: null, error: "Invalid server response." };
+  }
+
+  if (!response.ok || !payload.media) {
+    return { media: null, error: payload.error ?? "Replace failed." };
+  }
+
+  return { media: payload.media, error: null };
+}
+
 export { inferMediaFileType, isAcceptedSignageMime };

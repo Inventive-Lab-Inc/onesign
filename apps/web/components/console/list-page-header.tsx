@@ -98,6 +98,8 @@ function HeaderToolbarMenu({
   );
 }
 
+export { HeaderToolbarMenu };
+
 export function ListPageHeader({
   title,
   subtitle,
@@ -114,9 +116,12 @@ export function ListPageHeader({
   activeSortId,
   onSortChange,
   toolbarStart,
+  toolbarEnd,
+  filtersContent,
   center,
   trailing,
   backButton,
+  titleMenu,
 }: {
   title: string;
   subtitle?: string;
@@ -133,11 +138,19 @@ export function ListPageHeader({
   activeSortId?: string;
   onSortChange?: (id: string) => void;
   toolbarStart?: ReactNode;
+  toolbarEnd?: ReactNode;
+  filtersContent?: ReactNode;
   center?: ReactNode;
   trailing?: ReactNode;
   backButton?: ReactNode;
+  titleMenu?: ReactNode;
 }) {
-  const hasFilters = filterOptions != null && filterOptions.length > 0 && onFilterChange != null && activeFilterId != null;
+  const hasFiltersDropdown =
+    filtersContent == null &&
+    filterOptions != null &&
+    filterOptions.length > 0 &&
+    onFilterChange != null &&
+    activeFilterId != null;
   const hasSort = sortOptions != null && sortOptions.length > 0 && onSortChange != null && activeSortId != null;
   const hasSearch = search != null && onSearchChange != null;
 
@@ -147,7 +160,10 @@ export function ListPageHeader({
         <div className="flex min-w-0 items-center gap-2.5">
           {backButton}
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1>
+            <div className="flex items-center gap-1">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{title}</h1>
+              {titleMenu ? <div className="shrink-0">{titleMenu}</div> : null}
+            </div>
             {subtitle ? <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p> : null}
           </div>
           {primaryAction ? <div className="shrink-0">{primaryAction}</div> : null}
@@ -170,7 +186,9 @@ export function ListPageHeader({
               defaultActiveId={sortOptions[0]?.id}
             />
           ) : null}
-          {hasFilters ? (
+          {toolbarEnd}
+          {filtersContent}
+          {hasFiltersDropdown ? (
             <HeaderToolbarMenu
               label={filterLabel}
               icon={Filter}

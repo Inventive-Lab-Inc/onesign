@@ -25,8 +25,7 @@ import { formatPlaylistClockLabel } from "@/lib/playlist-timing";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import "@/components/device-groups/device-groups.css";
 
-const CONTENT_FOLDER_GRID =
-  "device-group-folder-grid grid grid-cols-3 items-stretch gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7";
+const CONTENT_FOLDER_GRID = "device-group-folder-grid device-group-folder-grid--dense";
 const CONTENT_PLAYLIST_GRID = "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5";
 
 export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) {
@@ -186,30 +185,20 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
       const items = playlistItemsByPlaylistId[activePlaylist.id] ?? [];
       return `${items.length} item${items.length === 1 ? "" : "s"} · ${formatPlaylistClockLabel(items)}`;
     }
-    if (showFolderGrid) {
-      const parts = [`${visibleFolderEntries.length} folder${visibleFolderEntries.length === 1 ? "" : "s"}`];
-      if (hasUngroupedPlaylists) {
-        parts.push(`${ungroupedPlaylists.length} ungrouped`);
-      }
-      parts.push(`${playlists.length} playlist${playlists.length === 1 ? "" : "s"}`);
-      return parts.join(" · ");
+    if (showFolderGrid || showFolderContents) {
+      return undefined;
     }
-    if (showFolderContents) {
-      return `${filtered.length} playlist${filtered.length === 1 ? "" : "s"}`;
+    if (showSearchResultsGrid) {
+      return `${searchResultPlaylists.length} match${searchResultPlaylists.length === 1 ? "" : "es"}`;
     }
-    const count = playlists.length;
-    if (count === 0) return "No playlists yet";
-    return `${count} playlist${count === 1 ? "" : "s"}`;
+    return undefined;
   }, [
     activePlaylist,
-    filtered.length,
     playlistItemsByPlaylistId,
-    playlists.length,
+    searchResultPlaylists.length,
     showFolderContents,
     showFolderGrid,
-    hasUngroupedPlaylists,
-    ungroupedPlaylists.length,
-    visibleFolderEntries.length,
+    showSearchResultsGrid,
   ]);
 
   const pageTitle = useMemo(() => {

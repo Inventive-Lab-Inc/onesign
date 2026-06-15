@@ -1,7 +1,8 @@
 "use client";
 
 import type { Media } from "@signage/types";
-import { Check, FileImage, FileVideo, Image as ImageIcon, Trash2, X } from "lucide-react";
+import { Check, FileImage, Trash2, X } from "lucide-react";
+import Image from "next/image";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import type { MediaGroupWithMembers } from "@/lib/console-sync";
 import { DEFAULT_GROUP_COLOR, DEVICE_GROUP_COLORS, resolveGroupColor } from "@/lib/device-group-colors";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import "@/components/device-groups/device-groups.css";
@@ -21,13 +23,26 @@ type MediaGroupEditorDialogProps = {
   ownerId: string;
   group: MediaGroupWithMembers | null;
   media: Media[];
+  parentGroupId?: string | null;
   onClose: () => void;
 };
 
-function mediaFileIcon(fileType: Media["file_type"]) {
-  if (fileType === "image") return ImageIcon;
-  if (fileType === "video") return FileVideo;
-  return FileImage;
+function MediaFolderFileThumb({ item }: { item: Media }) {
+  const url = mediaPublicUrl(item.storage_path);
+
+  return (
+    <span className="relative aspect-[16/10] w-12 shrink-0 overflow-hidden rounded-md border border-border/70 bg-muted/70">
+      {item.file_type === "image" ? (
+        <Image src={url} alt="" fill className="object-contain p-0.5" sizes="48px" />
+      ) : item.file_type === "video" ? (
+        <video src={url} muted playsInline preload="metadata" className="h-full w-full object-contain" />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+          <FileImage className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+        </span>
+      )}
+    </span>
+  );
 }
 
 export function MediaGroupEditorDialog({
@@ -36,12 +51,14 @@ export function MediaGroupEditorDialog({
   ownerId,
   group,
   media,
+  parentGroupId = null,
   onClose,
 }: MediaGroupEditorDialogProps) {
   const titleId = useId();
   const descId = useId();
   const { syncNow } = useConsoleSync();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const mediaGroups = useConsoleDataStore((s) => s.mediaGroups);
 
   const [name, setName] = useState("");
   const [accentColor, setAccentColor] = useState<string>(DEFAULT_GROUP_COLOR);
@@ -88,6 +105,11 @@ export function MediaGroupEditorDialog({
     [media],
   );
 
+  const parentFolder = useMemo(() => {
+    if (!parentGroupId) return null;
+    return mediaGroups.find((entry) => entry.id === parentGroupId) ?? null;
+  }, [mediaGroups, parentGroupId]);
+
   async function saveGroup() {
     const trimmed = name.trim();
     if (!trimmed) {
@@ -99,7 +121,12 @@ export function MediaGroupEditorDialog({
       if (mode === "create") {
         const { data: created, error } = await supabase
           .from("media_groups")
-          .insert({ owner_id: ownerId, name: trimmed, accent_color: accentColor })
+          .insert({
+            owner_id: ownerId,
+            name: trimmed,
+            accent_color: accentColor,
+            parent_id: parentGroupId ?? null,
+          })
           .select("id")
           .single();
         if (error) {
@@ -125,6 +152,7 @@ export function MediaGroupEditorDialog({
               owner_id: ownerId,
               name: trimmed,
               accent_color: accentColor,
+              parent_id: parentGroupId,
               created_at: new Date().toISOString(),
               member_media_ids: memberIds,
             },
@@ -237,7 +265,9 @@ export function MediaGroupEditorDialog({
             </h2>
             <p id={descId} className="mt-1 text-sm text-muted-foreground">
               {mode === "create"
-                ? "Name your folder and pick which files belong to it."
+                ? parentFolder
+                  ? `Creates a subfolder inside “${parentFolder.name}”.`
+                  : "Name your folder and pick which files belong to it."
                 : "Rename, recolor, or adjust file membership."}
             </p>
           </div>
@@ -299,7 +329,6 @@ export function MediaGroupEditorDialog({
               <ul className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border bg-background/60 p-2">
                 {sortedMedia.map((item) => {
                   const selected = selectedMediaIds.has(item.id);
-                  const Icon = mediaFileIcon(item.file_type);
                   const label = item.original_filename ?? item.storage_path;
                   return (
                     <li key={item.id}>
@@ -308,7 +337,7 @@ export function MediaGroupEditorDialog({
                         disabled={saving}
                         onClick={() => toggleMedia(item.id)}
                         className={cn(
-                          "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
+                          "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors",
                           selected ? "bg-brand-soft/80 ring-1 ring-brand/25" : "hover:bg-muted/70",
                         )}
                       >
@@ -322,7 +351,7 @@ export function MediaGroupEditorDialog({
                         >
                           {selected ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
                         </span>
-                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+                        <MediaFolderFileThumb item={item} />
                         <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
                       </button>
                     </li>

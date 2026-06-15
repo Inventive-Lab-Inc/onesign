@@ -141,7 +141,7 @@ export function DeviceScreenCard({
         </div>
       </Link>
 
-      <div className="absolute right-2 top-2 z-10">
+      <div className="absolute bottom-2 right-2 z-10">
         <ItemActionMenu
           ariaLabel={`Actions for ${device.name}`}
           className="rounded-md bg-background/90 shadow-sm ring-1 ring-border/80 backdrop-blur-sm"

@@ -13,6 +13,7 @@ type AdminClientRoutes = {
   playlistsPath: string;
   playlistPath: (playlistId: string) => string;
   contentPath: string;
+  fileManagementPath: string;
   auditPath: string;
 };
 
@@ -38,6 +39,7 @@ export function AdminClientRouteProvider({
       playlistsPath: `${basePath}/playlists`,
       playlistPath: (playlistId: string) => `${basePath}/playlists/${playlistId}`,
       contentPath: `${basePath}/content`,
+      fileManagementPath: `${basePath}/content/file-management`,
       auditPath: `${basePath}/audit`,
     };
   }, [clientId]);
@@ -95,6 +97,10 @@ export function contentLibraryPath(adminRoutes: AdminClientRoutes | null, groupI
   const base = adminRoutes?.contentPath ?? "/content";
   if (!groupId || groupId === "all") return base;
   return `${base}?group=${encodeURIComponent(groupId)}`;
+}
+
+export function contentFileManagementPath(adminRoutes: AdminClientRoutes | null): string {
+  return adminRoutes?.fileManagementPath ?? "/content/file-management";
 }
 
 export function contentPlaylistsPath(

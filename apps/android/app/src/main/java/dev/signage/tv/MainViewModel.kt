@@ -421,8 +421,13 @@ class MainViewModel(
         immediatePlaybackPoll.trySend(Unit)
     }
 
-    private fun normalizeScreenOrientation(value: String?): String =
-        value?.trim()?.lowercase()?.takeIf { it == "portrait" || it == "landscape" } ?: "landscape"
+    private fun normalizeScreenOrientation(value: String?): String {
+        val normalized = value?.trim()?.lowercase()
+        return when (normalized) {
+            "portrait", "reverse_landscape", "reverse_portrait" -> normalized
+            else -> "landscape"
+        }
+    }
 
     private fun revisionMatchesPlayback(
         rev: TvGetPlaybackRevisionResult,

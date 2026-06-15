@@ -3,7 +3,11 @@
 export type DeviceStatus = "offline" | "online" | "pending_pairing";
 
 /** Dashboard setting; Android applies via Activity.requestedOrientation while playback runs. */
-export type DeviceScreenOrientation = "landscape" | "portrait";
+export type DeviceScreenOrientation =
+  | "landscape"
+  | "portrait"
+  | "reverse_landscape"
+  | "reverse_portrait";
 
 export type MediaFileType = "image" | "video" | "unknown";
 
@@ -228,6 +232,8 @@ export interface MediaGroup {
   name: string;
   /** Hex accent for UI chips, e.g. #047857 */
   accent_color: string | null;
+  /** Parent folder; null = library root */
+  parent_id: string | null;
   created_at: string;
 }
 

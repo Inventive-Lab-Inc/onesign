@@ -1,33 +1,70 @@
 "use client";
 
 import type { Media } from "@signage/types";
-import { ArrowLeft, FileImage, FileVideo, FolderOpen, FolderPlus, Image as ImageIcon, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  FileImage,
+  FileVideo,
+  FolderInput,
+  FolderPlus,
+  Image as ImageIcon,
+  ListChecks,
+  ListPlus,
+  ListX,
+  RefreshCw,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import Image from "next/image";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
 import { ListPageHeader } from "@/components/console/list-page-header";
-import { ViewModeToggle } from "@/components/console/view-mode-toggle";
 import { Button } from "@/components/ui/button";
-import { ItemActionMenu } from "@/components/console/item-action-menu";
+import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
-import { PlanUsageMeter } from "@/components/plan/plan-usage-meter";
 import { isStorageFull } from "@/lib/plan-quota";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
-import { contentLibraryPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { contentFileManagementPath, contentLibraryPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { DeviceGroupFolderCard } from "@/components/device-groups/device-group-folder-card";
 import { MediaGroupEditorDialog } from "@/components/media-groups/media-group-editor-dialog";
+import { AddMediaToScreensDialog } from "@/components/media/add-media-to-screens-dialog";
+import { MoveMediaToFolderDialog } from "@/components/media/move-media-to-folder-dialog";
+import { MediaDeleteDialog } from "@/components/media/media-delete-dialog";
+import { MediaFiltersPopover, type MediaFiltersState } from "@/components/media/media-filters-popover";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { useAppRouter } from "@/hooks/use-app-router";
-import { MEDIA_UPLOAD_ACCEPT } from "@/lib/upload-media";
+import { MEDIA_UPLOAD_ACCEPT, replaceMediaFile } from "@/lib/upload-media";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
+import {
+  addMediaToDevicePlaylists,
+  countPlaylistReferences,
+  type AddMediaToPlaylistsOptions,
+  moveMediaBatchToFolder,
+  removeMediaFromAllPlaylists,
+} from "@/lib/media-playlist-ops";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import {
+  applyMediaFilters,
+  applyMediaSearchFilter,
+  formatMediaAge,
+  formatMediaMeta,
+  formatVideoDuration,
+  sortMediaList,
+  type MediaSort,
+} from "@/lib/media-display";
 import type { MediaGroupWithMembers } from "@/lib/console-sync";
+import {
+  buildMediaFolderEntries,
+  findMediaFolderContainingFile,
+  searchMediaFolderEntries,
+} from "@/lib/media-folder-navigation";
 import "@/components/device-groups/device-groups.css";
 
 interface MediaLibraryProps {
@@ -35,10 +72,6 @@ interface MediaLibraryProps {
   /** When true, omits standalone page chrome (used inside Content workspace). */
   embedded?: boolean;
 }
-
-type TypeFilter = "all" | "image" | "video" | "unknown";
-
-type MediaSort = "newest" | "oldest" | "name-asc" | "name-desc";
 
 const SORT_OPTIONS: { id: MediaSort; label: string }[] = [
   { id: "newest", label: "Newest first" },
@@ -51,81 +84,7 @@ function formatUpdatedAt(iso: string): string {
   return `Updated ${formatMediaAge(iso)}`;
 }
 
-function formatMediaAge(iso: string): string {
-  const d = new Date(iso);
-  const diff = Date.now() - d.getTime();
-  const sec = Math.floor(diff / 1000);
-  const min = Math.floor(sec / 60);
-  const hr = Math.floor(min / 60);
-  const day = Math.floor(hr / 24);
-  if (day > 30) return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-  if (day > 0) return day === 1 ? "yesterday" : `${day} days ago`;
-  if (hr > 0) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
-  if (min > 0) return `${min} min ago`;
-  return "just now";
-}
-
-function inferMediaOrientation(item: Media): "landscape" | "portrait" | null {
-  const name = (item.original_filename ?? item.storage_path).toLowerCase();
-  if (name.includes("portrait") || name.includes("vertical")) return "portrait";
-  if (name.includes("landscape") || name.includes("horizontal")) return "landscape";
-  return null;
-}
-
-function formatMediaMeta(item: Media): string {
-  const typeLabel = item.file_type === "image" ? "Image" : item.file_type === "video" ? "Video" : "File";
-  const orientation = inferMediaOrientation(item);
-  const age = formatMediaAge(item.created_at);
-  return orientation ? `${typeLabel} · ${orientation} · ${age}` : `${typeLabel} · ${age}`;
-}
-
-function formatVideoDuration(seconds: number | null | undefined): string | null {
-  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return null;
-  const total = Math.round(seconds);
-  const minutes = Math.floor(total / 60);
-  const remainder = total % 60;
-  return `${minutes}:${remainder.toString().padStart(2, "0")}`;
-}
-
-const FILTER_ROWS: { id: TypeFilter; label: string; icon: typeof ImageIcon }[] = [
-  { id: "all", label: "All", icon: FolderOpen },
-  { id: "image", label: "Images", icon: ImageIcon },
-  { id: "video", label: "Videos", icon: FileVideo },
-  { id: "unknown", label: "Other", icon: FileImage },
-];
-
-const CONTENT_FOLDER_GRID =
-  "device-group-folder-grid grid grid-cols-3 items-stretch gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7";
-
-function applyTypeFilter(list: Media[], typeFilter: TypeFilter): Media[] {
-  if (typeFilter === "all") return list;
-  return list.filter((m) => m.file_type === typeFilter);
-}
-
-function applySearchFilter(list: Media[], query: string): Media[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return list;
-  return list.filter((m) => (m.original_filename ?? m.storage_path).toLowerCase().includes(q));
-}
-
-function sortMedia(list: Media[], sort: MediaSort): Media[] {
-  const copy = [...list];
-  switch (sort) {
-    case "oldest":
-      return copy.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    case "name-asc":
-      return copy.sort((a, b) =>
-        (a.original_filename ?? a.storage_path).localeCompare(b.original_filename ?? b.storage_path),
-      );
-    case "name-desc":
-      return copy.sort((a, b) =>
-        (b.original_filename ?? b.storage_path).localeCompare(a.original_filename ?? a.storage_path),
-      );
-    case "newest":
-    default:
-      return copy.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }
-}
+const CONTENT_FOLDER_GRID = "device-group-folder-grid device-group-folder-grid--dense";
 
 export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   const router = useAppRouter();
@@ -137,15 +96,29 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   const readOnly = adminStaff != null && !adminStaff.canWrite;
   const items = useConsoleDataStore((s) => s.media) as Media[];
   const mediaGroups = useConsoleDataStore((s) => s.mediaGroups) as MediaGroupWithMembers[];
+  const devices = useConsoleDataStore((s) => s.devices);
+  const playlistItemsByPlaylistId = useConsoleDataStore((s) => s.playlistItemsByPlaylistId);
   const storageFull = plan != null && isStorageFull(plan);
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const { uploading, uploadFiles } = useMediaUpload(userId, { withDropzone: false });
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [mediaSort, setMediaSort] = useState<MediaSort>("newest");
-  const [view, setView] = useState<"grid" | "list">("grid");
+  const [filters, setFilters] = useState<MediaFiltersState>({
+    typeFilter: "all",
+    orientationFilter: "all",
+    dateFilter: "all",
+  });
+  const view = "grid" as const;
   const [groupEditorOpen, setGroupEditorOpen] = useState(false);
   const [groupEditorMode, setGroupEditorMode] = useState<"create" | "edit">("create");
   const [groupBeingEdited, setGroupBeingEdited] = useState<MediaGroupWithMembers | null>(null);
+  const [createParentGroupId, setCreateParentGroupId] = useState<string | null>(null);
+  const [addToScreensMedia, setAddToScreensMedia] = useState<Media | Media[] | null>(null);
+  const [moveMediaTarget, setMoveMediaTarget] = useState<Media | Media[] | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Media | Media[] | null>(null);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
 
   const groupFilter = useMemo(
     () => parseGroupFilterFromSearchParam(searchParams.get("group"), mediaGroups),
@@ -184,35 +157,25 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   const showSearchResultsGrid = isLibraryRoot && search.trim().length > 0;
   const showFolderContents = isInsideFolder && !search.trim();
 
-  const folderEntries = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const entries = mediaGroups.map((group) => {
-      const memberMedia = group.member_media_ids
-        .map((id) => items.find((m) => m.id === id))
-        .filter((m): m is Media => m != null);
-      return { group, memberMedia, fileCount: memberMedia.length };
-    });
-    if (!q) return entries;
-    return entries.filter(
-      (entry) =>
-        entry.group.name.toLowerCase().includes(q) ||
-        entry.memberMedia.some((m) =>
-          (m.original_filename ?? m.storage_path).toLowerCase().includes(q),
-        ),
-    );
-  }, [mediaGroups, items, search]);
+  const rootFolderEntries = useMemo(() => buildMediaFolderEntries(mediaGroups, null), [mediaGroups]);
 
-  const visibleFolderEntries = useMemo(
-    () =>
-      showSearchResultsGrid
-        ? folderEntries.filter((e) => e.group.name.toLowerCase().includes(search.trim().toLowerCase()))
-        : folderEntries,
-    [folderEntries, showSearchResultsGrid, search],
+  const childFolderEntries = useMemo(
+    () => (activeGroup ? buildMediaFolderEntries(mediaGroups, activeGroup.id) : []),
+    [mediaGroups, activeGroup],
   );
 
+  const searchFolderEntries = useMemo(
+    () => searchMediaFolderEntries(mediaGroups, search),
+    [mediaGroups, search],
+  );
+
+  const visibleRootFolderEntries = rootFolderEntries;
+
+  const { typeFilter, orientationFilter, dateFilter } = filters;
+
   const allLibraryMedia = useMemo(() => {
-    return sortMedia(applyTypeFilter(items, typeFilter), mediaSort);
-  }, [items, typeFilter, mediaSort]);
+    return sortMediaList(applyMediaFilters(items, typeFilter, orientationFilter, dateFilter), mediaSort);
+  }, [items, typeFilter, orientationFilter, dateFilter, mediaSort, filters]);
 
   const groupFiltered = useMemo(() => {
     if (groupFilter === "ungrouped") {
@@ -226,13 +189,19 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   }, [items, groupFilter, groupedMediaIds, activeGroup]);
 
   const filtered = useMemo(() => {
-    return sortMedia(applySearchFilter(applyTypeFilter(groupFiltered, typeFilter), search), mediaSort);
-  }, [groupFiltered, typeFilter, search, mediaSort]);
+    return sortMediaList(
+      applyMediaSearchFilter(applyMediaFilters(groupFiltered, typeFilter, orientationFilter, dateFilter), search),
+      mediaSort,
+    );
+  }, [groupFiltered, typeFilter, orientationFilter, dateFilter, search, mediaSort]);
 
   const searchResultMedia = useMemo(() => {
     if (!showSearchResultsGrid) return [];
-    return sortMedia(applyTypeFilter(applySearchFilter(items, search), typeFilter), mediaSort);
-  }, [showSearchResultsGrid, items, search, typeFilter, mediaSort]);
+    return sortMediaList(
+      applyMediaFilters(applyMediaSearchFilter(items, search), typeFilter, orientationFilter, dateFilter),
+      mediaSort,
+    );
+  }, [showSearchResultsGrid, items, search, typeFilter, orientationFilter, dateFilter, mediaSort]);
 
   const activeGroupName = groupFilterLabel(groupFilter, activeGroup);
   const showBackButton = isInsideFolder;
@@ -240,42 +209,24 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   const pageTitle = useMemo(() => {
     if (isInsideFolder) return activeGroupName;
     if (showSearchResultsGrid) return "Search";
-    return "Content";
+    return "Content library";
   }, [activeGroupName, isInsideFolder, showSearchResultsGrid]);
 
-  const typeFilterOptions = useMemo(
-    () => FILTER_ROWS.map(({ id, label }) => ({ id, label })),
-    [],
-  );
-
   const mainPanelSubtitle = useMemo(() => {
-    if (showFolderGrid) {
-      const parts = [`${visibleFolderEntries.length} folder${visibleFolderEntries.length === 1 ? "" : "s"}`];
-      parts.push(`${items.length} file${items.length === 1 ? "" : "s"}`);
-      return parts.join(" · ");
-    }
-    if (showFolderContents) {
-      return `${filtered.length} file${filtered.length === 1 ? "" : "s"}`;
-    }
     if (showSearchResultsGrid) {
       return `${searchResultMedia.length} match${searchResultMedia.length === 1 ? "" : "es"}`;
     }
-    return `${filtered.length} file${filtered.length === 1 ? "" : "s"}`;
-  }, [
-    filtered.length,
-    items.length,
-    searchResultMedia.length,
-    showFolderContents,
-    showFolderGrid,
-    showSearchResultsGrid,
-    visibleFolderEntries.length,
-  ]);
+    return undefined;
+  }, [searchResultMedia.length, showSearchResultsGrid]);
+
+  const fileManagementHref = contentFileManagementPath(adminRoutes);
 
   const openCreateGroup = useCallback(() => {
     setGroupEditorMode("create");
     setGroupBeingEdited(null);
+    setCreateParentGroupId(isInsideFolder && activeGroup ? activeGroup.id : null);
     setGroupEditorOpen(true);
-  }, []);
+  }, [activeGroup, isInsideFolder]);
 
   const openEditGroup = useCallback((group: MediaGroupWithMembers) => {
     setGroupEditorMode("edit");
@@ -284,8 +235,12 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   }, []);
 
   const handleBack = useCallback(() => {
+    if (activeGroup?.parent_id) {
+      navigateToGroup(activeGroup.parent_id);
+      return;
+    }
     navigateToGroup("all");
-  }, [navigateToGroup]);
+  }, [activeGroup, navigateToGroup]);
 
   const { getRootProps, getInputProps, open, isDragActive } = useDropzone({
     onDrop: (files) => void uploadFiles(files),
@@ -326,6 +281,172 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
     await syncNow();
   }
 
+  const buildMediaActionItems = useCallback(
+    (item: Media): ActionMenuItem[] => {
+      if (readOnly) {
+        return [{ label: "Open file", onClick: () => window.open(mediaPublicUrl(item.storage_path), "_blank", "noopener,noreferrer") }];
+      }
+
+      return [
+        {
+          label: "Add to the playlists of multiple screens",
+          icon: <ListPlus className="h-4 w-4 shrink-0" aria-hidden />,
+          onClick: () => setAddToScreensMedia(item),
+          disabled: devices.length === 0,
+        },
+        {
+          label: "Remove from all playlists",
+          icon: <ListX className="h-4 w-4 shrink-0" aria-hidden />,
+          onClick: () => void handleRemoveFromPlaylists(item),
+          disabled: countPlaylistReferences(playlistItemsByPlaylistId, item.id) === 0,
+        },
+        {
+          label: "Move to a different folder",
+          icon: <FolderInput className="h-4 w-4 shrink-0" aria-hidden />,
+          onClick: () => setMoveMediaTarget(item),
+        },
+        {
+          label: "Replace file",
+          icon: <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />,
+          onClick: () => {
+            setReplaceTargetId(item.id);
+            replaceInputRef.current?.click();
+          },
+          disabled: storageFull,
+        },
+        {
+          label: "Delete file",
+          icon: <Trash2 className="h-4 w-4 shrink-0" aria-hidden />,
+          onClick: () => setDeleteTarget(item),
+          destructive: true,
+        },
+        {
+          label: "File management",
+          description: "Manage multiple files at once",
+          icon: <ListChecks className="h-4 w-4 shrink-0" aria-hidden />,
+          separatorBefore: true,
+          href: fileManagementHref,
+        },
+      ];
+    },
+    [devices.length, fileManagementHref, playlistItemsByPlaylistId, readOnly, storageFull],
+  );
+
+  async function handleRemoveFromPlaylists(item: Media) {
+    const { removedCount, error } = await removeMediaFromAllPlaylists(supabase, item.id);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    toast.success(
+      removedCount === 0
+        ? "This file is not in any playlists."
+        : `Removed from ${removedCount} playlist ${removedCount === 1 ? "entry" : "entries"}.`,
+    );
+    await syncNow();
+  }
+
+  async function handleAddToScreens(deviceIds: string[], options: AddMediaToPlaylistsOptions) {
+    const targets = Array.isArray(addToScreensMedia) ? addToScreensMedia : addToScreensMedia ? [addToScreensMedia] : [];
+    if (targets.length === 0 || deviceIds.length === 0) return;
+
+    const selectedDevices = devices.filter((device) => deviceIds.includes(device.id));
+    const { addedCount, error } = await addMediaToDevicePlaylists(
+      supabase,
+      userId,
+      targets,
+      selectedDevices,
+      playlistItemsByPlaylistId,
+      options,
+    );
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    const first = targets[0];
+    toast.success(
+      targets.length === 1 && first
+        ? `Added “${first.original_filename ?? first.storage_path}” to ${addedCount} screen${addedCount === 1 ? "" : "s"}.`
+        : `Added ${targets.length} files to ${addedCount} screen${addedCount === 1 ? "" : "s"}.`,
+    );
+    await syncNow();
+  }
+
+  async function handleMoveToFolder(targetFolderId: string | null) {
+    const targets = Array.isArray(moveMediaTarget) ? moveMediaTarget : moveMediaTarget ? [moveMediaTarget] : [];
+    if (targets.length === 0) return;
+
+    const { error } = await moveMediaBatchToFolder(
+      supabase,
+      targets.map((item) => item.id),
+      targetFolderId,
+    );
+    if (error) {
+      toast.error(error);
+      return;
+    }
+
+    const label =
+      targets.length > 1
+        ? `${targets.length} files moved`
+        : `Moved “${targets[0]?.original_filename ?? "file"}”`;
+    toast.success(targetFolderId ? `${label} to folder` : `${label} to ungrouped`);
+    useConsoleDataStore.setState((state) => ({
+      mediaGroups: state.mediaGroups.map((group) => {
+        const without = group.member_media_ids.filter((id) => !targets.some((item) => item.id === id));
+        if (targetFolderId && group.id === targetFolderId) {
+          const merged = new Set([...without, ...targets.map((item) => item.id)]);
+          return { ...group, member_media_ids: [...merged] };
+        }
+        return { ...group, member_media_ids: without };
+      }),
+    }));
+    await syncNow();
+  }
+
+  async function handleConfirmDelete() {
+    const targets = Array.isArray(deleteTarget) ? deleteTarget : deleteTarget ? [deleteTarget] : [];
+    if (targets.length === 0) return;
+
+    setDeleteInProgress(true);
+    try {
+      for (const row of targets) {
+        await removeMedia(row);
+      }
+      setDeleteTarget(null);
+    } finally {
+      setDeleteInProgress(false);
+    }
+  }
+
+  async function handleReplaceFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    const mediaId = replaceTargetId;
+    setReplaceTargetId(null);
+    if (!file || !mediaId) return;
+
+    const { media, error } = await replaceMediaFile(file, mediaId, userId);
+    if (error || !media) {
+      toast.error(error ?? "Replace failed");
+      return;
+    }
+    toast.success(`Replaced with ${media.original_filename ?? media.storage_path}`);
+    await syncNow();
+  }
+
+  const titleMenuItems = useMemo<ActionMenuItem[]>(() => {
+    if (readOnly) return [];
+    return [{ label: "New folder", icon: <FolderPlus className="h-4 w-4 shrink-0" aria-hidden />, onClick: openCreateGroup }];
+  }, [openCreateGroup, readOnly]);
+
+  const gridCommonProps = {
+    view,
+    readOnly,
+    buildActionItems: buildMediaActionItems,
+    onRemove: readOnly ? undefined : (item: Media) => setDeleteTarget(item),
+  };
+
   return (
     <div className={cn("flex flex-col", embedded ? "min-h-0" : "min-h-[min(70vh,720px)]")}>
       <div {...getRootProps()} className="flex min-h-full flex-1 flex-col">
@@ -339,6 +460,11 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
           <ListPageHeader
             title={pageTitle}
             subtitle={mainPanelSubtitle}
+            titleMenu={
+              titleMenuItems.length > 0 ? (
+                <ItemActionMenu ariaLabel="Content library actions" items={titleMenuItems} />
+              ) : undefined
+            }
             backButton={
               showBackButton ? (
                 <button
@@ -361,38 +487,11 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
             }
             search={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Search files…"
-            filterOptions={typeFilterOptions}
-            activeFilterId={typeFilter}
-            onFilterChange={(id) => setTypeFilter(id as TypeFilter)}
+            searchPlaceholder="Search"
             sortOptions={SORT_OPTIONS}
             activeSortId={mediaSort}
             onSortChange={(id) => setMediaSort(id as MediaSort)}
-            toolbarStart={
-              !readOnly ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 gap-1.5"
-                  onClick={openCreateGroup}
-                >
-                  <FolderPlus className="h-4 w-4" aria-hidden />
-                  New folder
-                </Button>
-              ) : undefined
-            }
-            center={
-              plan ? (
-                <PlanUsageMeter
-                  variant="storage"
-                  used={plan.storageUsedBytes}
-                  limit={plan.storageLimitBytes}
-                  layout="inline"
-                />
-              ) : undefined
-            }
-            trailing={<ViewModeToggle view={view} onViewChange={setView} />}
+            filtersContent={<MediaFiltersPopover value={filters} onApply={setFilters} />}
           />
 
           {!readOnly && storageFull ? (
@@ -403,10 +502,10 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
 
           <div className="flex-1 p-4 sm:p-5">
             {showFolderGrid ? (
-              visibleFolderEntries.length > 0 ? (
+              visibleRootFolderEntries.length > 0 ? (
                 <div className="space-y-8">
                   <ul className={CONTENT_FOLDER_GRID}>
-                    {visibleFolderEntries.map(({ group, fileCount }) => (
+                    {visibleRootFolderEntries.map(({ group, fileCount }) => (
                       <DeviceGroupFolderCard
                         key={group.id}
                         name={group.name}
@@ -425,22 +524,12 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                       <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
                         All media
                       </p>
-                      <MediaFileGrid
-                        items={allLibraryMedia}
-                        view={view}
-                        readOnly={readOnly}
-                        onRemove={(item) => void removeMedia(item)}
-                      />
+                      <MediaFileGrid items={allLibraryMedia} {...gridCommonProps} />
                     </div>
                   ) : null}
                 </div>
               ) : items.length > 0 ? (
-                <MediaFileGrid
-                  items={allLibraryMedia}
-                  view={view}
-                  readOnly={readOnly}
-                  onRemove={(item) => void removeMedia(item)}
-                />
+                <MediaFileGrid items={allLibraryMedia} {...gridCommonProps} />
               ) : (
                 <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
                   <p className="text-sm font-medium text-foreground">No files yet</p>
@@ -456,20 +545,20 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                 </div>
               )
             ) : showSearchResultsGrid ? (
-              searchResultMedia.length === 0 && visibleFolderEntries.length === 0 ? (
+              searchResultMedia.length === 0 && searchFolderEntries.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
                   <p className="text-sm font-medium text-foreground">No files match</p>
                   <p className="mt-1 max-w-sm text-xs text-muted-foreground">Try another search term or filter.</p>
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {visibleFolderEntries.length > 0 ? (
+                  {searchFolderEntries.length > 0 ? (
                     <div>
                       <p className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
                         Folders
                       </p>
                       <ul className={CONTENT_FOLDER_GRID}>
-                        {visibleFolderEntries.map(({ group, fileCount }) => (
+                        {searchFolderEntries.map(({ group, fileCount }) => (
                           <DeviceGroupFolderCard
                             key={group.id}
                             name={group.name}
@@ -489,35 +578,58 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                     </div>
                   ) : null}
                   {searchResultMedia.length > 0 ? (
-                    <div className={visibleFolderEntries.length > 0 ? "space-y-4 border-t border-border pt-6" : ""}>
+                    <div className={searchFolderEntries.length > 0 ? "space-y-4 border-t border-border pt-6" : ""}>
                       <p className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
                         All media
                       </p>
-                      <MediaFileGrid
-                        items={searchResultMedia}
-                        view={view}
-                        readOnly={readOnly}
-                        onRemove={(item) => void removeMedia(item)}
-                      />
+                      <MediaFileGrid items={searchResultMedia} {...gridCommonProps} />
                     </div>
                   ) : null}
                 </div>
               )
             ) : showFolderContents ? (
-              filtered.length === 0 ? (
+              childFolderEntries.length === 0 && filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
                   <p className="text-sm font-medium text-foreground">This folder is empty</p>
                   <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-                    Assign files from the folder editor, or upload new assets.
+                    Create a subfolder from the title menu, assign files from the folder editor, or upload new assets.
                   </p>
                 </div>
               ) : (
-                <MediaFileGrid
-                  items={filtered}
-                  view={view}
-                  readOnly={readOnly}
-                  onRemove={(item) => void removeMedia(item)}
-                />
+                <div className="space-y-8">
+                  {childFolderEntries.length > 0 ? (
+                    <div>
+                      <p className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Folders
+                      </p>
+                      <ul className={CONTENT_FOLDER_GRID}>
+                        {childFolderEntries.map(({ group, fileCount }) => (
+                          <DeviceGroupFolderCard
+                            key={group.id}
+                            name={group.name}
+                            accentColor={group.accent_color}
+                            itemCount={fileCount}
+                            itemLabel="file"
+                            previewIcon={ImageIcon}
+                            compact
+                            onOpen={() => navigateToGroup(group.id)}
+                            onEdit={readOnly ? undefined : () => openEditGroup(group)}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {filtered.length > 0 ? (
+                    <div className={childFolderEntries.length > 0 ? "space-y-4 border-t border-border pt-8" : ""}>
+                      {childFolderEntries.length > 0 ? (
+                        <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Files
+                        </p>
+                      ) : null}
+                      <MediaFileGrid items={filtered} {...gridCommonProps} />
+                    </div>
+                  ) : null}
+                </div>
               )
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
@@ -535,16 +647,65 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                 ) : null}
               </div>
             ) : (
-              <MediaFileGrid
-                items={filtered}
-                view={view}
-                readOnly={readOnly}
-                onRemove={(item) => void removeMedia(item)}
-              />
+              <MediaFileGrid items={filtered} {...gridCommonProps} />
             )}
           </div>
         </div>
       </div>
+
+      <input
+        ref={replaceInputRef}
+        type="file"
+        accept={Object.keys(MEDIA_UPLOAD_ACCEPT).join(",")}
+        className="hidden"
+        onChange={(event) => void handleReplaceFile(event)}
+      />
+
+      <AddMediaToScreensDialog
+        open={addToScreensMedia != null}
+        onClose={() => setAddToScreensMedia(null)}
+        mediaItems={
+          Array.isArray(addToScreensMedia) ? addToScreensMedia : addToScreensMedia ? [addToScreensMedia] : []
+        }
+        devices={devices}
+        onConfirm={handleAddToScreens}
+      />
+
+      <MoveMediaToFolderDialog
+        open={moveMediaTarget != null}
+        onClose={() => setMoveMediaTarget(null)}
+        mediaName={
+          Array.isArray(moveMediaTarget)
+            ? `${moveMediaTarget.length} files`
+            : (moveMediaTarget?.original_filename ?? "file")
+        }
+        mediaCount={Array.isArray(moveMediaTarget) ? moveMediaTarget.length : 1}
+        folders={mediaGroups}
+        currentFolderId={
+          Array.isArray(moveMediaTarget) || !moveMediaTarget
+            ? null
+            : (findMediaFolderContainingFile(mediaGroups, moveMediaTarget.id)?.id ?? null)
+        }
+        onConfirm={handleMoveToFolder}
+      />
+
+      <MediaDeleteDialog
+        open={deleteTarget != null}
+        onClose={() => setDeleteTarget(null)}
+        title={
+          Array.isArray(deleteTarget) && deleteTarget.length > 1
+            ? `Delete ${deleteTarget.length} files?`
+            : "Delete file?"
+        }
+        description={
+          Array.isArray(deleteTarget) && deleteTarget.length > 1
+            ? "These files will be permanently removed from your library. Files used in playlists may fail to delete until removed from those playlists."
+            : "This file will be permanently removed from your library. If it is used in a playlist, remove it from playlists first or use “Remove from all playlists”."
+        }
+        confirmLabel={Array.isArray(deleteTarget) && deleteTarget.length > 1 ? "Delete files" : "Delete file"}
+        isConfirming={deleteInProgress}
+        onConfirm={handleConfirmDelete}
+      />
 
       <MediaGroupEditorDialog
         open={groupEditorOpen}
@@ -552,7 +713,11 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
         ownerId={userId}
         group={groupBeingEdited}
         media={items}
-        onClose={() => setGroupEditorOpen(false)}
+        parentGroupId={groupEditorMode === "create" ? createParentGroupId : null}
+        onClose={() => {
+          setGroupEditorOpen(false);
+          setCreateParentGroupId(null);
+        }}
       />
     </div>
   );
@@ -561,19 +726,20 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
 function MediaFileGrid({
   items,
   view,
-  readOnly,
+  buildActionItems,
   onRemove,
 }: {
   items: Media[];
   view: "grid" | "list";
   readOnly: boolean;
-  onRemove: (item: Media) => void;
+  buildActionItems: (item: Media) => ActionMenuItem[];
+  onRemove?: (item: Media) => void;
 }) {
   if (view === "grid") {
     return (
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {items.map((item) => (
-          <MediaCard key={item.id} item={item} onRemove={readOnly ? undefined : () => onRemove(item)} />
+          <MediaCard key={item.id} item={item} actionItems={buildActionItems(item)} />
         ))}
       </ul>
     );
@@ -582,7 +748,7 @@ function MediaFileGrid({
   return (
     <ul className="divide-y divide-border rounded-lg border border-border bg-card">
       {items.map((item) => (
-        <MediaListRow key={item.id} item={item} onRemove={readOnly ? undefined : () => onRemove(item)} />
+        <MediaListRow key={item.id} item={item} actionItems={buildActionItems(item)} />
       ))}
     </ul>
   );
@@ -590,18 +756,14 @@ function MediaFileGrid({
 
 function MediaCard({
   item,
-  onRemove,
+  actionItems,
 }: {
   item: Media;
-  onRemove?: () => void;
+  actionItems: ActionMenuItem[];
 }) {
   const url = mediaPublicUrl(item.storage_path);
   const name = item.original_filename ?? item.storage_path;
   const durationLabel = item.file_type === "video" ? formatVideoDuration(item.duration_seconds) : null;
-  const menuItems = [
-    { label: "Open file", onClick: () => window.open(url, "_blank", "noopener,noreferrer") },
-    ...(onRemove ? [{ label: "Delete file", onClick: onRemove, destructive: true as const }] : []),
-  ];
 
   return (
     <li className="group flex flex-col rounded-lg border border-border/80 bg-card shadow-sm transition-shadow hover:shadow-md">
@@ -632,7 +794,7 @@ function MediaCard({
           </p>
           <p className="mt-0.5 text-[0.6875rem] leading-relaxed text-muted-foreground">{formatMediaMeta(item)}</p>
         </div>
-        <ItemActionMenu ariaLabel={`Actions for ${name}`} items={menuItems} className="shrink-0" />
+        <ItemActionMenu ariaLabel={`Actions for ${name}`} items={actionItems} className="shrink-0" />
       </div>
     </li>
   );
@@ -640,10 +802,10 @@ function MediaCard({
 
 function MediaListRow({
   item,
-  onRemove,
+  actionItems,
 }: {
   item: Media;
-  onRemove?: () => void;
+  actionItems: ActionMenuItem[];
 }) {
   const url = mediaPublicUrl(item.storage_path);
   const name = item.original_filename ?? item.storage_path;
@@ -674,11 +836,7 @@ function MediaListRow({
         >
           Open
         </a>
-        {onRemove ? (
-          <button type="button" onClick={onRemove} className="text-xs font-medium text-destructive hover:underline">
-            Delete
-          </button>
-        ) : null}
+        <ItemActionMenu ariaLabel={`Actions for ${name}`} items={actionItems} />
       </div>
     </li>
   );

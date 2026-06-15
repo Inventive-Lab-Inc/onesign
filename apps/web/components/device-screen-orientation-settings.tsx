@@ -6,11 +6,14 @@ import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { Button } from "@/components/ui/button";
+import {
+  DEVICE_SCREEN_ORIENTATION_LABELS,
+  DEVICE_SCREEN_ORIENTATIONS,
+  normalizeDeviceScreenOrientation,
+} from "@/lib/device-screen-orientation";
+import { DeviceScreenOrientationIcon } from "@/components/devices/device-screen-orientation-icon";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-
-function normalizeOrientation(v: string | undefined): DeviceScreenOrientation {
-  return v === "portrait" ? "portrait" : "landscape";
-}
+import { cn } from "@/lib/utils";
 
 export function DeviceScreenOrientationSettings({ device }: { device: Device }) {
   const [open, setOpen] = useState(false);
@@ -36,7 +39,7 @@ export function DeviceScreenOrientationSettings({ device }: { device: Device }) 
         toast.error(error.message);
         return;
       }
-      toast.success(next === "portrait" ? "Orientation set to portrait" : "Orientation set to landscape");
+      toast.success(`Orientation set to ${DEVICE_SCREEN_ORIENTATION_LABELS[next]}`);
       await syncNow();
       setOpen(false);
     } catch (err) {
@@ -46,7 +49,7 @@ export function DeviceScreenOrientationSettings({ device }: { device: Device }) 
     }
   }
 
-  const current = normalizeOrientation(device.screen_orientation);
+  const current = normalizeDeviceScreenOrientation(device.screen_orientation);
 
   return (
     <>
@@ -75,28 +78,35 @@ export function DeviceScreenOrientationSettings({ device }: { device: Device }) 
               <p className="text-sm text-muted-foreground">
                 Choose how this TV locks orientation during playback. The device applies the change within a few seconds after you save.
               </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button
-                  type="button"
-                  variant={current === "landscape" ? "default" : "outline"}
-                  className={current === "landscape" ? "bg-primary text-primary-foreground hover:bg-brand-hover" : undefined}
-                  disabled={saving}
-                  onClick={() => void save("landscape")}
-                >
-                  Landscape
-                </Button>
-                <Button
-                  type="button"
-                  variant={current === "portrait" ? "default" : "outline"}
-                  className={current === "portrait" ? "bg-primary text-primary-foreground hover:bg-brand-hover" : undefined}
-                  disabled={saving}
-                  onClick={() => void save("portrait")}
-                >
-                  Portrait
-                </Button>
+              <div className="overflow-hidden rounded-lg border border-border bg-brand-softest/40">
+                {DEVICE_SCREEN_ORIENTATIONS.map((orientation, index) => {
+                  const selected = current === orientation;
+                  return (
+                    <button
+                      key={orientation}
+                      type="button"
+                      disabled={saving}
+                      onClick={() => void save(orientation)}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 px-4 py-3 text-sm font-medium transition-colors",
+                        index > 0 && "border-t border-border/70",
+                        selected
+                          ? "bg-brand-softest text-primary"
+                          : "text-primary hover:bg-brand-softest/70",
+                      )}
+                    >
+                      <DeviceScreenOrientationIcon orientation={orientation} className="h-4 w-4" />
+                      {DEVICE_SCREEN_ORIENTATION_LABELS[orientation]}
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Current on device: <span className="font-medium text-foreground">{current === "portrait" ? "Portrait" : "Landscape"}</span>
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                Current on device:{" "}
+                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                  <DeviceScreenOrientationIcon orientation={current} className="h-3.5 w-3.5" iconClassName="h-3 w-3" />
+                  {DEVICE_SCREEN_ORIENTATION_LABELS[current]}
+                </span>
               </p>
             </div>
           </div>

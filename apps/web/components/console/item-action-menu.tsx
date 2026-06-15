@@ -8,11 +8,13 @@ import { cn } from "@/lib/utils";
 
 export type ActionMenuItem = {
   label: string;
+  description?: string;
   onClick?: () => void;
   href?: string;
   destructive?: boolean;
   icon?: ReactNode;
   disabled?: boolean;
+  separatorBefore?: boolean;
 };
 
 export function ItemActionMenu({
@@ -106,11 +108,12 @@ export function ItemActionMenu({
       ref={menuRef}
       role="menu"
       style={menuStyle}
-      className="min-w-[10.5rem] overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"
+      className="min-w-[12rem] w-max max-w-[min(100vw-1rem,24rem)] overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"
     >
-      {items.map((item) => {
+      {items.map((item, index) => {
         const classNames = cn(
-          "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
+          "flex w-full gap-2 px-3 py-2 text-left text-sm transition-colors",
+          item.description ? "items-start" : "items-center",
           item.disabled
             ? "cursor-not-allowed text-muted-foreground/60"
             : item.destructive
@@ -118,27 +121,35 @@ export function ItemActionMenu({
               : "text-foreground hover:bg-muted",
         );
 
-        if (item.href && !item.disabled) {
-          return (
-            <li key={item.label} role="none">
-              <Link
-                href={item.href}
-                role="menuitem"
-                className={classNames}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setOpen(false);
-                }}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            </li>
-          );
-        }
+        const content = item.description ? (
+          <>
+            {item.icon ? <span className="shrink-0 self-start pt-0.5">{item.icon}</span> : null}
+            <span className="min-w-0">
+              <span className="block whitespace-nowrap font-medium leading-snug">{item.label}</span>
+              <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{item.description}</span>
+            </span>
+          </>
+        ) : (
+          <>
+            {item.icon}
+            <span className="whitespace-nowrap">{item.label}</span>
+          </>
+        );
 
-        return (
-          <li key={item.label} role="none">
+        const itemNode =
+          item.href && !item.disabled ? (
+            <Link
+              href={item.href}
+              role="menuitem"
+              className={classNames}
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpen(false);
+              }}
+            >
+              {content}
+            </Link>
+          ) : (
             <button
               type="button"
               role="menuitem"
@@ -152,9 +163,16 @@ export function ItemActionMenu({
                 item.onClick?.();
               }}
             >
-              {item.icon}
-              {item.label}
+              {content}
             </button>
+          );
+
+        return (
+          <li key={`${item.label}-${index}`} role="none">
+            {item.separatorBefore && index > 0 ? (
+              <div className="my-1 border-t border-border" role="separator" aria-hidden />
+            ) : null}
+            {itemNode}
           </li>
         );
       })}

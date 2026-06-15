@@ -177,6 +177,8 @@ fun PlaybackScreen(
         activity.requestedOrientation =
             when (state.screenOrientation.lowercase()) {
                 "portrait" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                "reverse_landscape" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                "reverse_portrait" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
                 else -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             }
     }
