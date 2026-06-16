@@ -27,6 +27,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { clearDevicePlaylist } from "@/lib/copy-device-playlist";
 
+const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
+
 function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
   const result = Array.from(list);
   const [removed] = result.splice(startIndex, 1);
@@ -64,7 +66,14 @@ export function ScreenPlaylistWorkspace({
   const allWebsites = useConsoleDataStore((s) => s.websites) as Website[];
 
   const cachedItems = useConsoleDataStore((s) =>
-    playlistId ? (s.playlistItemsByPlaylistId[playlistId] ?? []) : [],
+    playlistId
+      ? (s.playlistItemsByPlaylistId[playlistId] ?? EMPTY_PLAYLIST_ITEMS)
+      : EMPTY_PLAYLIST_ITEMS,
+  );
+
+  const cachedSnapshot = useMemo(
+    () => draftItemSnapshot(toDraftItems(cachedItems)),
+    [cachedItems],
   );
 
   const [baselineItems, setBaselineItems] = useState<PlaylistItemWithMedia[]>(cachedItems);
@@ -82,15 +91,16 @@ export function ScreenPlaylistWorkspace({
 
   useEffect(() => {
     if (isDirty) return;
-    setBaselineItems(cachedItems);
-    setDraftItems(toDraftItems(cachedItems));
-  }, [cachedItems, isDirty]);
-
-  useEffect(() => {
-    const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? [];
+    const fresh = playlistId
+      ? (useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ??
+        EMPTY_PLAYLIST_ITEMS)
+      : EMPTY_PLAYLIST_ITEMS;
+    const incomingSnapshot = draftItemSnapshot(toDraftItems(fresh));
+    const baselineSnapshot = draftItemSnapshot(toDraftItems(baselineItems));
+    if (incomingSnapshot === baselineSnapshot) return;
     setBaselineItems(fresh);
     setDraftItems(toDraftItems(fresh));
-  }, [playlistId]);
+  }, [playlistId, cachedSnapshot, isDirty, baselineItems]);
 
   const filteredLibrary = useMemo(() => {
     const q = librarySearch.trim().toLowerCase();
