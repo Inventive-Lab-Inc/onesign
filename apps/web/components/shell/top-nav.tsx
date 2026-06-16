@@ -83,11 +83,19 @@ export function TopNavBar({ brand, navItems, bottomNavItem, pendingPath, centerN
     }
     const navRect = nav.getBoundingClientRect();
     const linkRect = link.getBoundingClientRect();
-    setIndicator({
-      left: linkRect.left - navRect.left + nav.scrollLeft,
-      width: linkRect.width,
-      height: linkRect.height,
-    });
+    const next = {
+      left: Math.round(linkRect.left - navRect.left + nav.scrollLeft),
+      width: Math.round(linkRect.width),
+      height: Math.round(linkRect.height),
+    };
+    setIndicator((prev) =>
+      prev &&
+      prev.left === next.left &&
+      prev.width === next.width &&
+      prev.height === next.height
+        ? prev
+        : next,
+    );
   }, [highlightIndex]);
 
   const updateIndicator = useCallback(

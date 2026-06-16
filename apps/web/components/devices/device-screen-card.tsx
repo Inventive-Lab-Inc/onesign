@@ -18,6 +18,9 @@ import { useConsoleDataStore } from "@/stores/console-data-store";
 import { cn } from "@/lib/utils";
 import "./device-screen-card.css";
 
+/** Stable fallback — inline `[]` in a Zustand selector creates a new reference every render → #185. */
+const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
+
 function statusLabel(status: DeviceStatus): string {
   switch (status) {
     case "online":
@@ -75,8 +78,10 @@ export function DeviceScreenCard({
       ? (device.device_playlists?.find((row) => row.is_active)?.playlist_id ?? null)
       : null;
   const playlistItems = useConsoleDataStore((s) =>
-    activePlaylistId ? (s.playlistItemsByPlaylistId[activePlaylistId] ?? []) : [],
-  ) as PlaylistItemWithMedia[];
+    activePlaylistId
+      ? (s.playlistItemsByPlaylistId[activePlaylistId] ?? EMPTY_PLAYLIST_ITEMS)
+      : EMPTY_PLAYLIST_ITEMS,
+  );
   const fallbackPreviewItem = thumbnailUrl ? null : firstPreviewablePlaylistItem(playlistItems);
 
   const groupMenuItems =
