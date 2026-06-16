@@ -1,19 +1,15 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { pullConsoleData } from "@/lib/console-sync";
-import { DevicePresenceSync } from "@/components/console/device-presence-sync";
+import {
+  applyDevicePresenceRows,
+  fetchDevicePresence,
+  patchDevicePresenceFromRow,
+  PRESENCE_POLL_INTERVAL_MS,
+  type DevicePresenceRow,
+} from "@/lib/device-presence";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { useConsoleStoreHydrated } from "@/hooks/use-console-store-hydrated";
 import { clearConsoleCachePersist, useConsoleDataStore } from "@/stores/console-data-store";
 
 const DEFAULT_INTERVAL_MS = 120_000;
@@ -51,39 +47,35 @@ function readIntervalMs(): number {
   return Number.isFinite(n) && n >= 15_000 ? n : DEFAULT_INTERVAL_MS;
 }
 
-function readSyncMeta() {
-  const state = useConsoleDataStore.getState();
-  return {
-    lastSyncedAt: state.lastSyncedAt,
-    isSyncing: state.isSyncing,
-    syncError: state.syncError,
-  };
-}
-
 export function ConsoleSyncProvider({ userId, children }: { userId: string; children: ReactNode }) {
-  const [syncMeta, setSyncMeta] = useState(readSyncMeta);
-  const cacheReady = useConsoleStoreHydrated();
+  const lastSyncedAt = useConsoleDataStore((s) => s.lastSyncedAt);
+  const isSyncing = useConsoleDataStore((s) => s.isSyncing);
+  const syncError = useConsoleDataStore((s) => s.syncError);
+  const applySnapshot = useConsoleDataStore((s) => s.applySnapshot);
+  const setOwnerId = useConsoleDataStore((s) => s.setOwnerId);
+  const setSyncing = useConsoleDataStore((s) => s.setSyncing);
+  const setSyncError = useConsoleDataStore((s) => s.setSyncError);
 
   /** Coalesce overlapping syncs; re-pull once if a sync was requested mid-flight. */
   const syncInFlightRef = useRef<Promise<void> | null>(null);
   const syncAgainRef = useRef(false);
-  const ownerInitRef = useRef<string | null>(null);
+
+  // persist APIs use localStorage — only available after client mount.
+  const [cacheReady, setCacheReady] = useState(false);
 
   useEffect(() => {
-    return useConsoleDataStore.subscribe((state, prev) => {
-      if (
-        state.lastSyncedAt === prev.lastSyncedAt &&
-        state.isSyncing === prev.isSyncing &&
-        state.syncError === prev.syncError
-      ) {
-        return;
-      }
-      setSyncMeta({
-        lastSyncedAt: state.lastSyncedAt,
-        isSyncing: state.isSyncing,
-        syncError: state.syncError,
-      });
+    const persist = useConsoleDataStore.persist;
+    if (!persist) {
+      setCacheReady(true);
+      return;
+    }
+    if (persist.hasHydrated()) {
+      setCacheReady(true);
+    }
+    const unsub = persist.onFinishHydration(() => {
+      setCacheReady(true);
     });
+    return unsub;
   }, []);
 
   const syncNow = useCallback(async () => {
@@ -91,7 +83,6 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
       syncAgainRef.current = true;
       return syncInFlightRef.current;
     }
-    const { applySnapshot, setSyncError, setSyncing } = useConsoleDataStore.getState();
     const run = async () => {
       setSyncing(true);
       setSyncError(null);
@@ -113,29 +104,26 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
     const p = run();
     syncInFlightRef.current = p;
     return p;
-  }, [userId]);
+  }, [applySnapshot, setSyncError, setSyncing, userId]);
 
   const syncNowRef = useRef(syncNow);
   syncNowRef.current = syncNow;
 
   useEffect(() => {
     if (!cacheReady) return;
-    if (ownerInitRef.current === userId) return;
-    ownerInitRef.current = userId;
 
-    const { setOwnerId: assignOwnerId } = useConsoleDataStore.getState();
     const state = useConsoleDataStore.getState();
     if (state.ownerId !== null && state.ownerId !== userId) {
       clearConsoleCachePersist();
     }
 
-    assignOwnerId(userId);
+    setOwnerId(userId);
 
     const after = useConsoleDataStore.getState();
     if (after.lastSyncedAt === null) {
       void syncNowRef.current();
     }
-  }, [cacheReady, userId]);
+  }, [cacheReady, userId, setOwnerId]);
 
   useEffect(() => {
     if (!cacheReady) return;
@@ -146,23 +134,89 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
     return () => window.clearInterval(id);
   }, [cacheReady, userId]);
 
+  /**
+   * TV heartbeats update `last_seen` / `status` in Postgres every ~30s, but full sync runs
+   * much less often. Poll + Realtime keep the console cache aligned so badges do not flip
+   * offline while a screen is still playing.
+   */
+  useEffect(() => {
+    if (!cacheReady || !userId) return;
+
+    const supabase = getSupabaseBrowserClient();
+    let cancelled = false;
+
+    const refreshPresence = async () => {
+      try {
+        const rows = await fetchDevicePresence(supabase, userId);
+        if (!cancelled) applyDevicePresenceRows(rows);
+      } catch (err) {
+        console.warn("[ConsoleSyncProvider] device presence refresh failed:", err);
+      }
+    };
+
+    void refreshPresence();
+
+    const pollId = window.setInterval(() => {
+      void refreshPresence();
+    }, PRESENCE_POLL_INTERVAL_MS);
+
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") {
+        void refreshPresence();
+      }
+    };
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    window.addEventListener("focus", refreshOnFocus);
+
+    const channel = supabase
+      .channel(`device-presence:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "devices",
+          filter: `owner_id=eq.${userId}`,
+        },
+        (payload) => {
+          const row = payload.new as { id?: string; status?: string; last_seen?: string | null };
+          if (!row.id || !row.status) return;
+          patchDevicePresenceFromRow({
+            id: row.id,
+            status: row.status as DevicePresenceRow["status"],
+            last_seen: row.last_seen ?? null,
+          });
+        },
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          void refreshPresence();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(pollId);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+      window.removeEventListener("focus", refreshOnFocus);
+      void supabase.removeChannel(channel);
+    };
+  }, [cacheReady, userId]);
+
   const value = useMemo<ConsoleSyncContextValue>(
     () => ({
       syncNow,
-      lastSyncedAt: syncMeta.lastSyncedAt,
-      isSyncing: syncMeta.isSyncing,
-      syncError: syncMeta.syncError,
+      lastSyncedAt,
+      isSyncing,
+      syncError,
       cacheReady,
     }),
-    [syncNow, syncMeta.lastSyncedAt, syncMeta.isSyncing, syncMeta.syncError, cacheReady],
+    [syncNow, lastSyncedAt, isSyncing, syncError, cacheReady],
   );
 
   return (
     <ConsoleOwnerContext.Provider value={userId}>
-      <ConsoleSyncContext.Provider value={value}>
-        {cacheReady ? <DevicePresenceSync userId={userId} /> : null}
-        {children}
-      </ConsoleSyncContext.Provider>
+      <ConsoleSyncContext.Provider value={value}>{children}</ConsoleSyncContext.Provider>
     </ConsoleOwnerContext.Provider>
   );
 }

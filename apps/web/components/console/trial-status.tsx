@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
-import { useHasMounted } from "@/hooks/use-has-mounted";
 import { DEFAULT_TRIAL_DAYS } from "@/lib/plan-quota";
 import { assets } from "@/lib/config/assets";
 import {
@@ -18,24 +17,21 @@ import { cn } from "@/lib/utils";
 
 function useTrialStatus() {
   const quota = usePlanQuota();
-  const mounted = useHasMounted();
   if (!quota) return null;
 
   const active = quota.isOnTrial ?? isOnTrial(quota);
   if (!active || quota.trialExpired) return null;
 
-  const daysLeft = mounted ? trialDaysRemaining(quota.trialEndsAt) : null;
-  const remainingLabel = mounted
-    ? (formatTrialRemaining(quota.trialEndsAt) ?? "Free trial")
-    : "Free trial";
-  const endLabel = mounted ? formatTrialEndDate(quota.trialEndsAt) : null;
+  const daysLeft = trialDaysRemaining(quota.trialEndsAt);
+  const remainingLabel = formatTrialRemaining(quota.trialEndsAt) ?? "Free trial";
+  const endLabel = formatTrialEndDate(quota.trialEndsAt);
 
   return {
     ...quota,
     daysLeft,
     remainingLabel,
     endLabel,
-    elapsed: mounted ? trialElapsedRatio(quota.trialEndsAt, DEFAULT_TRIAL_DAYS) : 0,
+    elapsed: trialElapsedRatio(quota.trialEndsAt, DEFAULT_TRIAL_DAYS),
   };
 }
 

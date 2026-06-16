@@ -5,7 +5,6 @@ import { Shield } from "lucide-react";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { toast } from "sonner";
 import { ClientConsoleSyncProvider } from "@/components/console/client-console-sync-provider";
-import { ConsoleStoreGate } from "@/components/console/console-store-gate";
 import { ConsoleSyncButton } from "@/components/console/console-sync-button";
 import { TrialStrip } from "@/components/console/trial-status";
 import { AppLayout } from "./app-layout";
@@ -75,7 +74,7 @@ function DashboardShellInner({
       banner={<TrialStrip />}
     >
       <DashboardRoutePrefetch paths={prefetchPaths} />
-      <ConsoleStoreGate>{children}</ConsoleStoreGate>
+      {children}
     </AppLayout>
   );
 }

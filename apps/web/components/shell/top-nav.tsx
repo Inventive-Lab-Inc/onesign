@@ -73,31 +73,20 @@ export function TopNavBar({ brand, navItems, bottomNavItem, pendingPath, centerN
   const measureIndicator = useCallback(() => {
     const nav = navRef.current;
     if (!nav || highlightIndex < 0) {
-      setIndicator((prev) => (prev === null ? prev : null));
+      setIndicator(null);
       return;
     }
     const link = linkRefs.current[highlightIndex];
     if (!link) {
-      setIndicator((prev) => (prev === null ? prev : null));
+      setIndicator(null);
       return;
     }
     const navRect = nav.getBoundingClientRect();
     const linkRect = link.getBoundingClientRect();
-    const next = {
-      left: Math.round(linkRect.left - navRect.left + nav.scrollLeft),
-      width: Math.round(linkRect.width),
-      height: Math.round(linkRect.height),
-    };
-    setIndicator((prev) => {
-      if (
-        prev &&
-        prev.left === next.left &&
-        prev.width === next.width &&
-        prev.height === next.height
-      ) {
-        return prev;
-      }
-      return next;
+    setIndicator({
+      left: linkRect.left - navRect.left + nav.scrollLeft,
+      width: linkRect.width,
+      height: linkRect.height,
     });
   }, [highlightIndex]);
 
@@ -126,14 +115,20 @@ export function TopNavBar({ brand, navItems, bottomNavItem, pendingPath, centerN
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
+    const ro = new ResizeObserver(() => updateIndicator());
+    ro.observe(nav);
+    for (const link of linkRefs.current) {
+      if (link) ro.observe(link);
+    }
     const onScroll = () => updateIndicator(true);
     nav.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     return () => {
+      ro.disconnect();
       nav.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, [updateIndicator]);
+  }, [updateIndicator, items, highlightIndex]);
 
   const linkStyle = (active: boolean) =>
     ({

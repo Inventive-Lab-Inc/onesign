@@ -7,7 +7,6 @@ import type { AdminUserDirectoryEntry } from "@signage/types";
 import { useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { AdminAccountActions } from "@/components/admin/admin-account-actions";
 import { AdminTrialActions } from "@/components/admin/admin-trial-actions";
-import { ConsoleStoreGate } from "@/components/console/console-store-gate";
 import { formatStorageBytes } from "@/lib/plan-quota";
 import { formatTrialRemaining } from "@/lib/trial";
 import { cn } from "@/lib/utils";
@@ -124,7 +123,7 @@ export function AdminClientShell({
         </nav>
       </div>
 
-      <ConsoleStoreGate>{children}</ConsoleStoreGate>
+      {children}
     </div>
   );
 }
