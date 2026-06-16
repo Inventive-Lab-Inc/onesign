@@ -84,9 +84,9 @@ export function TopNavBar({ brand, navItems, bottomNavItem, pendingPath, centerN
     const navRect = nav.getBoundingClientRect();
     const linkRect = link.getBoundingClientRect();
     const next = {
-      left: linkRect.left - navRect.left + nav.scrollLeft,
-      width: linkRect.width,
-      height: linkRect.height,
+      left: Math.round(linkRect.left - navRect.left + nav.scrollLeft),
+      width: Math.round(linkRect.width),
+      height: Math.round(linkRect.height),
     };
     setIndicator((prev) => {
       if (
@@ -126,20 +126,14 @@ export function TopNavBar({ brand, navItems, bottomNavItem, pendingPath, centerN
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
-    const ro = new ResizeObserver(() => updateIndicator());
-    ro.observe(nav);
-    for (const link of linkRefs.current) {
-      if (link) ro.observe(link);
-    }
     const onScroll = () => updateIndicator(true);
     nav.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     return () => {
-      ro.disconnect();
       nav.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, [updateIndicator, items, highlightIndex]);
+  }, [updateIndicator]);
 
   const linkStyle = (active: boolean) =>
     ({
