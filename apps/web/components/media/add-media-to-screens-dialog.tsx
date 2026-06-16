@@ -65,14 +65,12 @@ export function AddMediaToScreensDialog({
     filteredDevices.length > 0 && filteredDevices.every((device) => selected.has(device.id));
 
   useEffect(() => {
-    if (!open) {
-      setSelected(new Set());
-      setPosition("start");
-      setDurationSeconds("10");
-      setOrientationFilters(defaultDeviceScreenOrientationFilters());
-      setFiltersOpen(false);
-      return;
-    }
+    if (!open) return;
+    setSelected(new Set());
+    setPosition("start");
+    setDurationSeconds("10");
+    setOrientationFilters(defaultDeviceScreenOrientationFilters());
+    setFiltersOpen(false);
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }

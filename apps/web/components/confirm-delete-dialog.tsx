@@ -32,10 +32,8 @@ export function ConfirmDeleteDialog({
   const [value, setValue] = useState("");
 
   useEffect(() => {
-    if (!open) {
-      setValue("");
-      return;
-    }
+    if (!open) return;
+    setValue("");
     const t = window.setTimeout(() => inputRef.current?.focus(), 0);
     return () => window.clearTimeout(t);
   }, [open]);

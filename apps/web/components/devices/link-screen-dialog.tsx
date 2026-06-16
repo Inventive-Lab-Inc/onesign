@@ -34,11 +34,9 @@ export function LinkScreenDialog({
   const atDeviceLimit = deviceLimit != null && deviceCount >= deviceLimit;
 
   useEffect(() => {
-    if (!open) {
-      setPairingCode("");
-      setFriendlyName("");
-      return;
-    }
+    if (!open) return;
+    setPairingCode("");
+    setFriendlyName("");
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }

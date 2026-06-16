@@ -27,10 +27,8 @@ export function CopyPlaylistToScreensDialog({
   const targets = useMemo(() => devices, [devices]);
 
   useEffect(() => {
-    if (!open) {
-      setSelected(new Set());
-      return;
-    }
+    if (!open) return;
+    setSelected(new Set());
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
