@@ -11,7 +11,7 @@ export function WebsitePreviewFrame({
   className,
   zoomLevel,
 }: {
-  website: Website;
+  website: Pick<Website, "name" | "source_type" | "url" | "playback_url" | "zoom_level">;
   className?: string;
   zoomLevel?: number;
 }) {

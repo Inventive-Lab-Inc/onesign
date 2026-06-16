@@ -32,6 +32,10 @@ sealed interface MainUiState {
         val screenOrientation: String = "landscape",
         /** Admin paused playback in the dashboard; show standby branding instead of slides or errors. */
         val playbackDisabledByAdmin: Boolean = false,
+        /** Screen is outside configured operating hours (from tv_get_playback_slides). */
+        val outsideOperatingHours: Boolean = false,
+        /** When true with [outsideOperatingHours], show a blank screen instead of standby branding. */
+        val blankWhenOffHours: Boolean = false,
         /**
          * Bumped when the display returns after standby so [kotlinx.coroutines.flow.MutableStateFlow] emits
          * even if the server manifest is unchanged, and so the UI restarts the playlist like a fresh sync.

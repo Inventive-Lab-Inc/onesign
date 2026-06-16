@@ -43,7 +43,7 @@ export function buildWebsitePlaybackUrl(
   return `${base}/display/website/${encodeURIComponent(id)}?zoom=${encodeURIComponent(String(zoom))}`;
 }
 
-export function websitePreviewUrl(website: Website): string {
+export function websitePreviewUrl(website: Pick<Website, "source_type" | "url" | "playback_url">): string {
   if (website.source_type === "url" && website.url) {
     return website.url;
   }

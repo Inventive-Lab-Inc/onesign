@@ -189,6 +189,14 @@ fun PlaybackScreen(
         AdminDisabledStandbyScreen()
         return
     }
+    if (state.outsideOperatingHours && state.blankWhenOffHours) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(ComposeColor.Black),
+        )
+        return
+    }
     if (state.slides.isEmpty()) {
         if (state.playlistName == null) {
             TvStandbyBrandingScreen(
@@ -208,7 +216,7 @@ fun PlaybackScreen(
     val recoveryEpoch by viewModel.playbackUiRecoveryEpoch.collectAsState()
     val slideKey =
         state.slides.joinToString("|") { s ->
-            "${s.url}#${s.fileType}#${s.durationSeconds}#${state.contentRevision}#${state.isFromCache}#${state.uiRefreshGeneration}#${state.transitionStyle}#${state.shuffleEnabled}"
+            "${s.url}#${s.fileType}#${s.durationSeconds}#${s.zoomLevel}#${state.contentRevision}#${state.isFromCache}#${state.uiRefreshGeneration}#${state.transitionStyle}#${state.shuffleEnabled}"
         }
     var index by remember(slideKey) { mutableIntStateOf(0) }
     var visit by remember(slideKey) { mutableIntStateOf(0) }
@@ -254,19 +262,21 @@ fun PlaybackScreen(
                 }
             }
             "website" -> {
-                DisposableEffect(index, slide.url, state.contentRevision) {
-                    engine.onPlayerViewDetached()
-                    onDispose { }
+                key(slide.url, slide.zoomLevel, state.contentRevision) {
+                    DisposableEffect(index, slide.url, slide.zoomLevel, state.contentRevision) {
+                        engine.onPlayerViewDetached()
+                        onDispose { }
+                    }
+                    WebsiteSlide(
+                        url = slide.url,
+                        durationSeconds = slide.durationSeconds,
+                        zoomLevel = slide.zoomLevel,
+                        onDone = {
+                            index = (index + 1) % n
+                            visit += 1
+                        },
+                    )
                 }
-                WebsiteSlide(
-                    url = slide.url,
-                    durationSeconds = slide.durationSeconds,
-                    zoomLevel = slide.zoomLevel,
-                    onDone = {
-                        index = (index + 1) % n
-                        visit += 1
-                    },
-                )
             }
             else -> {
                 DisposableEffect(index, slide.url, state.contentRevision) {
@@ -567,7 +577,7 @@ private fun WebsiteSlide(
     val dwellMs = (durationSeconds ?: 30).coerceIn(5, 3_600) * 1000L
     val zoom = (zoomLevel ?: 100).coerceIn(25, 200) / 100f
 
-    LaunchedEffect(url, dwellMs) {
+    LaunchedEffect(url, zoom, dwellMs) {
         delay(dwellMs)
         onDone()
     }

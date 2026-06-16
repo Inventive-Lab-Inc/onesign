@@ -56,12 +56,19 @@ export async function copyPlaylistToDevices(
       continue;
     }
 
-    const rows = sourceItems
-      .filter((item) => item.media_id != null)
-      .map((item, index) => {
+    const rows = sourceItems.map((item, index) => {
+      if (item.website_id) {
+        return {
+          playlist_id: playlistId,
+          website_id: item.website_id,
+          sort_order: index,
+          duration_seconds: item.duration_seconds ?? 30,
+        };
+      }
+      if (item.media_id == null || !item.media) return null;
       const base = buildPlaylistItemInsertRow({
         playlistId,
-        mediaId: item.media_id!,
+        mediaId: item.media_id,
         sortOrder: index,
         fileType: item.media.file_type,
       });
@@ -69,7 +76,7 @@ export async function copyPlaylistToDevices(
         return { ...base, duration_seconds: item.duration_seconds };
       }
       return base;
-    });
+    }).filter((row) => row != null);
 
     const { error: insertError } = await supabase.from("playlist_items").insert(rows);
     if (insertError) {

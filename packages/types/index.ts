@@ -9,6 +9,22 @@ export type DeviceScreenOrientation =
   | "reverse_landscape"
   | "reverse_portrait";
 
+export type WeekdayKey =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+export interface WeeklyDaySchedule {
+  start: string;
+  end: string;
+}
+
+export type WeeklySchedule = Record<WeekdayKey, WeeklyDaySchedule>;
+
 export type MediaFileType = "image" | "video" | "unknown";
 
 export interface Profile {
@@ -141,6 +157,16 @@ export interface Device {
   tags?: string[];
   /** Optional subtitle shown under the screen name in the console. */
   description?: string | null;
+  /** Weekly local-time windows when this screen is in use. */
+  operating_hours?: WeeklySchedule;
+  /** IANA timezone for operating hours and item daily schedules. */
+  operating_hours_timezone?: string;
+  /** When true, timezone is synced from the TV; false after admin saves Hours. */
+  operating_hours_timezone_auto?: boolean;
+  /** When true, TV blanks outside operating hours. */
+  blank_when_off_hours?: boolean;
+  /** When true, screen is active outside configured hours (inverted schedule). */
+  operating_hours_inverted?: boolean;
 }
 
 export interface AppRelease {
@@ -203,6 +229,9 @@ export interface PlaylistItem {
   display_from: string | null;
   display_until: string | null;
   created_at: string;
+  /** When true, item only plays during daily_schedule windows. */
+  daily_schedule_enabled?: boolean;
+  daily_schedule?: WeeklySchedule | null;
 }
 
 export interface DevicePlaylist {
@@ -288,7 +317,22 @@ export interface Website {
   updated_at: string;
 }
 
-/** Payload used by the playlist editor (joins media metadata). */
+/** Joined website metadata on playlist items (subset of Website). */
+export type PlaylistItemWebsite = Pick<
+  Website,
+  | "id"
+  | "name"
+  | "source_type"
+  | "playback_url"
+  | "url"
+  | "zoom_level"
+  | "display_from"
+  | "display_until"
+  | "created_at"
+  | "thumbnail_storage_path"
+>;
+
+/** Payload used by the playlist editor (joins media or website metadata). */
 export interface PlaylistItemWithMedia extends PlaylistItem {
   media: Pick<
     Media,
@@ -299,5 +343,6 @@ export interface PlaylistItemWithMedia extends PlaylistItem {
     | "duration_seconds"
     | "display_from"
     | "display_until"
-  >;
+  > | null;
+  website?: PlaylistItemWebsite | null;
 }

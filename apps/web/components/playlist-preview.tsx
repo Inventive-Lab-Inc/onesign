@@ -4,12 +4,21 @@ import type { PlaylistItemWithMedia } from "@signage/types";
 import { ListVideo } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { WebsitePreviewFrame } from "@/components/websites/website-preview-frame";
 import { playbackScheduleIsActive } from "@/lib/media-schedule";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
+import { playlistItemIsWebsite, playlistItemTitle } from "@/lib/playlist-item-display";
 import { cn } from "@/lib/utils";
 
 function slideDurationSec(item: PlaylistItemWithMedia): number {
   return Math.max(1, item.duration_seconds ?? 10);
+}
+
+function playlistItemScheduleIsActive(item: PlaylistItemWithMedia, at: Date = new Date()): boolean {
+  if (playlistItemIsWebsite(item)) {
+    return playbackScheduleIsActive(item.website!, at);
+  }
+  return playbackScheduleIsActive(item.media!, at);
 }
 
 function PreviewSlide({
@@ -21,7 +30,8 @@ function PreviewSlide({
   onImageDone: () => void;
   onVideoDone: () => void;
 }) {
-  const url = mediaPublicUrl(item.media.storage_path);
+  const isWebsite = playlistItemIsWebsite(item);
+  const url = isWebsite ? null : mediaPublicUrl(item.media!.storage_path);
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoDoneRef = useRef(false);
 
@@ -30,24 +40,32 @@ function PreviewSlide({
   }, [item.id, url]);
 
   useEffect(() => {
-    if (item.media.file_type === "video") return;
+    if (isWebsite || item.media!.file_type === "video") return;
     const ms = slideDurationSec(item) * 1000;
     const id = window.setTimeout(onImageDone, ms);
     return () => clearTimeout(id);
-  }, [item, onImageDone]);
+  }, [isWebsite, item, onImageDone]);
 
   useEffect(() => {
-    if (item.media.file_type !== "video") return;
+    if (isWebsite) {
+      const ms = slideDurationSec(item) * 1000;
+      const id = window.setTimeout(onImageDone, ms);
+      return () => clearTimeout(id);
+    }
+  }, [isWebsite, item, onImageDone]);
+
+  useEffect(() => {
+    if (isWebsite || item.media!.file_type !== "video") return;
     const el = videoRef.current;
     if (!el) return;
     el.muted = true;
     el.playsInline = true;
-    el.src = url;
+    el.src = url!;
     void el.play().catch(() => {});
-  }, [item.media.file_type, url]);
+  }, [isWebsite, item.media!.file_type, url]);
 
   useEffect(() => {
-    if (item.media.file_type !== "video") return;
+    if (isWebsite || item.media!.file_type !== "video") return;
     const el = videoRef.current;
     if (!el) return;
 
@@ -59,9 +77,19 @@ function PreviewSlide({
 
     el.addEventListener("ended", finish);
     return () => el.removeEventListener("ended", finish);
-  }, [item.media.file_type, onVideoDone, url]);
+  }, [isWebsite, item.media!.file_type, onVideoDone, url]);
 
-  if (item.media.file_type === "video") {
+  if (isWebsite) {
+    return (
+      <WebsitePreviewFrame
+        website={item.website!}
+        zoomLevel={item.website!.zoom_level}
+        className="h-full w-full bg-white"
+      />
+    );
+  }
+
+  if (item.media!.file_type === "video") {
     return (
       <video
         ref={videoRef}
@@ -69,14 +97,14 @@ function PreviewSlide({
         muted
         playsInline
         preload="auto"
-        aria-label={`Preview: ${item.media.original_filename ?? "video"}`}
+        aria-label={`Preview: ${item.media!.original_filename ?? "video"}`}
       />
     );
   }
 
   return (
     // eslint-disable-next-line @next/next/no-img-element -- MinIO public URL
-    <img src={url} alt="" className="h-full w-full object-contain bg-black" />
+    <img src={url!} alt="" className="h-full w-full object-contain bg-black" />
   );
 }
 
@@ -118,7 +146,7 @@ export function PlaylistPreviewButton({
   const [index, setIndex] = useState(0);
 
   const scheduledItems = useMemo(
-    () => items.filter((entry) => playbackScheduleIsActive(entry.media)),
+    () => items.filter((entry) => playlistItemScheduleIsActive(entry)),
     [items],
   );
 
@@ -233,8 +261,8 @@ export function PlaylistPreviewButton({
                 <span className="text-muted-foreground">
                   Slide <span className="font-medium tabular-nums text-foreground">{slideLabel}</span>
                 </span>
-                <span className="truncate text-xs text-muted-foreground max-w-[min(100%,240px)]" title={item.media.original_filename ?? undefined}>
-                  {item.media.original_filename ?? item.media.storage_path}
+                <span className="truncate text-xs text-muted-foreground max-w-[min(100%,240px)]" title={playlistItemTitle(item)}>
+                  {playlistItemTitle(item)}
                 </span>
               </div>
             </div>

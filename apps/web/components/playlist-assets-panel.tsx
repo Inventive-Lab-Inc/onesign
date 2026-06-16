@@ -1,14 +1,19 @@
 "use client";
 
-import type { Media } from "@signage/types";
+import type { Media, Website } from "@signage/types";
 import { Draggable, Droppable } from "@hello-pangea/dnd";
-import { FileImage, Plus, Search, Upload } from "lucide-react";
+import { FileImage, Globe, GripVertical, Plus, Search, Upload } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
+import { formatWebsiteMeta } from "@/lib/website-display";
+import { WebsitePreviewFrame } from "@/components/websites/website-preview-frame";
 import { cn, mediaLibraryAddButtonClassName } from "@/lib/utils";
+
+type LibraryTab = "content" | "websites";
 
 function LibraryThumb({ media }: { media: Media }) {
   const url = mediaPublicUrl(media.storage_path);
@@ -27,13 +32,26 @@ function LibraryThumb({ media }: { media: Media }) {
   );
 }
 
+function WebsiteLibraryThumb({ website }: { website: Website }) {
+  return (
+    <div className="relative h-11 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+      <WebsitePreviewFrame website={website} className="pointer-events-none h-full w-full" />
+      <span className="absolute bottom-0.5 right-0.5 inline-flex h-4 w-4 items-center justify-center rounded bg-black/70 text-white">
+        <Globe className="h-2.5 w-2.5" aria-hidden />
+      </span>
+    </div>
+  );
+}
+
 interface PlaylistAssetsPanelProps {
   droppableId: string;
   libraryResetKey: number;
   librarySearch: string;
   onLibrarySearchChange: (value: string) => void;
   filteredLibrary: Media[];
+  filteredWebsites: Website[];
   onAddMedia: (mediaId: string) => void;
+  onAddWebsite: (websiteId: string) => void;
   ownerId?: string;
   readOnly?: boolean;
   storageFull?: boolean;
@@ -47,15 +65,19 @@ export function PlaylistAssetsPanel({
   librarySearch,
   onLibrarySearchChange,
   filteredLibrary,
+  filteredWebsites,
   onAddMedia,
+  onAddWebsite,
   ownerId,
   readOnly = false,
   storageFull = false,
   addDisabled = false,
   addDisabledHint,
 }: PlaylistAssetsPanelProps) {
-  const canUpload = Boolean(ownerId) && !readOnly && !storageFull;
+  const [libraryTab, setLibraryTab] = useState<LibraryTab>("content");
+  const canUpload = Boolean(ownerId) && !readOnly && !storageFull && libraryTab === "content";
   const { uploading, open, getInputProps } = useMediaUpload(ownerId ?? "");
+  const activeDroppableId = libraryTab === "content" ? droppableId : `${droppableId}-websites`;
 
   return (
     <aside className="w-full shrink-0 lg:w-[300px]">
@@ -82,84 +104,177 @@ export function PlaylistAssetsPanel({
               </Button>
             ) : null}
           </div>
+
+          <div className="mt-3 flex gap-4 border-b border-border/80">
+            <button
+              type="button"
+              className={cn(
+                "-mb-px border-b-2 pb-2 text-sm font-medium transition-colors",
+                libraryTab === "content"
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+              onClick={() => setLibraryTab("content")}
+            >
+              Content
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "-mb-px border-b-2 pb-2 text-sm font-medium transition-colors",
+                libraryTab === "websites"
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+              onClick={() => setLibraryTab("websites")}
+            >
+              Websites
+            </button>
+          </div>
+
           <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={librarySearch}
               onChange={(e) => onLibrarySearchChange(e.target.value)}
-              placeholder="Search content…"
+              placeholder={libraryTab === "content" ? "Search content…" : "Search websites…"}
               className="h-9 border-border bg-background pl-8 text-sm"
-              aria-label="Search content library"
+              aria-label={libraryTab === "content" ? "Search content library" : "Search websites"}
             />
           </div>
         </div>
         <div className="max-h-[min(520px,55vh)] overflow-y-auto p-3">
-          {storageFull && !readOnly ? (
+          {storageFull && !readOnly && libraryTab === "content" ? (
             <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/8 px-3 py-2 text-xs leading-relaxed text-red-900 dark:text-red-100">
               Storage is full. Delete files from Content library or upgrade your plan.
             </p>
           ) : null}
-          <Droppable droppableId={droppableId} key={libraryResetKey}>
-            {(libProvided) => (
-              <ul ref={libProvided.innerRef} {...libProvided.droppableProps} className="space-y-2">
-                {filteredLibrary.length === 0 ? (
-                  <li className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
-                    {addDisabled && addDisabledHint ? (
-                      addDisabledHint
-                    ) : canUpload ? (
-                      <>
-                        No content yet.{" "}
-                        <button
-                          type="button"
-                          className="font-medium text-foreground underline-offset-4 hover:underline"
-                          onClick={() => open()}
-                        >
-                          Upload files
-                        </button>
-                      </>
-                    ) : (
-                      "No content in your library yet."
-                    )}
-                  </li>
-                ) : (
-                  filteredLibrary.map((m, index) => (
-                    <Draggable key={m.id} draggableId={`media-${m.id}`} index={index}>
-                      {(dragProvided, snapshot) => (
-                        <li
-                          ref={dragProvided.innerRef}
-                          {...dragProvided.draggableProps}
-                          {...dragProvided.dragHandleProps}
-                          className={cn(
-                            "flex items-center gap-2.5 rounded-lg border border-border bg-background p-2 pr-2 shadow-sm",
-                            snapshot.isDragging && "opacity-90 ring-2 ring-brand-faint30",
-                          )}
-                        >
-                          <LibraryThumb media={m} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-medium">{m.original_filename ?? m.storage_path}</p>
-                            <p className="text-[0.625rem] capitalize text-muted-foreground">{m.file_type}</p>
-                          </div>
-                          <Button
+          {libraryTab === "content" ? (
+            <Droppable droppableId={activeDroppableId} key={`${libraryResetKey}-content`}>
+              {(libProvided) => (
+                <ul ref={libProvided.innerRef} {...libProvided.droppableProps} className="space-y-2">
+                  {filteredLibrary.length === 0 ? (
+                    <li className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
+                      {addDisabled && addDisabledHint ? (
+                        addDisabledHint
+                      ) : canUpload ? (
+                        <>
+                          No content yet.{" "}
+                          <button
                             type="button"
-                            size="sm"
-                            variant="secondary"
-                            className={mediaLibraryAddButtonClassName}
-                            disabled={addDisabled}
-                            title={addDisabled ? addDisabledHint : "Add to playlist"}
-                            onClick={() => onAddMedia(m.id)}
+                            className="font-medium text-foreground underline-offset-4 hover:underline"
+                            onClick={() => open()}
                           >
-                            <Plus className="h-3 w-3" />
-                            Add
-                          </Button>
-                        </li>
+                            Upload files
+                          </button>
+                        </>
+                      ) : (
+                        "No content in your library yet."
                       )}
-                    </Draggable>
-                  ))
-                )}
-                {libProvided.placeholder}
-              </ul>
-            )}
-          </Droppable>
+                    </li>
+                  ) : (
+                    filteredLibrary.map((m, index) => (
+                      <Draggable key={m.id} draggableId={`media-${m.id}`} index={index}>
+                        {(dragProvided, snapshot) => (
+                          <li
+                            ref={dragProvided.innerRef}
+                            {...dragProvided.draggableProps}
+                            className={cn(
+                              "flex items-center gap-2.5 rounded-lg border border-border bg-background p-2 pr-2 shadow-sm",
+                              snapshot.isDragging && "opacity-90 ring-2 ring-brand-faint30",
+                            )}
+                          >
+                            <button
+                              type="button"
+                              className="flex shrink-0 cursor-grab touch-none items-center self-stretch px-0.5 text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                              aria-label={`Drag ${m.original_filename ?? m.storage_path}`}
+                              {...dragProvided.dragHandleProps}
+                            >
+                              <GripVertical className="h-4 w-4" aria-hidden />
+                            </button>
+                            <LibraryThumb media={m} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium">{m.original_filename ?? m.storage_path}</p>
+                              <p className="text-[0.625rem] capitalize text-muted-foreground">{m.file_type}</p>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              className={mediaLibraryAddButtonClassName}
+                              disabled={addDisabled}
+                              title={addDisabled ? addDisabledHint : "Add to playlist"}
+                              onClick={() => onAddMedia(m.id)}
+                            >
+                              <Plus className="h-3 w-3" />
+                              Add
+                            </Button>
+                          </li>
+                        )}
+                      </Draggable>
+                    ))
+                  )}
+                  {libProvided.placeholder}
+                </ul>
+              )}
+            </Droppable>
+          ) : (
+            <Droppable droppableId={activeDroppableId} key={`${libraryResetKey}-websites`}>
+              {(libProvided) => (
+                <ul ref={libProvided.innerRef} {...libProvided.droppableProps} className="space-y-2">
+                  {filteredWebsites.length === 0 ? (
+                    <li className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-sm text-muted-foreground">
+                      {addDisabled && addDisabledHint
+                        ? addDisabledHint
+                        : "No websites yet. Create one from the Websites page."}
+                    </li>
+                  ) : (
+                    filteredWebsites.map((website, index) => (
+                      <Draggable key={website.id} draggableId={`website-${website.id}`} index={index}>
+                        {(dragProvided, snapshot) => (
+                          <li
+                            ref={dragProvided.innerRef}
+                            {...dragProvided.draggableProps}
+                            className={cn(
+                              "flex items-center gap-2.5 rounded-lg border border-border bg-background p-2 pr-2 shadow-sm",
+                              snapshot.isDragging && "opacity-90 ring-2 ring-brand-faint30",
+                            )}
+                          >
+                            <button
+                              type="button"
+                              className="flex shrink-0 cursor-grab touch-none items-center self-stretch px-0.5 text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                              aria-label={`Drag ${website.name}`}
+                              {...dragProvided.dragHandleProps}
+                            >
+                              <GripVertical className="h-4 w-4" aria-hidden />
+                            </button>
+                            <WebsiteLibraryThumb website={website} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium">{website.name}</p>
+                              <p className="text-[0.625rem] text-muted-foreground">{formatWebsiteMeta(website)}</p>
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              className={mediaLibraryAddButtonClassName}
+                              disabled={addDisabled}
+                              title={addDisabled ? addDisabledHint : "Add to playlist"}
+                              onClick={() => onAddWebsite(website.id)}
+                            >
+                              <Plus className="h-3 w-3" />
+                              Add
+                            </Button>
+                          </li>
+                        )}
+                      </Draggable>
+                    ))
+                  )}
+                  {libProvided.placeholder}
+                </ul>
+              )}
+            </Droppable>
+          )}
         </div>
       </div>
     </aside>

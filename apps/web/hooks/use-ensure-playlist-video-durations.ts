@@ -12,8 +12,8 @@ export function useEnsurePlaylistVideoDurations(
   onUpdated: () => void | Promise<void>,
 ) {
   const videoProbeKey = items
-    .filter((item) => item.media.file_type === "video")
-    .map((item) => `${item.media.id}:${item.media.duration_seconds ?? "null"}`)
+    .filter((item) => item.media?.file_type === "video")
+    .map((item) => `${item.media!.id}:${item.media!.duration_seconds ?? "null"}`)
     .join("|");
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export function useEnsurePlaylistVideoDurations(
     void (async () => {
       for (const item of items) {
         if (cancelled) return;
-        if (item.media.file_type !== "video") continue;
+        if (!item.media || item.media.file_type !== "video") continue;
         const sec = await ensureMediaVideoDuration(supabase, item.media);
         if (sec != null && !cancelled) {
           await onUpdated();

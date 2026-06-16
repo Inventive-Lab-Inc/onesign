@@ -53,6 +53,7 @@ import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
+import java.util.TimeZone
 import javax.net.ssl.SSLHandshakeException
 
 private const val LOG_TAG = "SignageTV"
@@ -90,6 +91,8 @@ private data class TvGetPlaybackParams(
 private data class RegisterOrRestoreDeviceParams(
     @SerialName("p_android_id")
     val pAndroidId: String,
+    @SerialName("p_timezone")
+    val pTimezone: String? = TimeZone.getDefault().id,
 )
 
 @Serializable
@@ -109,6 +112,10 @@ private data class TvGetPlaybackResult(
     val transitionStyle: String = "none",
     @SerialName("shuffleEnabled")
     val shuffleEnabled: Boolean = false,
+    @SerialName("outsideOperatingHours")
+    val outsideOperatingHours: Boolean = false,
+    @SerialName("blankWhenOffHours")
+    val blankWhenOffHours: Boolean = false,
 )
 
 @Serializable
@@ -1524,6 +1531,8 @@ class MainViewModel(
                     playlistId = null,
                     screenOrientation = screenOrientation,
                     playbackDisabledByAdmin = true,
+                    outsideOperatingHours = res.outsideOperatingHours,
+                    blankWhenOffHours = res.blankWhenOffHours,
                     uiRefreshGeneration = prevGen,
                 ),
             )
@@ -1557,6 +1566,8 @@ class MainViewModel(
                 playlistId = res.playlistId,
                 screenOrientation = screenOrientation,
                 playbackDisabledByAdmin = false,
+                outsideOperatingHours = res.outsideOperatingHours,
+                blankWhenOffHours = res.blankWhenOffHours,
                 uiRefreshGeneration = prevGen,
                 transitionStyle = res.transitionStyle,
                 shuffleEnabled = res.shuffleEnabled,

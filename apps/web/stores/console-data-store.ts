@@ -79,9 +79,22 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
           media: s.media.map((item) => (item.id === mediaId ? { ...item, ...patch } : item)),
         })),
       patchWebsite: (websiteId, patch) =>
-        set((s) => ({
-          websites: s.websites.map((item) => (item.id === websiteId ? { ...item, ...patch } : item)),
-        })),
+        set((s) => {
+          const nextWebsite = <W extends { id: string }>(website: W): W =>
+            website.id === websiteId ? { ...website, ...patch } : website;
+          const nextPlaylistItems: Record<string, PlaylistItemWithMedia[]> = {};
+          for (const [playlistId, items] of Object.entries(s.playlistItemsByPlaylistId)) {
+            nextPlaylistItems[playlistId] = items.map((item) =>
+              item.website_id === websiteId && item.website
+                ? { ...item, website: nextWebsite(item.website) }
+                : item,
+            );
+          }
+          return {
+            websites: s.websites.map(nextWebsite),
+            playlistItemsByPlaylistId: nextPlaylistItems,
+          };
+        }),
       setSyncing: (isSyncing) => set({ isSyncing }),
       setSyncError: (syncError) => set({ syncError }),
       reset: () => set(emptyState()),

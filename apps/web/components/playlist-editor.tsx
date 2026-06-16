@@ -2,11 +2,12 @@
 
 import type { DropResult } from "@hello-pangea/dnd";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
-import type { Media, PlaylistItemWithMedia } from "@signage/types";
+import type { Media, PlaylistItemWithMedia, Website } from "@signage/types";
 import {
   Clock,
   FileImage,
   FileVideo,
+  Globe,
   GripVertical,
   Image as ImageIcon,
   Monitor,
@@ -29,6 +30,14 @@ import { getMediaPublicBaseUrl, mediaPublicUrl } from "@/lib/object-storage/urls
 import { buildPlaylistItemInsertRow, formatPlaylistClockLabel } from "@/lib/playlist-timing";
 import { cn } from "@/lib/utils";
 import { PlaylistAssetsPanel } from "@/components/playlist-assets-panel";
+import { WebsitePreviewFrame } from "@/components/websites/website-preview-frame";
+import { applyWebsiteSearchFilter } from "@/lib/website-display";
+import {
+  formatPlaylistItemMeta,
+  playlistItemIsWebsite,
+  playlistItemKind,
+  playlistItemTitle,
+} from "@/lib/playlist-item-display";
 import { PlaylistPreviewButton } from "@/components/playlist-preview";
 import { ReadonlyVideoDuration } from "@/components/readonly-video-duration";
 import { useEnsurePlaylistVideoDurations } from "@/hooks/use-ensure-playlist-video-durations";
@@ -47,12 +56,23 @@ function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
 }
 
 function RowThumb({ item }: { item: PlaylistItemWithMedia }) {
-  const url = mediaPublicUrl(item.media.storage_path);
+  if (playlistItemIsWebsite(item)) {
+    return (
+      <div className="relative h-12 w-[4.5rem] shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+        <WebsitePreviewFrame website={item.website!} className="pointer-events-none h-full w-full" />
+        <span className="absolute bottom-0.5 right-0.5 inline-flex h-4 w-4 items-center justify-center rounded bg-black/70 text-white">
+          <Globe className="h-2.5 w-2.5" aria-hidden />
+        </span>
+      </div>
+    );
+  }
+
+  const url = mediaPublicUrl(item.media!.storage_path);
   return (
     <div className="relative h-12 w-[4.5rem] shrink-0 overflow-hidden rounded-md border border-border bg-muted">
-      {item.media.file_type === "image" ? (
+      {item.media!.file_type === "image" ? (
         <Image src={url} alt="" fill className="object-cover" sizes="72px" />
-      ) : item.media.file_type === "video" ? (
+      ) : item.media!.file_type === "video" ? (
         <video className="h-full w-full object-cover" src={url} muted playsInline preload="metadata" />
       ) : (
         <div className="flex h-full items-center justify-center">
@@ -82,6 +102,7 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
     (s) => s.playlistItemsByPlaylistId[playlistId] ?? EMPTY_PLAYLIST_ITEMS,
   );
   const allMedia = useConsoleDataStore((s) => s.media) as Media[];
+  const allWebsites = useConsoleDataStore((s) => s.websites) as Website[];
   const [name, setName] = useState(initialName);
   const [items, setItems] = useState<PlaylistItemWithMedia[]>(cachedItems);
   const [savingName, setSavingName] = useState(false);
@@ -110,6 +131,11 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
     if (!q) return allMedia;
     return allMedia.filter((m) => (m.original_filename ?? m.storage_path).toLowerCase().includes(q));
   }, [allMedia, librarySearch]);
+
+  const filteredWebsites = useMemo(
+    () => applyWebsiteSearchFilter(allWebsites, librarySearch),
+    [allWebsites, librarySearch],
+  );
 
   const saveName = useCallback(async () => {
     if (readOnly) return;
@@ -204,6 +230,39 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
     [allMedia, persistOrder, playlistId, readOnly, reloadFromServer, supabase],
   );
 
+  const addWebsiteAtIndex = useCallback(
+    async (websiteId: string, destIndex: number) => {
+      if (readOnly) return;
+      const sortLen = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
+      const { data: row, error } = await supabase
+        .from("playlist_items")
+        .insert({
+          playlist_id: playlistId,
+          website_id: websiteId,
+          sort_order: sortLen,
+          duration_seconds: 30,
+        })
+        .select("id")
+        .single();
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      await reloadFromServer();
+      const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? [];
+      const fromIndex = fresh.findIndex((i) => i.id === row.id);
+      if (fromIndex < 0) return;
+      if (fromIndex !== destIndex) {
+        const reordered = reorder(fresh, fromIndex, destIndex);
+        setItems(reordered);
+        await persistOrder(reordered);
+      } else {
+        await persistOrder(fresh);
+      }
+    },
+    [persistOrder, playlistId, readOnly, reloadFromServer, supabase],
+  );
+
   const removeItem = useCallback(
     async (id: string) => {
       if (readOnly) return;
@@ -246,11 +305,16 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
       if (readOnly) return;
       const { destination, source, draggableId } = result;
       if (!destination) {
-        if (draggableId.startsWith("media-")) setLibraryResetKey((k) => k + 1);
+        if (draggableId.startsWith("media-") || draggableId.startsWith("website-")) {
+          setLibraryResetKey((k) => k + 1);
+        }
         return;
       }
 
-      if (source.droppableId === "playlist-library" && destination.droppableId === "playlist-library") {
+      if (
+        (source.droppableId === "playlist-library" || source.droppableId === "playlist-library-websites") &&
+        (destination.droppableId === "playlist-library" || destination.droppableId === "playlist-library-websites")
+      ) {
         setLibraryResetKey((k) => k + 1);
         return;
       }
@@ -261,7 +325,20 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
         return;
       }
 
+      if (draggableId.startsWith("website-") && destination.droppableId === "playlist-main") {
+        const websiteId = draggableId.replace(/^website-/, "");
+        await addWebsiteAtIndex(websiteId, destination.index);
+        return;
+      }
+
       if (draggableId.startsWith("clip-") && destination.droppableId === "playlist-library") {
+        const itemId = draggableId.replace(/^clip-/, "");
+        await removeItem(itemId);
+        setLibraryResetKey((k) => k + 1);
+        return;
+      }
+
+      if (draggableId.startsWith("clip-") && destination.droppableId === "playlist-library-websites") {
         const itemId = draggableId.replace(/^clip-/, "");
         await removeItem(itemId);
         setLibraryResetKey((k) => k + 1);
@@ -279,7 +356,7 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
         await persistOrder(next);
       }
     },
-    [addMediaAtIndex, items, persistOrder, readOnly, removeItem],
+    [addMediaAtIndex, addWebsiteAtIndex, items, persistOrder, readOnly, removeItem],
   );
 
   if (!getMediaPublicBaseUrl()) {
@@ -452,29 +529,21 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
                                   </div>
                                   <RowThumb item={item} />
                                   <div className="min-w-0">
-                                    <p className="truncate text-sm font-medium">
-                                      {item.media.original_filename ?? item.media.storage_path}
-                                    </p>
+                                    <p className="truncate text-sm font-medium">{playlistItemTitle(item)}</p>
+                                    <p className="truncate text-xs text-muted-foreground">{formatPlaylistItemMeta(item)}</p>
                                   </div>
                                   <div className="flex items-center gap-1.5 text-muted-foreground">
-                                    {item.media.file_type === "video" ? (
+                                    {playlistItemKind(item) === "video" ? (
                                       <FileVideo className="h-4 w-4 shrink-0" />
+                                    ) : playlistItemKind(item) === "website" ? (
+                                      <Globe className="h-4 w-4 shrink-0" />
                                     ) : (
                                       <ImageIcon className="h-4 w-4 shrink-0" />
                                     )}
-                                    <span className="text-xs capitalize">{item.media.file_type}</span>
+                                    <span className="text-xs capitalize">{playlistItemKind(item)}</span>
                                   </div>
                                   <div>
-                                    {item.media.file_type === "video" ? (
-                                      <ReadonlyVideoDuration
-                                        id={`duration-video-${item.id}`}
-                                        durationSeconds={item.media.duration_seconds}
-                                        fallbackProbeUrl={mediaPublicUrl(item.media.storage_path)}
-                                        onProbedDuration={(sec) =>
-                                          void persistVideoMediaDuration(item.media.id, sec)
-                                        }
-                                      />
-                                    ) : (
+                                    {playlistItemIsWebsite(item) || item.media?.file_type !== "video" ? (
                                       <>
                                         <Label className="sr-only" htmlFor={`duration-${item.id}`}>
                                           Duration (seconds)
@@ -498,6 +567,15 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
                                           }}
                                         />
                                       </>
+                                    ) : (
+                                      <ReadonlyVideoDuration
+                                        id={`duration-video-${item.id}`}
+                                        durationSeconds={item.media!.duration_seconds}
+                                        fallbackProbeUrl={mediaPublicUrl(item.media!.storage_path)}
+                                        onProbedDuration={(sec) =>
+                                          void persistVideoMediaDuration(item.media!.id, sec)
+                                        }
+                                      />
                                     )}
                                   </div>
                                   <div className="flex justify-end">
@@ -536,7 +614,9 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
           librarySearch={librarySearch}
           onLibrarySearchChange={setLibrarySearch}
           filteredLibrary={filteredLibrary}
+          filteredWebsites={filteredWebsites}
           onAddMedia={(mediaId) => void addMediaAtIndex(mediaId, items.length)}
+          onAddWebsite={(websiteId) => void addWebsiteAtIndex(websiteId, items.length)}
           ownerId={ownerId}
           readOnly={readOnly}
           storageFull={storageFull}

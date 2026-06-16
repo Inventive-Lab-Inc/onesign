@@ -6,6 +6,7 @@ import type {
   MediaGroup,
   Playlist,
   PlaylistGroup,
+  PlaylistItemWebsite,
   PlaylistItemWithMedia,
   Website,
 } from "@signage/types";
@@ -24,10 +25,13 @@ type RawPlaylistItemRow = {
   display_from: string | null;
   display_until: string | null;
   created_at: string;
-  media: PlaylistItemWithMedia["media"] | PlaylistItemWithMedia["media"][] | null;
+  daily_schedule_enabled?: boolean;
+  daily_schedule?: PlaylistItemWithMedia["daily_schedule"] | null;
+  media: NonNullable<PlaylistItemWithMedia["media"]> | NonNullable<PlaylistItemWithMedia["media"]>[] | null;
+  websites: PlaylistItemWebsite | PlaylistItemWebsite[] | null;
 };
 
-function mapPlaylistItemRow(row: RawPlaylistItemRow): PlaylistItemWithMedia | null {
+function mapMediaPlaylistItemRow(row: RawPlaylistItemRow): PlaylistItemWithMedia | null {
   if (!row.media_id) return null;
   const mediaField = row.media;
   const media = Array.isArray(mediaField) ? mediaField[0] : mediaField;
@@ -38,13 +42,40 @@ function mapPlaylistItemRow(row: RawPlaylistItemRow): PlaylistItemWithMedia | nu
     id: row.id,
     playlist_id: row.playlist_id,
     media_id: row.media_id,
-    website_id: row.website_id ?? null,
+    website_id: null,
     sort_order: row.sort_order,
     duration_seconds: row.duration_seconds,
     display_from: row.display_from,
     display_until: row.display_until,
     created_at: row.created_at,
+    daily_schedule_enabled: row.daily_schedule_enabled ?? false,
+    daily_schedule: row.daily_schedule ?? null,
     media,
+    website: null,
+  };
+}
+
+function mapWebsitePlaylistItemRow(row: RawPlaylistItemRow): PlaylistItemWithMedia | null {
+  if (!row.website_id) return null;
+  const websiteField = row.websites;
+  const website = Array.isArray(websiteField) ? websiteField[0] : websiteField;
+  if (!website) {
+    return null;
+  }
+  return {
+    id: row.id,
+    playlist_id: row.playlist_id,
+    media_id: null,
+    website_id: row.website_id,
+    sort_order: row.sort_order,
+    duration_seconds: row.duration_seconds,
+    display_from: row.display_from,
+    display_until: row.display_until,
+    created_at: row.created_at,
+    daily_schedule_enabled: row.daily_schedule_enabled ?? false,
+    daily_schedule: row.daily_schedule ?? null,
+    media: null,
+    website,
   };
 }
 
@@ -126,7 +157,7 @@ export async function pullConsoleData(supabase: SupabaseClient, userId: string):
     const { data: itemRows, error: itemsError } = await supabase
       .from("playlist_items")
       .select(
-        "id,playlist_id,media_id,website_id,sort_order,duration_seconds,display_from,display_until,created_at,media(*)",
+        "id,playlist_id,media_id,website_id,sort_order,duration_seconds,display_from,display_until,daily_schedule_enabled,daily_schedule,created_at,media(*),websites(*)",
       )
       .in("playlist_id", playlistIds)
       .order("sort_order", { ascending: true })
@@ -135,12 +166,11 @@ export async function pullConsoleData(supabase: SupabaseClient, userId: string):
     if (itemsError) throw itemsError;
     const rows = (itemRows as RawPlaylistItemRow[] | null) ?? [];
     for (const row of rows) {
+      const mapped = row.website_id ? mapWebsitePlaylistItemRow(row) : mapMediaPlaylistItemRow(row);
+      if (!mapped) continue;
       if (row.website_id) {
         websitePlaylistRefCounts[row.website_id] = (websitePlaylistRefCounts[row.website_id] ?? 0) + 1;
-        continue;
       }
-      const mapped = mapPlaylistItemRow(row);
-      if (!mapped) continue;
       const list = playlistItemsByPlaylistId[mapped.playlist_id] ?? [];
       list.push(mapped);
       playlistItemsByPlaylistId[mapped.playlist_id] = list;

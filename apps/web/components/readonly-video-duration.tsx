@@ -3,6 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { durationSecondsForStorage, probeVideoUrlDurationSeconds } from "@/lib/video-duration-probe";
+import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
 interface ReadonlyVideoDurationProps {
@@ -11,6 +12,7 @@ interface ReadonlyVideoDurationProps {
   fallbackProbeUrl?: string | null;
   /** Called once when duration is read from the file (e.g. to persist on media). */
   onProbedDuration?: (seconds: number) => void;
+  className?: string;
 }
 
 function secondsDisplay(duration: number): string {
@@ -23,6 +25,7 @@ export function ReadonlyVideoDuration({
   durationSeconds,
   fallbackProbeUrl,
   onProbedDuration,
+  className,
 }: ReadonlyVideoDurationProps) {
   const [probed, setProbed] = useState<number | null>(null);
   const [probing, setProbing] = useState(false);
@@ -85,7 +88,7 @@ export function ReadonlyVideoDuration({
         tabIndex={-1}
         value={valueText}
         placeholder={placeholder}
-        className="h-9 w-full min-w-0 cursor-default text-sm tabular-nums"
+        className={cn("h-9 w-full min-w-0 cursor-default text-sm tabular-nums", className)}
       />
     </div>
   );
