@@ -121,63 +121,67 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
   }
 
   return (
-    <div className="space-y-5">
-      <ListPageHeader
-        title="Websites"
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search websites"
-        sortOptions={SORT_OPTIONS}
-        activeSortId={websiteSort}
-        onSortChange={(id) => setWebsiteSort(id as WebsiteSort)}
-        primaryAction={
-          effectiveReadOnly ? undefined : (
-            <HeaderPrimaryButton type="button" onClick={() => setEditorOpen(true)}>
-              <Plus className="h-4 w-4" aria-hidden />
-              Add Website
-            </HeaderPrimaryButton>
-          )
-        }
-      />
+    <>
+      <div className="flex min-h-[min(70vh,720px)] flex-col rounded-xl border border-border bg-card shadow-sm">
+        <ListPageHeader
+          title="Websites"
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search websites"
+          sortOptions={SORT_OPTIONS}
+          activeSortId={websiteSort}
+          onSortChange={(id) => setWebsiteSort(id as WebsiteSort)}
+          primaryAction={
+            effectiveReadOnly ? undefined : (
+              <HeaderPrimaryButton type="button" onClick={() => setEditorOpen(true)}>
+                <Plus className="h-4 w-4" aria-hidden />
+                Add Website
+              </HeaderPrimaryButton>
+            )
+          }
+        />
 
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
-          <Globe className="mx-auto mb-3 h-8 w-8 text-muted-foreground" aria-hidden />
-          <p className="text-sm font-medium text-foreground">
-            {search.trim() ? "No websites match your search" : "No websites yet"}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {search.trim()
-              ? "Try a different search term."
-              : "Add a URL, paste HTML, or upload an HTML file to display on your screens."}
-          </p>
+        <div className="flex-1 p-4 sm:p-5">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
+              <Globe className="mb-3 h-8 w-8 text-muted-foreground" aria-hidden />
+              <p className="text-sm font-medium text-foreground">
+                {search.trim() ? "No websites match your search" : "No websites yet"}
+              </p>
+              <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+                {search.trim()
+                  ? "Try a different search term."
+                  : "Add a URL, paste HTML, or upload an HTML file to display on your screens."}
+              </p>
+            </div>
+          ) : (
+            <div className={WEBSITE_GRID}>
+              {filtered.map((website) => (
+                <article
+                  key={website.id}
+                  className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <Link href={websiteDetailPath(website.id, adminRoutes)} className="block">
+                    <div className="relative aspect-[16/10] overflow-hidden">
+                      <WebsitePreviewFrame website={website} className="h-full w-full" />
+                      <span className="absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-md bg-black/70 text-white">
+                        <Globe className="h-4 w-4" aria-hidden />
+                      </span>
+                    </div>
+                  </Link>
+                  <div className="flex items-start justify-between gap-2 px-3 py-3">
+                    <Link href={websiteDetailPath(website.id, adminRoutes)} className="min-w-0 flex-1">
+                      <h3 className="truncate text-sm font-semibold text-foreground">{website.name}</h3>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{formatWebsiteMeta(website)}</p>
+                    </Link>
+                    <ItemActionMenu ariaLabel={`Actions for ${website.name}`} items={buildMenu(website)} className="shrink-0" />
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className={WEBSITE_GRID}>
-          {filtered.map((website) => (
-            <article
-              key={website.id}
-              className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
-            >
-              <Link href={websiteDetailPath(website.id, adminRoutes)} className="block">
-                <div className="relative aspect-[16/10] overflow-hidden">
-                  <WebsitePreviewFrame website={website} className="h-full w-full" />
-                  <span className="absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-md bg-black/70 text-white">
-                    <Globe className="h-4 w-4" aria-hidden />
-                  </span>
-                </div>
-              </Link>
-              <div className="flex items-start justify-between gap-2 px-3 py-3">
-                <Link href={websiteDetailPath(website.id, adminRoutes)} className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-semibold text-foreground">{website.name}</h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{formatWebsiteMeta(website)}</p>
-                </Link>
-                <ItemActionMenu ariaLabel={`Actions for ${website.name}`} items={buildMenu(website)} className="shrink-0" />
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
+      </div>
 
       <WebsiteEditorDialog
         open={editorOpen}
@@ -228,6 +232,6 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
         onConfirm={confirmDelete}
         isConfirming={deleteInProgress}
       />
-    </div>
+    </>
   );
 }
