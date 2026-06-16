@@ -73,20 +73,31 @@ export function TopNavBar({ brand, navItems, bottomNavItem, pendingPath, centerN
   const measureIndicator = useCallback(() => {
     const nav = navRef.current;
     if (!nav || highlightIndex < 0) {
-      setIndicator(null);
+      setIndicator((prev) => (prev === null ? prev : null));
       return;
     }
     const link = linkRefs.current[highlightIndex];
     if (!link) {
-      setIndicator(null);
+      setIndicator((prev) => (prev === null ? prev : null));
       return;
     }
     const navRect = nav.getBoundingClientRect();
     const linkRect = link.getBoundingClientRect();
-    setIndicator({
+    const next = {
       left: linkRect.left - navRect.left + nav.scrollLeft,
       width: linkRect.width,
       height: linkRect.height,
+    };
+    setIndicator((prev) => {
+      if (
+        prev &&
+        prev.left === next.left &&
+        prev.width === next.width &&
+        prev.height === next.height
+      ) {
+        return prev;
+      }
+      return next;
     });
   }, [highlightIndex]);
 

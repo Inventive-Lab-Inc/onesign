@@ -53,7 +53,6 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
   const isSyncing = useConsoleDataStore((s) => s.isSyncing);
   const syncError = useConsoleDataStore((s) => s.syncError);
   const applySnapshot = useConsoleDataStore((s) => s.applySnapshot);
-  const setOwnerId = useConsoleDataStore((s) => s.setOwnerId);
   const setSyncing = useConsoleDataStore((s) => s.setSyncing);
   const setSyncError = useConsoleDataStore((s) => s.setSyncError);
 
@@ -97,18 +96,19 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
   useEffect(() => {
     if (!cacheReady) return;
 
+    const { setOwnerId: assignOwnerId } = useConsoleDataStore.getState();
     const state = useConsoleDataStore.getState();
     if (state.ownerId !== null && state.ownerId !== userId) {
       clearConsoleCachePersist();
     }
 
-    setOwnerId(userId);
+    assignOwnerId(userId);
 
     const after = useConsoleDataStore.getState();
     if (after.lastSyncedAt === null) {
       void syncNowRef.current();
     }
-  }, [cacheReady, userId, setOwnerId]);
+  }, [cacheReady, userId]);
 
   useEffect(() => {
     if (!cacheReady) return;
@@ -124,15 +124,20 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
    * much less often. Poll + Realtime keep the console cache aligned so badges do not flip
    * offline while a screen is still playing.
    */
+  const presenceUserIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!cacheReady || !userId) return;
 
+    presenceUserIdRef.current = userId;
     const supabase = getSupabaseBrowserClient();
     let cancelled = false;
 
     const refreshPresence = async () => {
+      const ownerId = presenceUserIdRef.current;
+      if (!ownerId || cancelled) return;
       try {
-        const rows = await fetchDevicePresence(supabase, userId);
+        const rows = await fetchDevicePresence(supabase, ownerId);
         if (!cancelled) applyDevicePresenceRows(rows);
       } catch (err) {
         console.warn("[ConsoleSyncProvider] device presence refresh failed:", err);
@@ -173,14 +178,11 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
           });
         },
       )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          void refreshPresence();
-        }
-      });
+      .subscribe();
 
     return () => {
       cancelled = true;
+      presenceUserIdRef.current = null;
       window.clearInterval(pollId);
       document.removeEventListener("visibilitychange", refreshOnFocus);
       window.removeEventListener("focus", refreshOnFocus);
