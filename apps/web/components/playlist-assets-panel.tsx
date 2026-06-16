@@ -2,7 +2,7 @@
 
 import type { Media, Website } from "@signage/types";
 import { Draggable, Droppable } from "@hello-pangea/dnd";
-import { FileImage, Globe, GripVertical, Plus, Search, Upload } from "lucide-react";
+import { FileImage, Globe, GripVertical, Images, Plus, Search, Upload } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,7 @@ export function PlaylistAssetsPanel({
   const activeDroppableId = libraryTab === "content" ? droppableId : `${droppableId}-websites`;
 
   return (
-    <aside className="w-full shrink-0 lg:w-[300px]">
+    <aside className="w-full min-w-0 shrink-0 lg:w-full">
       <input {...getInputProps()} />
       <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm dark:bg-card">
         <div className="border-b border-border bg-muted/30 px-4 py-3">
@@ -92,15 +92,15 @@ export function PlaylistAssetsPanel({
             {canUpload ? (
               <Button
                 type="button"
-                variant="outline"
                 size="sm"
-                className="h-8 w-8 shrink-0 p-0"
+                className="h-8 shrink-0 gap-1.5 bg-brand px-2.5 text-brand-contrast shadow-sm hover:bg-brand-hover"
                 disabled={uploading}
                 title="Upload files"
                 aria-label="Upload files"
                 onClick={() => open()}
               >
                 <Upload className="h-3.5 w-3.5" aria-hidden />
+                Upload
               </Button>
             ) : null}
           </div>
@@ -109,25 +109,27 @@ export function PlaylistAssetsPanel({
             <button
               type="button"
               className={cn(
-                "-mb-px border-b-2 pb-2 text-sm font-medium transition-colors",
+                "-mb-px inline-flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors",
                 libraryTab === "content"
                   ? "border-primary text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
               onClick={() => setLibraryTab("content")}
             >
+              <Images className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
               Content
             </button>
             <button
               type="button"
               className={cn(
-                "-mb-px border-b-2 pb-2 text-sm font-medium transition-colors",
+                "-mb-px inline-flex items-center gap-1.5 border-b-2 pb-2 text-sm font-medium transition-colors",
                 libraryTab === "websites"
                   ? "border-primary text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
               onClick={() => setLibraryTab("websites")}
             >
+              <Globe className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
               Websites
             </button>
           </div>

@@ -5,5 +5,5 @@ interface AdminPlaylistDetailRedirectProps {
 }
 
 export default function AdminPlaylistDetailRedirect({ params }: AdminPlaylistDetailRedirectProps) {
-  redirect(`/admin/clients/${params.userId}/devices`);
+  redirect(`/admin/clients/${params.userId}/screens`);
 }

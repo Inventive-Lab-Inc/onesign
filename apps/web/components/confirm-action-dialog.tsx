@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useId } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 
 interface ConfirmActionDialogProps {
   open: boolean;
   title: string;
   description: React.ReactNode;
   confirmLabel?: string;
+  confirmingLabel?: string;
+  confirmVariant?: ButtonProps["variant"];
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
   isConfirming?: boolean;
@@ -18,6 +20,8 @@ export function ConfirmActionDialog({
   title,
   description,
   confirmLabel = "Continue",
+  confirmingLabel = "Working…",
+  confirmVariant = "default",
   onClose,
   onConfirm,
   isConfirming = false,
@@ -61,8 +65,13 @@ export function ConfirmActionDialog({
           <Button type="button" variant="outline" onClick={onClose} disabled={isConfirming}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => void onConfirm()} disabled={isConfirming}>
-            {isConfirming ? "Moving…" : confirmLabel}
+          <Button
+            type="button"
+            variant={confirmVariant}
+            onClick={() => void onConfirm()}
+            disabled={isConfirming}
+          >
+            {isConfirming ? confirmingLabel : confirmLabel}
           </Button>
         </div>
       </div>

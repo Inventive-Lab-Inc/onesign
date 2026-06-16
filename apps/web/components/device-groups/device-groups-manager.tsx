@@ -11,11 +11,11 @@ import { ListPageHeader } from "@/components/console/list-page-header";
 import { ViewModeToggle } from "@/components/console/view-mode-toggle";
 import { DeviceGroupEditorDialog } from "@/components/device-groups/device-group-editor-dialog";
 import {
-  DeviceGroupFolderCardFromGroup,
-  DeviceGroupFolderListRowFromGroup,
-  GroupFolderCreateCard,
-  GroupFolderCreateListRow,
-} from "@/components/device-groups/device-group-folder-card";
+  DeviceGroupWallCardFromGroup,
+  DeviceGroupWallListRowFromGroup,
+  GroupWallCreateCard,
+  GroupWallCreateListRow,
+} from "@/components/device-groups/device-group-wall-card";
 import { Button } from "@/components/ui/button";
 import type { DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
 import { effectiveDeviceStatus } from "@/lib/device-status";
@@ -102,9 +102,9 @@ export function DeviceGroupsManager() {
             <p className="mt-1 max-w-sm text-xs text-muted-foreground">Try another search term.</p>
           </div>
         ) : view === "grid" ? (
-          <ul className="device-group-folder-grid grid grid-cols-2 items-stretch gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <ul className="device-group-wall-grid grid grid-cols-2 items-stretch gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {entries.map(({ group, deviceCount, onlineCount }) => (
-              <DeviceGroupFolderCardFromGroup
+              <DeviceGroupWallCardFromGroup
                 key={group.id}
                 group={group}
                 itemCount={deviceCount}
@@ -114,13 +114,13 @@ export function DeviceGroupsManager() {
               />
             ))}
             {!readOnly ? (
-              <GroupFolderCreateCard onClick={openCreateGroup} label="New group" hint="Organize screens" />
+              <GroupWallCreateCard onClick={openCreateGroup} label="New group" hint="Organize screens" />
             ) : null}
           </ul>
         ) : (
-          <ul className="device-group-folder-list rounded-lg border border-border bg-card shadow-sm">
+          <ul className="device-group-wall-list rounded-lg border border-border bg-card shadow-sm">
             {entries.map(({ group, deviceCount, onlineCount }) => (
-              <DeviceGroupFolderListRowFromGroup
+              <DeviceGroupWallListRowFromGroup
                 key={group.id}
                 group={group}
                 itemCount={deviceCount}
@@ -130,7 +130,7 @@ export function DeviceGroupsManager() {
               />
             ))}
             {!readOnly ? (
-              <GroupFolderCreateListRow onClick={openCreateGroup} label="New group" hint="Organize screens" />
+              <GroupWallCreateListRow onClick={openCreateGroup} label="New group" hint="Organize screens" />
             ) : null}
           </ul>
         )}

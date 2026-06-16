@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jwtAppMetadataFlag } from "@/lib/auth/jwt-app-metadata";
 import { getSupabaseConnectEnv } from "./env";
 
-const PROTECTED_PREFIXES = ["/devices", "/groups", "/playlists", "/content", "/media", "/dashboard", "/account", "/profile", "/download-app", "/settings", "/admin"];
+const PROTECTED_PREFIXES = ["/screens", "/devices", "/groups", "/playlists", "/content", "/media", "/dashboard", "/account", "/profile", "/download-app", "/settings", "/admin"];
 
 export function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(

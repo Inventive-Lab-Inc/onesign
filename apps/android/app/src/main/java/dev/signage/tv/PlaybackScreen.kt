@@ -549,7 +549,7 @@ private fun ImageSlide(
     content: @Composable (displayUrl: String) -> Unit,
 ) {
     val context = LocalContext.current
-    val dwellMs = (durationSeconds ?: 8).coerceIn(2, 120) * 1000L
+    val dwellMs = imageSlideDwellMs(durationSeconds, fadeInMillis)
     val loadRequest =
         remember(url, contentRevision) {
             ImageRequest.Builder(context)

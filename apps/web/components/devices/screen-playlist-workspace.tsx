@@ -4,9 +4,8 @@ import type { DropResult } from "@hello-pangea/dnd";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { Media, PlaylistItemWithMedia, Website } from "@signage/types";
 import { ArrowDown, Copy, Shuffle, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { ItemActionMenu } from "@/components/console/item-action-menu";
 import { PlaylistPreviewButton, type PlaylistPreviewFrameContext } from "@/components/playlist-preview";
 import { PlaylistAssetsPanel } from "@/components/playlist-assets-panel";
@@ -15,12 +14,7 @@ import { PlaylistItemPeriodicDialog } from "@/components/devices/playlist-item-p
 import { ScreenPlaylistItemCard } from "@/components/devices/screen-playlist-item-card";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { applyWebsiteSearchFilter } from "@/lib/website-display";
-import {
-  draftItemSnapshot,
-  persistPlaylistDraft,
-  toDraftItems,
-  type DraftPlaylistItem,
-} from "@/lib/persist-playlist-draft";
+import { draftItemSnapshot, toDraftItems, type DraftPlaylistItem } from "@/lib/persist-playlist-draft";
 import { buildPlaylistItemInsertRow, formatAbleSignPlaylistSummary } from "@/lib/playlist-timing";
 import { ensureMediaVideoDuration } from "@/lib/media";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -48,6 +42,7 @@ export function ScreenPlaylistWorkspace({
   onCopyToScreens,
   onOpenTransitions,
   otherDeviceCount = 0,
+  aside,
 }: {
   playlistName: string;
   screenTimezone?: string | null;
@@ -59,6 +54,7 @@ export function ScreenPlaylistWorkspace({
   onCopyToScreens?: () => void;
   onOpenTransitions?: () => void;
   otherDeviceCount?: number;
+  aside?: ReactNode;
 }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const { syncNow } = useConsoleSync();
@@ -81,17 +77,16 @@ export function ScreenPlaylistWorkspace({
   const [draftItems, setDraftItems] = useState<DraftPlaylistItem[]>(toDraftItems(cachedItems));
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryResetKey, setLibraryResetKey] = useState(0);
-  const [saving, setSaving] = useState(false);
   const [dailyTimesItem, setDailyTimesItem] = useState<DraftPlaylistItem | null>(null);
   const [periodicItem, setPeriodicItem] = useState<DraftPlaylistItem | null>(null);
 
-  const isDirty = useMemo(
+  const hasLocalEdits = useMemo(
     () => draftItemSnapshot(draftItems) !== draftItemSnapshot(toDraftItems(baselineItems)),
     [draftItems, baselineItems],
   );
 
   useEffect(() => {
-    if (isDirty) return;
+    if (hasLocalEdits) return;
     const fresh = playlistId
       ? (useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ??
         EMPTY_PLAYLIST_ITEMS)
@@ -100,7 +95,7 @@ export function ScreenPlaylistWorkspace({
     if (nextSnapshot === cachedSnapshot) return;
     setBaselineItems(fresh);
     setDraftItems(toDraftItems(fresh));
-  }, [playlistId, cachedSnapshot, isDirty]);
+  }, [playlistId, cachedSnapshot, hasLocalEdits]);
 
   const filteredLibrary = useMemo(() => {
     const q = librarySearch.trim().toLowerCase();
@@ -121,6 +116,18 @@ export function ScreenPlaylistWorkspace({
     setBaselineItems(fresh);
     setDraftItems(toDraftItems(fresh));
   }, [playlistId, syncNow]);
+
+  const applyPersistedItemPatch = useCallback(
+    (itemId: string, patch: Partial<PlaylistItemWithMedia>) => {
+      setDraftItems((current) =>
+        current.map((item) => (item.id === itemId ? { ...item, ...patch } : item)),
+      );
+      setBaselineItems((current) =>
+        current.map((item) => (item.id === itemId ? { ...item, ...patch } : item)),
+      );
+    },
+    [],
+  );
 
   const updateDraftItem = useCallback((draftKey: string, patch: Partial<DraftPlaylistItem>) => {
     setDraftItems((current) =>
@@ -353,11 +360,13 @@ export function ScreenPlaylistWorkspace({
         .eq("id", item.id);
       if (error) {
         toast.error(error.message);
+        await reloadFromServer();
         return;
       }
+      applyPersistedItemPatch(item.id, { duration_seconds: seconds });
       await syncNow();
     },
-    [draftItems, supabase, syncNow, updateDraftItem],
+    [draftItems, applyPersistedItemPatch, reloadFromServer, supabase, syncNow, updateDraftItem],
   );
 
   const onDragEnd = useCallback(
@@ -403,32 +412,6 @@ export function ScreenPlaylistWorkspace({
     },
     [addMediaAtIndex, addWebsiteAtIndex, draftItems, persistOrder],
   );
-
-  const saveChanges = useCallback(async () => {
-    if (!playlistId || !isDirty) return;
-    setSaving(true);
-    try {
-      const { error } = await persistPlaylistDraft(
-        supabase,
-        playlistId,
-        draftItems,
-        baselineItems,
-        allMedia,
-      );
-      if (error) {
-        toast.error(error);
-        return;
-      }
-      toast.success("Playlist saved");
-      await syncNow();
-      const fresh =
-        useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? cachedItems;
-      setBaselineItems(fresh);
-      setDraftItems(toDraftItems(fresh));
-    } finally {
-      setSaving(false);
-    }
-  }, [allMedia, baselineItems, draftItems, isDirty, playlistId, supabase, syncNow]);
 
   const handleClearPlaylist = useCallback(async () => {
     if (!playlistId) return;
@@ -490,26 +473,59 @@ export function ScreenPlaylistWorkspace({
   }
 
   if (!canManage) {
-    return (
-      <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm dark:bg-card">
-        <div className="border-b border-border bg-muted/30 px-4 py-4 sm:px-5">
-          <h2 className="text-lg font-semibold text-foreground">Playlist</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{summaryLabel}</p>
-        </div>
-        {draftItems.length > 0 ? (
-          <div className="px-4 py-4 sm:px-5">
-            <PlaylistPreviewButton items={draftItems} playlistName={playlistName} frame={previewFrame} />
+    const frozenPlaylist = (
+      <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm dark:bg-card">
+        <div className="border-b border-border bg-muted/30 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-foreground">Playlist</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">{summaryLabel}</p>
+            </div>
+            {draftItems.length > 0 ? (
+              <PlaylistPreviewButton items={draftItems} playlistName={playlistName} frame={previewFrame} />
+            ) : null}
           </div>
-        ) : null}
-      </section>
+        </div>
+        <div className="p-3 sm:p-4">
+          {draftItems.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-muted/15 px-4 py-12 text-center text-sm text-muted-foreground">
+              This playlist is empty.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {draftItems.map((item, index) => (
+                <ScreenPlaylistItemCard
+                  key={item.draftKey}
+                  item={item}
+                  index={index}
+                  menuItems={[]}
+                  readOnly
+                  onDurationChange={() => {}}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     );
+
+    if (aside) {
+      return (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.75fr)_minmax(300px,1fr)] lg:items-start lg:gap-6">
+          <div className="min-w-0">{frozenPlaylist}</div>
+          {aside}
+        </div>
+      );
+    }
+
+    return frozenPlaylist;
   }
 
   return (
     <>
       <DragDropContext onDragEnd={(result) => void onDragEnd(result)}>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-          <div className="min-w-0 flex-1">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.75fr)_minmax(300px,1fr)] lg:items-start lg:gap-6">
+          <div className="min-w-0">
             <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm dark:bg-card">
               <div className="border-b border-border bg-muted/30 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
@@ -523,14 +539,6 @@ export function ScreenPlaylistWorkspace({
                       playlistName={playlistName}
                       frame={previewFrame}
                     />
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={!isDirty || saving}
-                      onClick={() => void saveChanges()}
-                    >
-                      {saving ? "Saving…" : "Save Changes"}
-                    </Button>
                     <ItemActionMenu ariaLabel="Playlist actions" items={playlistMenuItems} />
                   </div>
                 </div>
@@ -599,7 +607,7 @@ export function ScreenPlaylistWorkspace({
         screenTimezone={screenTimezone}
         onSaved={(patch) => {
           if (!dailyTimesItem) return;
-          updateDraftItem(dailyTimesItem.draftKey, patch);
+          applyPersistedItemPatch(dailyTimesItem.id, patch);
         }}
       />
 
@@ -609,7 +617,7 @@ export function ScreenPlaylistWorkspace({
         item={periodicItem}
         onSaved={(patch) => {
           if (!periodicItem) return;
-          updateDraftItem(periodicItem.draftKey, patch);
+          applyPersistedItemPatch(periodicItem.id, patch);
         }}
       />
     </>

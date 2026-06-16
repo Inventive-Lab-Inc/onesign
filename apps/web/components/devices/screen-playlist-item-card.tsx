@@ -64,8 +64,67 @@ export function ScreenPlaylistItemCard({
   const kind = playlistItemKind(item);
   const isVideo = kind === "video";
 
+  const cardBody = (
+    <>
+      <ItemThumb item={item} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-foreground">{playlistItemTitle(item)}</p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">{formatPlaylistItemMeta(item)}</p>
+        <div className="mt-1 flex items-center gap-1 text-xs capitalize text-muted-foreground">
+          {kind === "video" ? (
+            <FileVideo className="h-3.5 w-3.5" />
+          ) : kind === "website" ? (
+            <Globe className="h-3.5 w-3.5" />
+          ) : null}
+          <span>{kind}</span>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-end gap-0.5">
+        {isVideo ? (
+          <div className="flex w-[5.5rem] flex-col items-center gap-1">
+            <span className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Duration
+            </span>
+            <div className="flex w-full items-center justify-end gap-1.5">
+              <ReadonlyVideoDuration
+                id={`duration-video-${item.draftKey}`}
+                durationSeconds={item.media!.duration_seconds}
+                fallbackProbeUrl={mediaPublicUrl(item.media!.storage_path)}
+                onProbedDuration={(sec) => onVideoDurationProbed?.(item.media!.id, sec)}
+                className="h-9 w-[3.25rem] px-1 text-center"
+              />
+              <span className="shrink-0 text-sm text-muted-foreground">Secs</span>
+            </div>
+          </div>
+        ) : (
+          <PlaylistDurationField
+            id={`duration-${item.draftKey}`}
+            seconds={item.duration_seconds}
+            disabled={readOnly}
+            onChange={(seconds) => onDurationChange(item.draftKey, seconds)}
+          />
+        )}
+        {!readOnly ? (
+          <ItemActionMenu
+            ariaLabel={`Actions for ${playlistItemTitle(item)}`}
+            items={menuItems}
+            className="mb-1.5"
+          />
+        ) : null}
+      </div>
+    </>
+  );
+
+  if (readOnly) {
+    return (
+      <div className="flex cursor-default items-stretch gap-3 rounded-xl border border-border bg-background p-3 shadow-sm">
+        {cardBody}
+      </div>
+    );
+  }
+
   return (
-    <Draggable draggableId={`pi-${item.draftKey}`} index={index} isDragDisabled={readOnly}>
+    <Draggable draggableId={`pi-${item.draftKey}`} index={index}>
       {(dragProvided, snapshot) => (
         <div
           ref={dragProvided.innerRef}
@@ -76,52 +135,7 @@ export function ScreenPlaylistItemCard({
             snapshot.isDragging && "ring-2 ring-brand-faint30",
           )}
         >
-          <ItemThumb item={item} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-foreground">{playlistItemTitle(item)}</p>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">{formatPlaylistItemMeta(item)}</p>
-            <div className="mt-1 flex items-center gap-1 text-xs capitalize text-muted-foreground">
-              {kind === "video" ? (
-                <FileVideo className="h-3.5 w-3.5" />
-              ) : kind === "website" ? (
-                <Globe className="h-3.5 w-3.5" />
-              ) : null}
-              <span>{kind}</span>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-end gap-0.5">
-            {isVideo ? (
-              <div className="flex w-[5.5rem] flex-col items-center gap-1">
-                <span className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                  Duration
-                </span>
-                <div className="flex w-full items-center justify-end gap-1.5">
-                  <ReadonlyVideoDuration
-                    id={`duration-video-${item.draftKey}`}
-                    durationSeconds={item.media!.duration_seconds}
-                    fallbackProbeUrl={mediaPublicUrl(item.media!.storage_path)}
-                    onProbedDuration={(sec) => onVideoDurationProbed?.(item.media!.id, sec)}
-                    className="h-9 w-[3.25rem] px-1 text-center"
-                  />
-                  <span className="shrink-0 text-sm text-muted-foreground">Secs</span>
-                </div>
-              </div>
-            ) : (
-              <PlaylistDurationField
-                id={`duration-${item.draftKey}`}
-                seconds={item.duration_seconds}
-                disabled={readOnly}
-                onChange={(seconds) => onDurationChange(item.draftKey, seconds)}
-              />
-            )}
-            {!readOnly ? (
-              <ItemActionMenu
-                ariaLabel={`Actions for ${playlistItemTitle(item)}`}
-                items={menuItems}
-                className="mb-1.5"
-              />
-            ) : null}
-          </div>
+          {cardBody}
         </div>
       )}
     </Draggable>

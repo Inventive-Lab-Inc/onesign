@@ -44,15 +44,17 @@ function ContentDetailPageContent() {
 
 export default function ContentDetailPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="space-y-4">
-          <div className="h-8 w-56 animate-pulse rounded-md bg-muted" />
-          <div className="h-64 animate-pulse rounded-xl bg-muted/60" />
-        </div>
-      }
-    >
-      <ContentDetailPageContent />
-    </Suspense>
+    <div className="mx-auto max-w-6xl pb-4">
+      <Suspense
+        fallback={
+          <div className="space-y-4">
+            <div className="h-8 w-56 animate-pulse rounded-md bg-muted" />
+            <div className="h-64 animate-pulse rounded-xl bg-muted/60" />
+          </div>
+        }
+      >
+        <ContentDetailPageContent />
+      </Suspense>
+    </div>
   );
 }

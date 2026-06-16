@@ -16,6 +16,7 @@ import {
 } from "@/lib/weekly-schedule";
 import { resolveDeviceScreenTimezone } from "@/lib/screen-timezone";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import { cn } from "@/lib/utils";
 
 export function DeviceOperatingHoursDialog({
   device,
@@ -144,15 +145,25 @@ export function DeviceOperatingHoursDialog({
 export function DeviceHoursButton({
   device,
   canEdit = true,
+  className,
+  variant = "outline",
 }: {
   device: Device;
   canEdit?: boolean;
+  className?: string;
+  variant?: "outline" | "ghost";
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant={variant}
+        size="sm"
+        className={cn("shrink-0 gap-1.5", className)}
+        onClick={() => setOpen(true)}
+      >
         <Clock className="h-4 w-4" strokeWidth={2} aria-hidden />
         Hours
       </Button>

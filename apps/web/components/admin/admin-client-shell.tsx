@@ -28,7 +28,7 @@ function AccountStatusBadge({ isDisabled }: { isDisabled: boolean }) {
 
 const NAV_ITEMS = [
   { segment: "overview", label: "Overview", icon: UserRound, match: (path: string, base: string) => path === base },
-  { segment: "devices", label: "Screens", icon: Monitor, match: (path: string, base: string) => path.startsWith(`${base}/devices`) },
+  { segment: "screens", label: "Screens", icon: Monitor, match: (path: string, base: string) => path.startsWith(`${base}/screens`) },
   { segment: "groups", label: "Groups", icon: Tv, match: (path: string, base: string) => path.startsWith(`${base}/groups`) },
   { segment: "content", label: "Content", icon: Layers, match: (path: string, base: string) => path.startsWith(`${base}/content`) || path.startsWith(`${base}/playlists`) || path.startsWith(`${base}/media`) },
   { segment: "audit", label: "Audit log", icon: ScrollText, match: (path: string, base: string) => path.startsWith(`${base}/audit`) },

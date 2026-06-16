@@ -118,7 +118,7 @@ export function DeviceGroupEditorDialog({
   async function saveGroup() {
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.error("Folder name is required.");
+      toast.error("Group name is required.");
       return;
     }
     setSaving(true);
@@ -157,7 +157,7 @@ export function DeviceGroupEditorDialog({
           }
           playlistId = ensured;
         }
-        toast.success(`Folder “${trimmed}” created`);
+        toast.success(`Group “${trimmed}” created`);
         useConsoleDataStore.setState((state) => ({
           deviceGroups: [
             ...state.deviceGroups.map((entry) => ({
@@ -200,6 +200,7 @@ export function DeviceGroupEditorDialog({
             supabase,
             ownerId,
             removedDevices,
+            group.playlist_id,
           );
           if (restoreError) {
             toast.error(restoreError);
@@ -227,7 +228,7 @@ export function DeviceGroupEditorDialog({
           patchStoreAfterDevicesMovedToGroup(group.id, toAdd, playlistId);
         }
 
-        toast.success("Folder updated");
+        toast.success("Group updated");
         useConsoleDataStore.setState((state) => ({
           deviceGroups: state.deviceGroups.map((entry) =>
             entry.id === group.id
@@ -260,7 +261,7 @@ export function DeviceGroupEditorDialog({
         toast.error(error.message);
         return;
       }
-      toast.success(`Folder “${group.name}” removed`);
+      toast.success(`Group “${group.name}” removed`);
       useConsoleDataStore.setState((state) => ({
         deviceGroups: state.deviceGroups.filter((entry) => entry.id !== group.id),
       }));
@@ -275,7 +276,7 @@ export function DeviceGroupEditorDialog({
 
   if (!open) return null;
 
-  const dialogTitle = mode === "create" ? "Create folder" : `Manage “${group?.name ?? "folder"}”`;
+  const dialogTitle = mode === "create" ? "Create group" : `Manage “${group?.name ?? "group"}”`;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -317,7 +318,7 @@ export function DeviceGroupEditorDialog({
 
           <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
             <div className="space-y-2">
-              <Label htmlFor="group-name">Folder name</Label>
+              <Label htmlFor="group-name">Group name</Label>
               <Input
                 id="group-name"
                 value={name}
@@ -349,7 +350,7 @@ export function DeviceGroupEditorDialog({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <Label>Screens in folder</Label>
+                <Label>Screens in group</Label>
                 <span className="text-xs tabular-nums text-muted-foreground">
                   {selectedDeviceIds.size} of {devices.length} selected
                 </span>
@@ -418,7 +419,7 @@ export function DeviceGroupEditorDialog({
                 onClick={() => void deleteGroup()}
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                {deleteInProgress ? "Deleting…" : "Delete folder"}
+                {deleteInProgress ? "Deleting…" : "Delete group"}
               </Button>
             ) : (
               <span />
@@ -428,7 +429,7 @@ export function DeviceGroupEditorDialog({
                 Cancel
               </Button>
               <Button type="button" onClick={() => void saveGroup()} disabled={saving || !name.trim()}>
-                {saving ? "Saving…" : mode === "create" ? "Create folder" : "Save changes"}
+                {saving ? "Saving…" : mode === "create" ? "Create group" : "Save changes"}
               </Button>
             </div>
           </footer>

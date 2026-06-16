@@ -213,7 +213,7 @@ export function DevicesManager() {
         }
         const { error: restoreError } = await restoreIndividualPlaylistsForDevices(supabase, ownerId, [
           device as DeviceWithAssignments,
-        ]);
+        ], activeGroup.playlist_id);
         if (restoreError) {
           toast.error(restoreError);
           return;

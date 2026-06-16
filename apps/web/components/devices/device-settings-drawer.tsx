@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { normalizeDeviceScreenOrientation } from "@/lib/device-screen-orientation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import { cn } from "@/lib/utils";
 
 export function DeviceSettingsDrawer({
   device,
@@ -139,15 +140,25 @@ export function DeviceSettingsDrawer({
 export function DeviceSettingsDrawerButton({
   device,
   canEdit = true,
+  className,
+  variant = "outline",
 }: {
   device: Device;
   canEdit?: boolean;
+  className?: string;
+  variant?: "outline" | "ghost";
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant={variant}
+        size="sm"
+        className={cn("shrink-0 gap-1.5", className)}
+        onClick={() => setOpen(true)}
+      >
         <Settings2 className="h-4 w-4" strokeWidth={2} aria-hidden />
         Settings
       </Button>

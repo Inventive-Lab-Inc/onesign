@@ -16,7 +16,7 @@ export default async function AccountPage() {
     "";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 py-1">
+    <div className="mx-auto max-w-6xl space-y-8 pb-4 py-1">
       <header className="account-page-header account-page-enter space-y-2 pb-3">
         <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-brand-strong">Console</p>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Account</h1>

@@ -165,16 +165,99 @@ export async function syncGroupPlaylistToMembers(
   return { playlistId, error };
 }
 
+export async function restoreIndividualPlaylistForDevice(
+  supabase: SupabaseClient,
+  ownerId: string,
+  device: DeviceWithAssignments,
+  groupPlaylistId?: string | null,
+): Promise<{ playlistId: string | null; error: string | null }> {
+  if (groupPlaylistId) {
+    const previousScreenPlaylist = (device.device_playlists ?? [])
+      .filter((row) => row.playlist_id !== groupPlaylistId)
+      .sort(
+        (a, b) =>
+          new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime(),
+      )[0];
+
+    if (previousScreenPlaylist) {
+      const assignError = await assignPlaylistToDevice(supabase, device.id, previousScreenPlaylist.playlist_id);
+      if (assignError) {
+        return { playlistId: null, error: assignError };
+      }
+      return { playlistId: previousScreenPlaylist.playlist_id, error: null };
+    }
+
+    const { data, error } = await supabase
+      .from("playlists")
+      .insert({ owner_id: ownerId, name: `${device.name} — screen` })
+      .select("id")
+      .single();
+
+    if (error || !data?.id) {
+      return { playlistId: null, error: error?.message ?? "Unable to create playlist" };
+    }
+
+    const assignError = await assignPlaylistToDevice(supabase, device.id, data.id);
+    if (assignError) {
+      return { playlistId: null, error: assignError };
+    }
+    return { playlistId: data.id, error: null };
+  }
+
+  const { playlistId, error } = await ensureActivePlaylistForDevice(supabase, ownerId, device);
+  return { playlistId, error };
+}
+
 export async function restoreIndividualPlaylistsForDevices(
   supabase: SupabaseClient,
   ownerId: string,
   devices: DeviceWithAssignments[],
+  groupPlaylistId?: string | null,
 ): Promise<{ error: string | null }> {
   for (const device of devices) {
-    const { error } = await ensureActivePlaylistForDevice(supabase, ownerId, device);
+    const { error } = await restoreIndividualPlaylistForDevice(supabase, ownerId, device, groupPlaylistId);
     if (error) {
       return { error };
     }
   }
+  return { error: null };
+}
+
+export async function removeDeviceFromGroup(
+  supabase: SupabaseClient,
+  ownerId: string,
+  group: Pick<DeviceGroupWithMembers, "id" | "name" | "playlist_id">,
+  device: DeviceWithAssignments,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from("device_group_members")
+    .delete()
+    .eq("group_id", group.id)
+    .eq("device_id", device.id);
+  if (error) {
+    return { error: error.message };
+  }
+
+  const { error: restoreError } = await restoreIndividualPlaylistForDevice(
+    supabase,
+    ownerId,
+    device,
+    group.playlist_id,
+  );
+  if (restoreError) {
+    return { error: restoreError };
+  }
+
+  useConsoleDataStore.setState((state) => ({
+    deviceGroups: state.deviceGroups.map((entry) =>
+      entry.id === group.id
+        ? {
+            ...entry,
+            member_device_ids: entry.member_device_ids.filter((id) => id !== device.id),
+          }
+        : entry,
+    ),
+  }));
+
   return { error: null };
 }

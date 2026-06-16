@@ -6,10 +6,15 @@ import { Camera, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { getDeviceDisplayDimensionsPx } from "@/components/device-telemetry-panel";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { effectiveDeviceStatus } from "@/lib/device-status";
 import { applyDevicePresenceRows, fetchDevicePresence } from "@/lib/device-presence";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
+import {
+  normalizeDeviceScreenOrientation,
+  resolvePreviewFrameDimensions,
+} from "@/lib/device-screen-orientation";
 import {
   deviceLiveScreenshotObjectPath,
   requestDeviceLiveScreenshot,
@@ -21,6 +26,32 @@ import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 
 const POLL_INTERVAL_MS = 2_000;
 const POLL_TIMEOUT_MS = 90_000;
+
+function DeviceOrientedScreenshot({
+  device,
+  src,
+  alt,
+}: {
+  device: Device;
+  src: string;
+  alt: string;
+}) {
+  const orientation = normalizeDeviceScreenOrientation(device.screen_orientation);
+  const frame = resolvePreviewFrameDimensions(getDeviceDisplayDimensionsPx(device), orientation);
+  const aspectRatioNumber = frame.aspectW / frame.aspectH;
+
+  return (
+    <div
+      className="relative mx-auto overflow-hidden rounded-lg border border-border bg-muted"
+      style={{
+        width: `min(100%, calc(min(70vh, 640px) * ${aspectRatioNumber}))`,
+        aspectRatio: `${frame.aspectW} / ${frame.aspectH}`,
+      }}
+    >
+      <Image src={src} alt={alt} fill className="object-contain" sizes="448px" unoptimized />
+    </div>
+  );
+}
 
 export function DeviceLiveScreenshotTab({ device: deviceProp }: { device: Device }) {
   useStaleOnlineTick();
@@ -152,8 +183,12 @@ export function DeviceLiveScreenshotTab({ device: deviceProp }: { device: Device
       {liveUrl ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Latest live capture</p>
-          <div className="relative aspect-[16/10] overflow-hidden rounded-lg border border-border bg-muted">
-            <Image src={liveUrl} alt="" fill className="object-cover" sizes="360px" unoptimized />
+          <div className="overflow-hidden">
+            <DeviceOrientedScreenshot
+              device={device}
+              src={liveUrl}
+              alt="Latest live screenshot from this screen"
+            />
           </div>
           {device.live_screenshot_at ? (
             <p className="text-xs tabular-nums text-muted-foreground">
@@ -170,8 +205,12 @@ export function DeviceLiveScreenshotTab({ device: deviceProp }: { device: Device
       {thumbnailUrl ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Console thumbnail</p>
-          <div className="relative aspect-[16/10] overflow-hidden rounded-lg border border-border bg-muted">
-            <Image src={thumbnailUrl} alt="" fill className="object-cover" sizes="360px" unoptimized />
+          <div className="overflow-hidden">
+            <DeviceOrientedScreenshot
+              device={device}
+              src={thumbnailUrl}
+              alt="Console thumbnail for this screen"
+            />
           </div>
           <p className="text-xs text-muted-foreground">
             Thumbnails customize how this screen appears in your list. They are separate from live captures.

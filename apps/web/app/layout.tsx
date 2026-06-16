@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { AppProviders } from "@/app/providers";
 import { getSupabaseConnectEnv } from "@/lib/supabase/env";
-import "@fontsource-variable/google-sans/wght.css";
+import "@fontsource-variable/inter/wght.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

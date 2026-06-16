@@ -1,10 +1,12 @@
 "use client";
 
-import type { DeviceStatus } from "@signage/types";
+import type { DeviceStatus, PlaylistItemWithMedia } from "@signage/types";
 import { ImageIcon, Loader2, Pencil, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { PlaylistItemPreviewStill } from "@/components/playlist-item-preview-still";
+import { firstPreviewablePlaylistItem } from "@/lib/playlist-preview-items";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import {
   DEVICE_THUMBNAIL_ACCEPT,
@@ -27,7 +29,7 @@ function statusLabel(status: DeviceStatus): string {
   }
 }
 
-function ScreenStatusBadge({ status }: { status: DeviceStatus }) {
+export function ScreenStatusBadge({ status }: { status: DeviceStatus }) {
   return (
     <span
       className={cn(
@@ -46,18 +48,20 @@ export function DeviceThumbnailPicker({
   deviceId,
   ownerId,
   thumbnailStoragePath,
-  status,
+  previewItems = [],
   canEdit = true,
   onUpdated,
   className,
+  showFormatHint = true,
 }: {
   deviceId: string;
   ownerId: string;
   thumbnailStoragePath?: string | null;
-  status: DeviceStatus;
+  previewItems?: PlaylistItemWithMedia[];
   canEdit?: boolean;
   onUpdated: (thumbnailStoragePath: string | null) => void;
   className?: string;
+  showFormatHint?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -108,6 +112,7 @@ export function DeviceThumbnailPicker({
   }, [busy, canEdit, deviceId, onUpdated, ownerId, thumbnailStoragePath]);
 
   const thumbnailUrl = thumbnailStoragePath ? mediaPublicUrl(thumbnailStoragePath) : null;
+  const fallbackPreviewItem = thumbnailUrl ? null : firstPreviewablePlaylistItem(previewItems);
 
   return (
     <div className={cn("flex w-full shrink-0 flex-col gap-2 sm:w-auto", className)}>
@@ -127,15 +132,13 @@ export function DeviceThumbnailPicker({
             sizes="144px"
             unoptimized
           />
+        ) : fallbackPreviewItem ? (
+          <PlaylistItemPreviewStill item={fallbackPreviewItem} fit="cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <ImageIcon className="h-10 w-10 text-muted-foreground/80" strokeWidth={1.25} aria-hidden />
           </div>
         )}
-
-        <div className="absolute left-2 top-2">
-          <ScreenStatusBadge status={status} />
-        </div>
 
         {canEdit ? (
           <>
@@ -183,7 +186,7 @@ export function DeviceThumbnailPicker({
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
           Remove thumbnail
         </button>
-      ) : canEdit ? (
+      ) : canEdit && showFormatHint ? (
         <p className="mx-auto max-w-[9rem] text-center text-[0.6875rem] leading-snug text-muted-foreground sm:mx-0 sm:text-left">
           JPEG, PNG, or WebP · up to 2 MB
         </p>

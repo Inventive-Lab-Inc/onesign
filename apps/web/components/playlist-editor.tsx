@@ -369,8 +369,8 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
 
   return (
     <DragDropContext onDragEnd={(r) => void onDragEnd(r)}>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-        <div className="min-w-0 flex-1 space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.75fr)_minmax(300px,1fr)] lg:items-start lg:gap-6">
+        <div className="min-w-0 space-y-4">
         <div className="space-y-4">
           {!isEditingName ? (
             <div className="flex max-w-full flex-wrap items-center gap-1.5">
@@ -460,7 +460,7 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:pt-0.5">
                   <PlaylistPreviewButton items={items} playlistName={isEditingName ? name : initialName} />
                   <Link
-                    href="/devices"
+                    href="/screens"
                     className={cn(buttonVariants({ size: "sm" }), "gap-2 font-semibold")}
                   >
                     <Monitor className="h-4 w-4" />

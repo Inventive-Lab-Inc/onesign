@@ -2,7 +2,7 @@
 <!--
   OneSign brand lockup - matches AuthBrandHeader (hero variant) on the login page.
   Tile: 4rem x 3.75rem, rx 0.5rem, gap 1rem, theme #047857, icon Lucide Tv @ 32px
-  Font: Google Sans Variable (same as app); falls back to system sans if unavailable.
+  Font: Inter Variable (same as app); falls back to system sans if unavailable.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="204" height="60" viewBox="0 0 204 60" fill="none" role="img" aria-label="OneSign Console">
   <!-- Brand mark tile -->
@@ -15,7 +15,7 @@
   </g>
 
   <!-- Wordmark (row layout, align-items: center, gap 1rem from tile) -->
-  <g font-family="'Google Sans Variable', 'Google Sans', ui-sans-serif, system-ui, sans-serif">
+  <g font-family="'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif">
     <text
       x="80"
       y="21.8"

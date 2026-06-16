@@ -71,6 +71,22 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      { source: "/devices", destination: "/screens", permanent: true },
+      { source: "/devices/:id", destination: "/screens/:id", permanent: true },
+      {
+        source: "/admin/clients/:userId/devices",
+        destination: "/admin/clients/:userId/screens",
+        permanent: true,
+      },
+      {
+        source: "/admin/clients/:userId/devices/:id",
+        destination: "/admin/clients/:userId/screens/:id",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

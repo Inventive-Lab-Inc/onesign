@@ -94,7 +94,7 @@ export function DeviceGroupsSidebar({
         </ul>
       ) : groups.length === 0 ? (
         <p className="mt-2 border-t border-border/70 px-2 pt-3 text-[0.6875rem] leading-relaxed text-muted-foreground">
-          Custom groups appear here once you create folders from the grid.
+          Custom groups appear here once you create them from the grid.
         </p>
       ) : null}
     </nav>

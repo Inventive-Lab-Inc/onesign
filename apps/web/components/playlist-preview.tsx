@@ -1,13 +1,19 @@
 "use client";
 
-import type { PlaylistItemWithMedia } from "@signage/types";
-import { ListVideo } from "lucide-react";
+import type { DeviceScreenOrientation, PlaylistItemWithMedia } from "@signage/types";
+import { Eye, ListVideo, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { WebsitePreviewFrame } from "@/components/websites/website-preview-frame";
 import { playbackScheduleIsActive } from "@/lib/media-schedule";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { playlistItemIsWebsite, playlistItemTitle } from "@/lib/playlist-item-display";
+import {
+  formatDeviceScreenOrientationSubtitle,
+  normalizeDeviceScreenOrientation,
+  orientationIsPortrait,
+  resolvePreviewFrameDimensions,
+} from "@/lib/device-screen-orientation";
 import { cn } from "@/lib/utils";
 
 function slideDurationSec(item: PlaylistItemWithMedia): number {
@@ -18,7 +24,12 @@ function playlistItemScheduleIsActive(item: PlaylistItemWithMedia, at: Date = ne
   if (playlistItemIsWebsite(item)) {
     return playbackScheduleIsActive(item.website!, at);
   }
-  return playbackScheduleIsActive(item.media!, at);
+  if (!item.media) return false;
+  return playbackScheduleIsActive(item.media, at);
+}
+
+function playlistItemIsPreviewable(item: PlaylistItemWithMedia): boolean {
+  return playlistItemIsWebsite(item) || item.media != null;
 }
 
 function PreviewSlide({
@@ -31,7 +42,10 @@ function PreviewSlide({
   onVideoDone: () => void;
 }) {
   const isWebsite = playlistItemIsWebsite(item);
-  const url = isWebsite ? null : mediaPublicUrl(item.media!.storage_path);
+  const media = item.media;
+  const fileType = media?.file_type;
+  const url = media?.storage_path ? mediaPublicUrl(media.storage_path) : null;
+  const isVideo = !isWebsite && fileType === "video";
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoDoneRef = useRef(false);
 
@@ -40,32 +54,31 @@ function PreviewSlide({
   }, [item.id, url]);
 
   useEffect(() => {
-    if (isWebsite || item.media!.file_type === "video") return;
+    if (isWebsite || isVideo || !url) return;
+    const ms = slideDurationSec(item) * 1000;
+    const id = window.setTimeout(onImageDone, ms);
+    return () => clearTimeout(id);
+  }, [isWebsite, isVideo, item, onImageDone, url]);
+
+  useEffect(() => {
+    if (!isWebsite) return;
     const ms = slideDurationSec(item) * 1000;
     const id = window.setTimeout(onImageDone, ms);
     return () => clearTimeout(id);
   }, [isWebsite, item, onImageDone]);
 
   useEffect(() => {
-    if (isWebsite) {
-      const ms = slideDurationSec(item) * 1000;
-      const id = window.setTimeout(onImageDone, ms);
-      return () => clearTimeout(id);
-    }
-  }, [isWebsite, item, onImageDone]);
-
-  useEffect(() => {
-    if (isWebsite || item.media!.file_type !== "video") return;
+    if (!isVideo || !url) return;
     const el = videoRef.current;
     if (!el) return;
     el.muted = true;
     el.playsInline = true;
-    el.src = url!;
+    el.src = url;
     void el.play().catch(() => {});
-  }, [isWebsite, item.media!.file_type, url]);
+  }, [isVideo, url]);
 
   useEffect(() => {
-    if (isWebsite || item.media!.file_type !== "video") return;
+    if (!isVideo || !url) return;
     const el = videoRef.current;
     if (!el) return;
 
@@ -77,7 +90,7 @@ function PreviewSlide({
 
     el.addEventListener("ended", finish);
     return () => el.removeEventListener("ended", finish);
-  }, [isWebsite, item.media!.file_type, onVideoDone, url]);
+  }, [isVideo, onVideoDone, url]);
 
   if (isWebsite) {
     return (
@@ -89,7 +102,15 @@ function PreviewSlide({
     );
   }
 
-  if (item.media!.file_type === "video") {
+  if (!media || !url) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-muted px-4 text-center text-sm text-muted-foreground">
+        Preview unavailable for this item.
+      </div>
+    );
+  }
+
+  if (isVideo) {
     return (
       <video
         ref={videoRef}
@@ -97,33 +118,48 @@ function PreviewSlide({
         muted
         playsInline
         preload="auto"
-        aria-label={`Preview: ${item.media!.original_filename ?? "video"}`}
+        aria-label={`Preview: ${media.original_filename ?? "video"}`}
       />
     );
   }
 
   return (
     // eslint-disable-next-line @next/next/no-img-element -- MinIO public URL
-    <img src={url!} alt="" className="h-full w-full object-contain bg-black" />
+    <img src={url} alt="" className="h-full w-full object-contain bg-black" />
   );
 }
 
 export type PlaylistPreviewFrameContext =
   /** Playlist-only editor — generic 16:9 frame. */
   | { kind: "playlist" }
-  /** Screen editor — match TV aspect ratio when telemetry includes display px. */
-  | { kind: "device"; displayPx: { widthPx: number; heightPx: number } | null };
+  /** Screen editor — match TV aspect ratio and configured orientation when available. */
+  | {
+      kind: "device";
+      displayPx: { widthPx: number; heightPx: number } | null;
+      orientation?: DeviceScreenOrientation;
+    };
 
 const GENERIC_ASPECT = { w: 16, h: 9 } as const;
 
-function frameDescription(ctx: PlaylistPreviewFrameContext, hasDisplay: boolean): string {
-  if (ctx.kind === "playlist") {
-    return "Frame is a generic 16:9 area; assign this playlist to a screen to preview in that display's aspect ratio.";
+function buildPreviewHelpText(
+  frame: PlaylistPreviewFrameContext,
+  orientation: DeviceScreenOrientation,
+  displayLabel: string | null,
+): string {
+  const timing = "Images use your durations; videos play in full.";
+  const nav = "Arrow keys to change slides.";
+
+  if (frame.kind === "playlist") {
+    return `Runs in playlist order. ${timing} Generic 16:9 frame. ${nav}`;
   }
-  if (hasDisplay) {
-    return "Frame aspect ratio matches the display size reported by the TV app (pixel width x height).";
+
+  const orient = formatDeviceScreenOrientationSubtitle(orientation).toLowerCase();
+  if (displayLabel) {
+    return `Runs in playlist order. ${timing} Frame matches this screen — ${orient}, ${displayLabel}. ${nav}`;
   }
-  return "Display size is not in telemetry yet — frame uses 16:9 until the TV app reports width and height.";
+
+  const ratio = orientationIsPortrait(orientation) ? "9:16" : "16:9";
+  return `Runs in playlist order. ${timing} ${ratio} frame (${orient}); display size not reported yet. ${nav}`;
 }
 
 export function PlaylistPreviewButton({
@@ -133,6 +169,8 @@ export function PlaylistPreviewButton({
   frame = { kind: "playlist" },
   /** Icon-only control (e.g. dashboard table); same preview modal as the default trigger. */
   iconOnly = false,
+  label = "Preview",
+  icon: TriggerIcon = ListVideo,
 }: {
   items: PlaylistItemWithMedia[];
   playlistName?: string | null;
@@ -140,13 +178,15 @@ export function PlaylistPreviewButton({
   /** Where the preview is opened from — device page uses TV-reported resolution when available. */
   frame?: PlaylistPreviewFrameContext;
   iconOnly?: boolean;
+  label?: string;
+  icon?: LucideIcon;
 }) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
   const [index, setIndex] = useState(0);
 
   const scheduledItems = useMemo(
-    () => items.filter((entry) => playlistItemScheduleIsActive(entry)),
+    () => items.filter((entry) => playlistItemIsPreviewable(entry) && playlistItemScheduleIsActive(entry)),
     [items],
   );
 
@@ -176,13 +216,20 @@ export function PlaylistPreviewButton({
   const slideLabel =
     scheduledItems.length > 0 ? `${index + 1} / ${scheduledItems.length}` : "";
 
+  const deviceOrientation =
+    frame.kind === "device"
+      ? normalizeDeviceScreenOrientation(frame.orientation)
+      : "landscape";
   const displayPx = frame.kind === "device" ? frame.displayPx : null;
-  const hasDeviceDisplay = displayPx != null;
-  const aspectW = hasDeviceDisplay ? displayPx.widthPx : GENERIC_ASPECT.w;
-  const aspectH = hasDeviceDisplay ? displayPx.heightPx : GENERIC_ASPECT.h;
+  const previewFrame =
+    frame.kind === "device"
+      ? resolvePreviewFrameDimensions(displayPx, deviceOrientation)
+      : { aspectW: GENERIC_ASPECT.w, aspectH: GENERIC_ASPECT.h, displayLabel: null };
+  const aspectW = previewFrame.aspectW;
+  const aspectH = previewFrame.aspectH;
   /** Width÷height — used so the frame fits inside the modal for both portrait and landscape TVs. */
   const aspectRatioNumber = aspectW / aspectH;
-  const frameCaption = frameDescription(frame, hasDeviceDisplay);
+  const previewHelpText = buildPreviewHelpText(frame, deviceOrientation, previewFrame.displayLabel);
 
   return (
     <>
@@ -200,14 +247,14 @@ export function PlaylistPreviewButton({
         disabled={empty}
         title={empty ? "Add clips to the playlist to preview" : iconOnly ? "Preview playlist" : undefined}
         onClick={() => setOpen(true)}
-        aria-label="Preview playlist"
+        aria-label={iconOnly ? "Preview playlist" : `${label} playlist`}
       >
-        <ListVideo
+        <TriggerIcon
           className={cn(iconOnly ? "h-[1.125rem] w-[1.125rem]" : "h-4 w-4")}
           strokeWidth={2}
           aria-hidden
         />
-        {!iconOnly ? "Preview" : null}
+        {!iconOnly ? label : null}
       </Button>
       {open && !empty && item ? (
         <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
@@ -232,15 +279,7 @@ export function PlaylistPreviewButton({
               </Button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Local preview using your playlist order and image durations (videos always play in full). Use arrow keys to change slides.
-              </p>
-              <p className="text-xs text-muted-foreground">{frameCaption}</p>
-              {hasDeviceDisplay ? (
-                <p className="text-xs font-medium tabular-nums text-foreground/90">
-                  {displayPx.widthPx} × {displayPx.heightPx} px
-                </p>
-              ) : null}
+              <p className="text-xs leading-relaxed text-muted-foreground">{previewHelpText}</p>
               <div className="flex w-full justify-center">
                 <div
                   className="mx-auto overflow-hidden rounded-lg border border-border bg-muted/20"

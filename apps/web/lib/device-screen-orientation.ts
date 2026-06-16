@@ -47,6 +47,37 @@ export function formatDeviceScreenOrientationSubtitle(orientation: DeviceScreenO
   }
 }
 
+export function orientationIsPortrait(orientation: DeviceScreenOrientation): boolean {
+  return orientation === "portrait" || orientation === "reverse_portrait";
+}
+
+/** Preview frame size: swaps telemetry px when panel orientation differs from configured screen orientation. */
+export function resolvePreviewFrameDimensions(
+  displayPx: { widthPx: number; heightPx: number } | null,
+  orientation: DeviceScreenOrientation = "landscape",
+): { aspectW: number; aspectH: number; displayLabel: string | null } {
+  const isPortrait = orientationIsPortrait(orientation);
+
+  if (displayPx) {
+    let { widthPx: width, heightPx: height } = displayPx;
+    const shouldSwap = (width > height) !== !isPortrait;
+    if (shouldSwap) {
+      [width, height] = [height, width];
+    }
+    return {
+      aspectW: width,
+      aspectH: height,
+      displayLabel: `${width} × ${height} px`,
+    };
+  }
+
+  return {
+    aspectW: isPortrait ? 9 : 16,
+    aspectH: isPortrait ? 16 : 9,
+    displayLabel: null,
+  };
+}
+
 export function defaultDeviceScreenOrientationFilters(): Set<DeviceScreenOrientation> {
   return new Set(DEVICE_SCREEN_ORIENTATIONS);
 }

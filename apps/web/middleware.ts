@@ -7,6 +7,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/screens/:path*",
     "/devices/:path*",
     "/groups/:path*",
     "/playlists/:path*",

@@ -1,17 +1,20 @@
 "use client";
 
-import type { Device, DeviceStatus } from "@signage/types";
+import type { Device, DeviceStatus, PlaylistItemWithMedia } from "@signage/types";
 import { FolderOutput, Settings, Trash2, Tv } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { deviceDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { ItemActionMenu } from "@/components/console/item-action-menu";
 import { DeviceDisabledBadge, deviceDisabledPresentation } from "@/components/device-disabled-notice";
+import { PlaylistItemPreviewStill } from "@/components/playlist-item-preview-still";
 import type { ActiveAppRelease } from "@/hooks/use-active-app-release";
 import type { DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
 import { resolveGroupColor } from "@/lib/device-group-colors";
+import { firstPreviewablePlaylistItem } from "@/lib/playlist-preview-items";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
+import { useConsoleDataStore } from "@/stores/console-data-store";
 import { cn } from "@/lib/utils";
 import "./device-screen-card.css";
 
@@ -67,6 +70,14 @@ export function DeviceScreenCard({
   const thumbnailUrl = device.thumbnail_storage_path
     ? mediaPublicUrl(device.thumbnail_storage_path)
     : null;
+  const activePlaylistId =
+    "device_playlists" in device
+      ? (device.device_playlists?.find((row) => row.is_active)?.playlist_id ?? null)
+      : null;
+  const playlistItems = useConsoleDataStore((s) =>
+    activePlaylistId ? (s.playlistItemsByPlaylistId[activePlaylistId] ?? []) : [],
+  ) as PlaylistItemWithMedia[];
+  const fallbackPreviewItem = thumbnailUrl ? null : firstPreviewablePlaylistItem(playlistItems);
 
   const groupMenuItems =
     onAddToFolder && folders.length > 0
@@ -101,6 +112,8 @@ export function DeviceScreenCard({
               sizes="(max-width: 640px) 50vw, 180px"
               unoptimized
             />
+          ) : fallbackPreviewItem ? (
+            <PlaylistItemPreviewStill item={fallbackPreviewItem} fit="cover" />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/50">
               <Tv className="h-7 w-7" strokeWidth={1.25} aria-hidden />

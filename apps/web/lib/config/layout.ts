@@ -11,16 +11,16 @@ export const layoutConfig: Omit<AppLayoutConfig, "getPageTitle"> = {
   navItems: [
     { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
     { path: "/content", label: "Content", icon: Layers },
-    { path: "/websites", label: "Websites", icon: Globe, end: true },
-    { path: "/devices", label: "Screens", icon: Monitor, end: true },
+    { path: "/screens", label: "Screens", icon: Monitor, end: true },
     { path: "/groups", label: "Groups", icon: Tv, end: true },
+    { path: "/websites", label: "Websites", icon: Globe, end: true },
   ],
 };
 
 export function getPageTitle(pathname: string): string {
   const titles: Record<string, string> = {
     "/dashboard": "Dashboard",
-    "/devices": "Screens",
+    "/screens": "Screens",
     "/groups": "Groups",
     "/content": "Content",
     "/websites": "Websites",
@@ -29,7 +29,7 @@ export function getPageTitle(pathname: string): string {
   };
   if (titles[pathname]) return titles[pathname];
   if (pathname.startsWith("/groups/")) return "Group";
-  if (pathname.startsWith("/devices/")) return "Screen";
+  if (pathname.startsWith("/screens/")) return "Screen";
   if (pathname.startsWith("/content/")) return "Content";
   if (pathname.startsWith("/websites/")) return "Website";
   return "App";

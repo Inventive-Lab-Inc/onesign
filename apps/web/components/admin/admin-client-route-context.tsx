@@ -35,8 +35,8 @@ export function AdminClientRouteProvider({
       clientId,
       basePath,
       overviewPath: basePath,
-      devicesPath: `${basePath}/devices`,
-      devicePath: (deviceId: string) => `${basePath}/devices/${deviceId}`,
+      devicesPath: `${basePath}/screens`,
+      devicePath: (deviceId: string) => `${basePath}/screens/${deviceId}`,
       groupsPath: `${basePath}/groups`,
       groupPath: (groupId: string) => `${basePath}/groups/${groupId}`,
       playlistsPath: `${basePath}/playlists`,
@@ -60,7 +60,7 @@ export function useAdminClientRoutes(): AdminClientRoutes | null {
 }
 
 export function devicesListPath(adminRoutes: AdminClientRoutes | null, groupId?: string | null): string {
-  const base = adminRoutes?.devicesPath ?? "/devices";
+  const base = adminRoutes?.devicesPath ?? "/screens";
   if (!groupId || groupId === "all") return base;
   return `${base}?group=${encodeURIComponent(groupId)}`;
 }
@@ -78,7 +78,7 @@ export function deviceDetailPath(
   adminRoutes: AdminClientRoutes | null,
   groupId?: string | null,
 ): string {
-  const base = adminRoutes?.devicePath(deviceId) ?? `/devices/${deviceId}`;
+  const base = adminRoutes?.devicePath(deviceId) ?? `/screens/${deviceId}`;
   if (!groupId || groupId === "all") return base;
   return `${base}?group=${encodeURIComponent(groupId)}`;
 }

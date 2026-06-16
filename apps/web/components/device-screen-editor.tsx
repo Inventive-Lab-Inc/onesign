@@ -2,12 +2,11 @@
 
 import type { PlaylistTransitionStyle, PlaylistItemWithMedia } from "@signage/types";
 import { Info } from "lucide-react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BackNavLink } from "@/components/back-nav-link";
-import { devicesListPath, groupDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { devicesListPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import type { DeviceWithAssignments } from "@/lib/console-sync";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
@@ -19,6 +18,7 @@ import { DeviceDetailsDrawer } from "@/components/devices/device-details-drawer"
 import { DeviceSettingsDrawerButton } from "@/components/devices/device-settings-drawer";
 import { DeviceHoursButton } from "@/components/devices/device-operating-hours-dialog";
 import { DeviceScreenOrientationIcon } from "@/components/devices/device-screen-orientation-icon";
+import { ScreenGroupMemberPanel } from "@/components/devices/screen-group-member-panel";
 import { ScreenPlaylistWorkspace } from "@/components/devices/screen-playlist-workspace";
 import {
   deviceScreenBasics,
@@ -28,11 +28,12 @@ import { DeviceAppUpdateNotice, DeviceAppVersionChip } from "@/components/device
 import { DeviceMediaCacheChip } from "@/components/device-media-cache-chip";
 import { useActiveAppRelease } from "@/hooks/use-active-app-release";
 import { CopyPlaylistToScreensDialog } from "@/components/devices/copy-playlist-to-screens-dialog";
-import { DeviceThumbnailPicker } from "@/components/devices/device-thumbnail-picker";
+import { DeviceThumbnailPicker, ScreenStatusBadge } from "@/components/devices/device-thumbnail-picker";
 import { PlaylistTransitionsDialog } from "@/components/devices/playlist-transitions-dialog";
 import { copyPlaylistToDevices } from "@/lib/copy-device-playlist";
 import { isStorageFull } from "@/lib/plan-quota";
 import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
+import { findGroupContainingDevice } from "@/lib/group-playlist";
 import { ensureActivePlaylistForDevice } from "@/lib/screen-playlist";
 import { resolveDeviceScreenTimezone } from "@/lib/screen-timezone";
 import { detectBrowserTimezone } from "@/lib/weekly-schedule";
@@ -44,8 +45,33 @@ import { DevicePlaybackToggle } from "@/components/device-playback-toggle";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDevice } from "@/hooks/use-console-device";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
+
+function ScreenMetaChip({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <span
+      role="listitem"
+      className={cn(
+        "inline-flex max-w-full items-center gap-1 rounded-full border border-border/80 bg-muted/35 px-2.5 py-0.5 text-[0.6875rem] leading-tight",
+        className,
+      )}
+    >
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className="min-w-0 truncate font-medium text-foreground">{value}</span>
+    </span>
+  );
+}
 
 interface DeviceScreenEditorProps {
   deviceId: string;
@@ -128,12 +154,19 @@ export function DeviceScreenEditor({
 
   useEffect(() => {
     if (!device || !canManageTvPlaylist || activePlaylistId) return;
+    if (findGroupContainingDevice(deviceGroups, device.id)) return;
     void (async () => {
       const { error } = await ensureActivePlaylistForDevice(supabase, ownerId, device);
       if (error) toast.error(error);
       else await reloadFromServer();
     })();
-  }, [activePlaylistId, canManageTvPlaylist, device, ownerId, reloadFromServer, supabase]);
+  }, [activePlaylistId, canManageTvPlaylist, device, deviceGroups, ownerId, reloadFromServer, supabase]);
+
+  const memberGroup = useMemo(
+    () => findGroupContainingDevice(deviceGroups, deviceId),
+    [deviceGroups, deviceId],
+  );
+  const canEditScreenPlaylist = canManageTvPlaylist && memberGroup == null;
 
   const otherDevices = useMemo(
     () => storeDevices.filter((entry) => entry.id !== deviceId),
@@ -192,11 +225,6 @@ export function DeviceScreenEditor({
     return active?.updated_at ?? null;
   }, [device?.device_playlists]);
 
-  const sharedGroupPlaylist = useMemo(() => {
-    if (!activePlaylistId) return null;
-    return deviceGroups.find((group) => group.playlist_id === activePlaylistId) ?? null;
-  }, [activePlaylistId, deviceGroups]);
-
   const screenTimezone = useMemo(
     () => (device ? resolveDeviceScreenTimezone(device) : detectBrowserTimezone()),
     [device],
@@ -243,27 +271,15 @@ export function DeviceScreenEditor({
         />
       ) : null}
 
-      {sharedGroupPlaylist ? (
-        <div className="rounded-xl border border-brand/25 bg-brand-soft/40 px-4 py-3 text-sm text-foreground">
-          This screen plays the shared playlist for group{" "}
-          <Link
-            href={groupDetailPath(sharedGroupPlaylist.id, adminRoutes)}
-            className="font-semibold text-brand-badge underline-offset-2 hover:underline dark:text-brand-onDarkSoft"
-          >
-            {sharedGroupPlaylist.name}
-          </Link>
-          . Changes here apply to all screens in that group.
-        </div>
-      ) : null}
-
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-6">
           <DeviceThumbnailPicker
             deviceId={device.id}
             ownerId={ownerId}
             thumbnailStoragePath={device.thumbnail_storage_path}
-            status={effectiveDeviceStatus(device)}
+            previewItems={cachedItems}
             canEdit={canManageTvPlaylist}
+            showFormatHint={false}
             onUpdated={(thumbnailStoragePath) =>
               patchDevice(device.id, { thumbnail_storage_path: thumbnailStoragePath })
             }
@@ -271,82 +287,59 @@ export function DeviceScreenEditor({
 
           <div className="min-w-0 flex-1 space-y-3">
             <div className="space-y-1">
-              <h1 className="min-w-0 w-fit max-w-full text-balance text-2xl font-semibold tracking-tight text-foreground leading-snug">
+              <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight text-foreground leading-snug">
                 <span className="break-words [overflow-wrap:anywhere]">{device.name}</span>
+                <ScreenStatusBadge status={effectiveDeviceStatus(device)} />
               </h1>
               {device.description ? (
-                <p className="max-w-2xl text-sm text-muted-foreground">{device.description}</p>
+                <p className="text-sm text-muted-foreground">{device.description}</p>
               ) : null}
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span>{formatDeviceLastSeen(device.last_seen)}</span>
-              <button
-                type="button"
-                onClick={() => setDetailsOpen(true)}
-                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-              >
-                <Info className="h-3.5 w-3.5" aria-hidden />
-                Details
-              </button>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              {formatDeviceLastSeen(device.last_seen)}
+              <span className="mx-2 text-border" aria-hidden>
+                ·
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <DeviceScreenOrientationIcon orientation={screenOrientation} className="h-3.5 w-3.5" />
+                {formatDeviceScreenOrientationSubtitle(screenOrientation)}
+              </span>
+            </p>
 
-            <div className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-              <DeviceScreenOrientationIcon orientation={screenOrientation} className="h-4 w-4" />
-              <span>{formatDeviceScreenOrientationSubtitle(screenOrientation)}</span>
-            </div>
-
-            <div className="space-y-1">
-              <div
-                className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 overflow-x-auto py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                role="list"
-                aria-label="Device status"
-              >
-                <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} />
-                <DeviceMediaCacheChip device={device} />
-              </div>
-              {(screenHardwareBasics.brand || screenHardwareBasics.model || screenHardwareBasics.screenSize) && (
-                <div
-                  className="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 overflow-x-auto py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                  role="list"
-                  aria-label="Device hardware from TV telemetry"
-                >
-                  {screenHardwareBasics.brand ? (
-                    <span
-                      role="listitem"
-                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/80 bg-muted/35 px-2.5 py-0.5 text-[0.6875rem] leading-tight"
-                    >
-                      <span className="shrink-0 text-muted-foreground">Brand</span>
-                      <span className="min-w-0 truncate font-medium text-foreground">{screenHardwareBasics.brand}</span>
-                    </span>
-                  ) : null}
-                  {screenHardwareBasics.model ? (
-                    <span
-                      role="listitem"
-                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/80 bg-muted/35 px-2.5 py-0.5 text-[0.6875rem] leading-tight"
-                    >
-                      <span className="shrink-0 text-muted-foreground">Model</span>
-                      <span className="min-w-0 truncate font-medium text-foreground">{screenHardwareBasics.model}</span>
-                    </span>
-                  ) : null}
-                  {screenHardwareBasics.screenSize ? (
-                    <span
-                      role="listitem"
-                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/80 bg-muted/35 px-2.5 py-0.5 text-[0.6875rem] leading-tight tabular-nums"
-                    >
-                      <span className="shrink-0 text-muted-foreground">Screen</span>
-                      <span className="min-w-0 truncate font-medium text-foreground">{screenHardwareBasics.screenSize}</span>
-                    </span>
-                  ) : null}
-                </div>
-              )}
+            <div className="flex flex-wrap items-center gap-1.5" role="list" aria-label="Screen telemetry">
+              <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} />
+              <DeviceMediaCacheChip device={device} />
+              {screenHardwareBasics.brand ? <ScreenMetaChip label="Brand" value={screenHardwareBasics.brand} /> : null}
+              {screenHardwareBasics.model ? <ScreenMetaChip label="Model" value={screenHardwareBasics.model} /> : null}
+              {screenHardwareBasics.screenSize ? (
+                <ScreenMetaChip label="Screen" value={screenHardwareBasics.screenSize} className="tabular-nums" />
+              ) : null}
             </div>
           </div>
 
-          <div className="flex w-full shrink-0 flex-wrap justify-start gap-2 border-t border-border pt-6 lg:w-auto lg:self-center lg:justify-end lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+          <div
+            role="toolbar"
+            aria-label="Screen actions"
+            className="flex shrink-0 flex-wrap items-center justify-start gap-2 border-t border-border pt-4 lg:w-auto lg:justify-end lg:self-center lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"
+          >
             {canControlPlayback ? <DevicePlaybackToggle device={device} /> : null}
-            {canManageTvPlaylist ? <DeviceHoursButton device={device} canEdit={canManageTvPlaylist} /> : null}
-            <DeviceSettingsDrawerButton device={device} canEdit={canManageTvPlaylist} />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5"
+              onClick={() => setDetailsOpen(true)}
+            >
+              <Info className="h-4 w-4" aria-hidden />
+              Details
+            </Button>
+            {canManageTvPlaylist ? (
+              <>
+                <DeviceHoursButton device={device} canEdit={canManageTvPlaylist} />
+                <DeviceSettingsDrawerButton device={device} canEdit={canManageTvPlaylist} />
+              </>
+            ) : null}
           </div>
         </div>
       </div>
@@ -359,14 +352,26 @@ export function DeviceScreenEditor({
           screenTimezone={screenTimezone}
           ownerId={ownerId}
           playlistId={playlistId}
-          canManage={canManageTvPlaylist}
+          canManage={canEditScreenPlaylist}
           storageFull={storageFull}
-          previewFrame={{ kind: "device", displayPx: deviceDisplayPxForPreview }}
-          onCopyToScreens={() => setCopyDialogOpen(true)}
-          onOpenTransitions={() => setTransitionsDialogOpen(true)}
+          previewFrame={{ kind: "device", displayPx: deviceDisplayPxForPreview, orientation: screenOrientation }}
+          onCopyToScreens={canEditScreenPlaylist ? () => setCopyDialogOpen(true) : undefined}
+          onOpenTransitions={canEditScreenPlaylist ? () => setTransitionsDialogOpen(true) : undefined}
           otherDeviceCount={otherDevices.length}
+          aside={
+            memberGroup ? (
+              <ScreenGroupMemberPanel
+                groupId={memberGroup.id}
+                groupName={memberGroup.name}
+                groupPlaylistId={memberGroup.playlist_id}
+                device={device}
+                ownerId={ownerId}
+                canRemove={canManageTvPlaylist}
+              />
+            ) : undefined
+          }
         />
-      ) : canManageTvPlaylist ? (
+      ) : canManageTvPlaylist && !memberGroup ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/15 px-4 py-12 text-center text-sm text-muted-foreground">
           Preparing playlist for this screen…
         </div>

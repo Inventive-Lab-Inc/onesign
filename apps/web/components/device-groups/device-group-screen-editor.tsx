@@ -1,7 +1,7 @@
 "use client";
 
 import type { PlaylistTransitionStyle } from "@signage/types";
-import { Plus, Settings2, Tv } from "lucide-react";
+import { AlertTriangle, Plus, Settings2, Tv } from "lucide-react";
 import { notFound } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -189,15 +189,31 @@ export function DeviceGroupScreenEditor({
       </div>
 
       {playlistId ? (
-        <ScreenPlaylistWorkspace
-          playlistName={group.name}
-          ownerId={ownerId}
-          playlistId={playlistId}
-          canManage={canManagePlaylist}
-          storageFull={storageFull}
-          previewFrame={{ kind: "playlist" }}
-          onOpenTransitions={() => setTransitionsDialogOpen(true)}
-        />
+        <div className="space-y-3">
+          {memberDevices.length > 0 ? (
+            <div
+              role="status"
+              className="flex items-start gap-3 rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-500/20 via-amber-400/10 to-orange-500/15 px-4 py-3.5 text-sm text-amber-950 shadow-sm dark:border-amber-400/40 dark:from-amber-500/25 dark:via-amber-500/12 dark:to-orange-500/15 dark:text-amber-50"
+            >
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+              <p className="leading-relaxed">
+                This is the shared playlist for group{" "}
+                <span className="font-semibold text-amber-900 dark:text-amber-100">{group.name}</span>. Changes here
+                apply to all screens in that group.
+              </p>
+            </div>
+          ) : null}
+
+          <ScreenPlaylistWorkspace
+            playlistName={group.name}
+            ownerId={ownerId}
+            playlistId={playlistId}
+            canManage={canManagePlaylist}
+            storageFull={storageFull}
+            previewFrame={{ kind: "playlist" }}
+            onOpenTransitions={() => setTransitionsDialogOpen(true)}
+          />
+        </div>
       ) : canManagePlaylist ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/15 px-4 py-12 text-center text-sm text-muted-foreground">
           Preparing group playlist…
