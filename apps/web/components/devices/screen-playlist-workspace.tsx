@@ -62,6 +62,7 @@ export function ScreenPlaylistWorkspace({
 }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const { syncNow } = useConsoleSync();
+  const patchMedia = useConsoleDataStore((s) => s.patchMedia);
   const allMedia = useConsoleDataStore((s) => s.media) as Media[];
   const allWebsites = useConsoleDataStore((s) => s.websites) as Website[];
 
@@ -95,12 +96,11 @@ export function ScreenPlaylistWorkspace({
       ? (useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ??
         EMPTY_PLAYLIST_ITEMS)
       : EMPTY_PLAYLIST_ITEMS;
-    const incomingSnapshot = draftItemSnapshot(toDraftItems(fresh));
-    const baselineSnapshot = draftItemSnapshot(toDraftItems(baselineItems));
-    if (incomingSnapshot === baselineSnapshot) return;
+    const nextSnapshot = draftItemSnapshot(toDraftItems(fresh));
+    if (nextSnapshot === cachedSnapshot) return;
     setBaselineItems(fresh);
     setDraftItems(toDraftItems(fresh));
-  }, [playlistId, cachedSnapshot, isDirty, baselineItems]);
+  }, [playlistId, cachedSnapshot, isDirty]);
 
   const filteredLibrary = useMemo(() => {
     const q = librarySearch.trim().toLowerCase();
@@ -117,7 +117,7 @@ export function ScreenPlaylistWorkspace({
 
   const reloadFromServer = useCallback(async () => {
     await syncNow();
-    const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? [];
+    const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? EMPTY_PLAYLIST_ITEMS;
     setBaselineItems(fresh);
     setDraftItems(toDraftItems(fresh));
   }, [playlistId, syncNow]);
@@ -127,6 +127,45 @@ export function ScreenPlaylistWorkspace({
       current.map((item) => (item.draftKey === draftKey ? { ...item, ...patch } : item)),
     );
   }, []);
+
+  const handleVideoDurationProbed = useCallback(
+    async (mediaId: string, seconds: number) => {
+      const existing = allMedia.find((row) => row.id === mediaId);
+      if (
+        existing?.duration_seconds != null &&
+        Number.isFinite(existing.duration_seconds) &&
+        existing.duration_seconds >= seconds
+      ) {
+        return;
+      }
+
+      const { error } = await supabase
+        .from("media")
+        .update({ duration_seconds: seconds })
+        .eq("id", mediaId);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      patchMedia(mediaId, { duration_seconds: seconds });
+      setDraftItems((current) =>
+        current.map((item) =>
+          item.media_id === mediaId && item.media
+            ? { ...item, media: { ...item.media, duration_seconds: seconds } }
+            : item,
+        ),
+      );
+      setBaselineItems((current) =>
+        current.map((item) =>
+          item.media_id === mediaId && item.media
+            ? { ...item, media: { ...item.media, duration_seconds: seconds } }
+            : item,
+        ),
+      );
+    },
+    [allMedia, patchMedia, supabase],
+  );
 
   const persistOrder = useCallback(
     async (next: DraftPlaylistItem[]) => {
@@ -214,7 +253,7 @@ export function ScreenPlaylistWorkspace({
 
       await reloadFromServer();
       const fresh = toDraftItems(
-        useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? [],
+        useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? EMPTY_PLAYLIST_ITEMS,
       );
       await persistOrder(fresh);
     },
@@ -261,7 +300,7 @@ export function ScreenPlaylistWorkspace({
         return;
       }
       await reloadFromServer();
-      const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? [];
+      const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? EMPTY_PLAYLIST_ITEMS;
       const fromIndex = fresh.findIndex((item) => item.id === row.id);
       if (fromIndex < 0) return;
       if (fromIndex !== destIndex) {
@@ -291,7 +330,7 @@ export function ScreenPlaylistWorkspace({
         return;
       }
       await reloadFromServer();
-      const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? [];
+      const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? EMPTY_PLAYLIST_ITEMS;
       const fromIndex = fresh.findIndex((item) => item.id === row.id);
       if (fromIndex < 0) return;
       if (fromIndex !== destIndex) {
@@ -524,10 +563,9 @@ export function ScreenPlaylistWorkspace({
                             onDurationChange={(draftKey, seconds) =>
                               void handleDurationChange(draftKey, seconds)
                             }
-                            onVideoDurationProbed={async (mediaId, seconds) => {
-                              await supabase.from("media").update({ duration_seconds: seconds }).eq("id", mediaId);
-                              await syncNow();
-                            }}
+                            onVideoDurationProbed={(mediaId, seconds) =>
+                              void handleVideoDurationProbed(mediaId, seconds)
+                            }
                           />
                         ))
                       )}

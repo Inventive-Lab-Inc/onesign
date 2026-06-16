@@ -15,6 +15,7 @@ import {
   requestDeviceLiveScreenshot,
 } from "@/lib/upload-device-live-screenshot";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useConsoleDevice } from "@/hooks/use-console-device";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 
@@ -24,8 +25,8 @@ const POLL_TIMEOUT_MS = 90_000;
 export function DeviceLiveScreenshotTab({ device: deviceProp }: { device: Device }) {
   useStaleOnlineTick();
 
-  const device =
-    useConsoleDataStore((s) => s.devices.find((entry) => entry.id === deviceProp.id) ?? deviceProp);
+  const deviceFromStore = useConsoleDevice(deviceProp.id);
+  const device = deviceFromStore ?? deviceProp;
   const ownerId = useConsoleOwnerId() ?? device.owner_id;
   const patchDevice = useConsoleDataStore((s) => s.patchDevice);
   const [requesting, setRequesting] = useState(false);

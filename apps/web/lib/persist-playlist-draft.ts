@@ -18,6 +18,7 @@ export function draftItemSnapshot(items: DraftPlaylistItem[]): string {
       index,
       media_id: item.media_id,
       website_id: item.website_id,
+      media_duration_seconds: item.media?.duration_seconds ?? null,
       duration_seconds: item.duration_seconds,
       display_from: item.display_from,
       display_until: item.display_until,

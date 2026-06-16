@@ -7,7 +7,7 @@ import { DeviceLiveScreenshotTab as ScreenshotsTab } from "@/components/devices/
 import { DeviceTelemetryPanelContent } from "@/components/device-telemetry-panel";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { buildDeviceHistoryEvents, buildDeviceInformationRows } from "@/lib/device-information";
-import { useConsoleDataStore } from "@/stores/console-data-store";
+import { useConsoleDevice } from "@/hooks/use-console-device";
 import { cn } from "@/lib/utils";
 
 type DetailsTab = "information" | "history" | "screenshots";
@@ -69,8 +69,8 @@ export function DeviceDetailsDrawer({
 }) {
   useStaleOnlineTick();
 
-  const device =
-    useConsoleDataStore((s) => s.devices.find((entry) => entry.id === deviceProp.id) ?? deviceProp);
+  const deviceFromStore = useConsoleDevice(deviceProp.id);
+  const device = deviceFromStore ?? deviceProp;
   const [tab, setTab] = useState<DetailsTab>("information");
   const infoRows = useMemo(
     () => buildDeviceInformationRows(device, { lastPlaylistChangeAt }),

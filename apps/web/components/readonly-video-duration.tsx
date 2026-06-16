@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { durationSecondsForStorage, probeVideoUrlDurationSeconds } from "@/lib/video-duration-probe";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface ReadonlyVideoDurationProps {
   id: string;
@@ -29,12 +29,14 @@ export function ReadonlyVideoDuration({
 }: ReadonlyVideoDurationProps) {
   const [probed, setProbed] = useState<number | null>(null);
   const [probing, setProbing] = useState(false);
+  const reportedRef = useRef<number | null>(null);
   const hasDb =
     durationSeconds != null && Number.isFinite(durationSeconds) && durationSeconds > 0;
 
   useEffect(() => {
     setProbed(null);
     setProbing(false);
+    reportedRef.current = null;
   }, [durationSeconds, fallbackProbeUrl]);
 
   const isWebm = Boolean(fallbackProbeUrl?.toLowerCase().includes(".webm"));
@@ -63,9 +65,10 @@ export function ReadonlyVideoDuration({
     if (probed == null || !onProbedDuration) return;
     const stored = durationSecondsForStorage(probed);
     if (stored == null) return;
-    if (!hasDb || stored > Number(durationSeconds)) {
-      onProbedDuration(stored);
-    }
+    if (hasDb && stored <= Number(durationSeconds)) return;
+    if (reportedRef.current === stored) return;
+    reportedRef.current = stored;
+    onProbedDuration(stored);
   }, [durationSeconds, hasDb, onProbedDuration, probed]);
 
   const sec =

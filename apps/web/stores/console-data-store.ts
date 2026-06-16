@@ -52,7 +52,7 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
   persist(
     (set) => ({
       ...emptyState(),
-      setOwnerId: (ownerId) => set({ ownerId }),
+      setOwnerId: (ownerId) => set((s) => (s.ownerId === ownerId ? s : { ownerId })),
       applySnapshot: (ownerId, snapshot, syncedAt) =>
         set({
           ownerId,
@@ -69,17 +69,68 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
           syncError: null,
         }),
       patchDevice: (deviceId, patch) =>
-        set((s) => ({
-          devices: s.devices.map((device) =>
-            device.id === deviceId ? { ...device, ...patch } : device,
-          ),
-        })),
+        set((s) => {
+          const index = s.devices.findIndex((device) => device.id === deviceId);
+          if (index < 0) return s;
+          const device = s.devices[index]!;
+          let changed = false;
+          for (const key of Object.keys(patch) as (keyof typeof patch)[]) {
+            if (device[key] !== patch[key]) {
+              changed = true;
+              break;
+            }
+          }
+          if (!changed) return s;
+          const devices = s.devices.slice();
+          devices[index] = { ...device, ...patch };
+          return { devices };
+        }),
       patchMedia: (mediaId, patch) =>
-        set((s) => ({
-          media: s.media.map((item) => (item.id === mediaId ? { ...item, ...patch } : item)),
-        })),
+        set((s) => {
+          const index = s.media.findIndex((item) => item.id === mediaId);
+          if (index < 0) return s;
+          const item = s.media[index]!;
+          let changed = false;
+          for (const key of Object.keys(patch) as (keyof typeof patch)[]) {
+            if (item[key] !== patch[key]) {
+              changed = true;
+              break;
+            }
+          }
+          if (!changed) return s;
+
+          const nextMediaItem = { ...item, ...patch };
+          const nextMedia = s.media.slice();
+          nextMedia[index] = nextMediaItem;
+
+          const nextPlaylistItems: Record<string, PlaylistItemWithMedia[]> = {};
+          for (const [playlistId, items] of Object.entries(s.playlistItemsByPlaylistId)) {
+            nextPlaylistItems[playlistId] = items.map((playlistItem) =>
+              playlistItem.media_id === mediaId && playlistItem.media
+                ? { ...playlistItem, media: { ...playlistItem.media, ...patch } }
+                : playlistItem,
+            );
+          }
+
+          return {
+            media: nextMedia,
+            playlistItemsByPlaylistId: nextPlaylistItems,
+          };
+        }),
       patchWebsite: (websiteId, patch) =>
         set((s) => {
+          const existingWebsite = s.websites.find((website) => website.id === websiteId);
+          if (existingWebsite) {
+            let websiteChanged = false;
+            for (const key of Object.keys(patch) as (keyof typeof patch)[]) {
+              if (existingWebsite[key] !== patch[key]) {
+                websiteChanged = true;
+                break;
+              }
+            }
+            if (!websiteChanged) return s;
+          }
+
           const nextWebsite = <W extends { id: string }>(website: W): W =>
             website.id === websiteId ? { ...website, ...patch } : website;
           const nextPlaylistItems: Record<string, PlaylistItemWithMedia[]> = {};

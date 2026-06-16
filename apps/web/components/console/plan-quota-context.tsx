@@ -20,17 +20,18 @@ export function PlanQuotaProvider({
 export function usePlanQuota(): PlanQuotaSnapshot | null {
   const base = useContext(PlanQuotaContext);
   const deviceCount = useConsoleDataStore((s) => s.devices.length);
-  const media = useConsoleDataStore((s) => s.media);
+  const storageFromMedia = useConsoleDataStore((s) =>
+    s.media.reduce((sum, row) => sum + (row.size_bytes ?? 0), 0),
+  );
 
   return useMemo(() => {
     if (!base) return null;
-    const storageFromMedia = media.reduce((sum, row) => sum + (row.size_bytes ?? 0), 0);
     return {
       ...base,
       deviceCount: Math.max(base.deviceCount, deviceCount),
       storageUsedBytes: Math.max(base.storageUsedBytes, storageFromMedia),
     };
-  }, [base, deviceCount, media]);
+  }, [base, deviceCount, storageFromMedia]);
 }
 
 /** @deprecated Use usePlanQuota().deviceLimit */

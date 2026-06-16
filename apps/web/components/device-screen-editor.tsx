@@ -1,6 +1,6 @@
 "use client";
 
-import type { PlaylistTransitionStyle } from "@signage/types";
+import type { PlaylistTransitionStyle, PlaylistItemWithMedia } from "@signage/types";
 import { Info } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -42,7 +42,10 @@ import {
 } from "@/lib/device-screen-orientation";
 import { DevicePlaybackToggle } from "@/components/device-playback-toggle";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useConsoleDevice } from "@/hooks/use-console-device";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+
+const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
 
 interface DeviceScreenEditorProps {
   deviceId: string;
@@ -67,12 +70,9 @@ export function DeviceScreenEditor({
   const plan = usePlanQuota();
   const accountDisabled = plan?.accountDisabled ?? false;
 
-  const storeDevices = useConsoleDataStore((s) => s.devices) as DeviceWithAssignments[];
+  const device = useConsoleDevice(deviceId);
   const patchDevice = useConsoleDataStore((s) => s.patchDevice);
-  const device = useMemo(
-    () => storeDevices.find((d) => d.id === deviceId),
-    [storeDevices, deviceId],
-  );
+  const storeDevices = useConsoleDataStore((s) => s.devices) as DeviceWithAssignments[];
   const disabledState = device ? deviceDisabledPresentation(device, accountDisabled) : null;
   const deviceDisabled = disabledState?.show ?? false;
 
@@ -113,7 +113,9 @@ export function DeviceScreenEditor({
   const storageFull = plan != null && isStorageFull(plan);
 
   const cachedItems = useConsoleDataStore((s) =>
-    playlistId ? (s.playlistItemsByPlaylistId[playlistId] ?? []) : [],
+    playlistId
+      ? (s.playlistItemsByPlaylistId[playlistId] ?? EMPTY_PLAYLIST_ITEMS)
+      : EMPTY_PLAYLIST_ITEMS,
   );
 
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);

@@ -155,7 +155,7 @@ export function PlaylistPreviewButton({
   useEffect(() => {
     if (!open) return;
     setIndex(0);
-  }, [open, scheduledItems]);
+  }, [open, scheduledItems.length]);
 
   const advance = useCallback(() => {
     setIndex((i) => (i + 1) % scheduledItems.length);
