@@ -746,9 +746,7 @@ class MainViewModel(
         if (cached.slides.isEmpty()) {
             return@withContext null
         }
-        val orient =
-            cached.screenOrientation.trim().lowercase().takeIf { it == "portrait" || it == "landscape" }
-                ?: "landscape"
+        val orient = normalizeScreenOrientation(cached.screenOrientation)
         MainUiState.Playback(
             deviceName = cached.deviceDisplayName,
             deviceId = deviceId,
@@ -1483,10 +1481,10 @@ class MainViewModel(
     ): PlaybackLoadResult = withContext(Dispatchers.IO) {
         val row = withAuthRefreshOnExpiry("devices.select.playback") { fetchDeviceRow(deviceId) }.getOrNull()
         val screenOrientation =
-            row?.screenOrientation?.trim()?.lowercase()?.takeIf { it == "portrait" || it == "landscape" }
-                ?: (_state.value as? MainUiState.Playback)?.takeIf { it.deviceId == deviceId }
-                    ?.screenOrientation?.trim()?.lowercase()?.takeIf { it == "portrait" || it == "landscape" }
-                ?: "landscape"
+            normalizeScreenOrientation(
+                row?.screenOrientation
+                    ?: (_state.value as? MainUiState.Playback)?.takeIf { it.deviceId == deviceId }?.screenOrientation,
+            )
 
         val storedPlaybackSecret = dataStore.data.first()[DeviceKeys.PLAYBACK_SECRET]
         val res =
@@ -1546,7 +1544,21 @@ class MainViewModel(
                     zoomLevel = s.zoomLevel,
                 )
             }.let { mapped ->
-                if (res.shuffleEnabled && mapped.size > 1) mapped.shuffled() else mapped
+                if (res.shuffleEnabled && mapped.size > 1) {
+                    val prev =
+                        (_state.value as? MainUiState.Playback)?.takeIf {
+                            it.deviceId == deviceId &&
+                                it.contentRevision == res.contentRevision &&
+                                it.shuffleEnabled
+                        }
+                    if (prev != null && prev.slides.map { it.url }.toSet() == mapped.map { it.url }.toSet()) {
+                        prev.slides
+                    } else {
+                        mapped.shuffled()
+                    }
+                } else {
+                    mapped
+                }
             }
         if (slides.isEmpty()) {
             clearCachedPlayback()

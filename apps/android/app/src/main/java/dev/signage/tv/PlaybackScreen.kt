@@ -38,7 +38,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -55,9 +54,13 @@ import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
+import coil.imageLoader
 import coil.request.ImageRequest
+import coil.request.ErrorResult
+import coil.request.SuccessResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 private const val LOG_TAG = "SignageTV"
@@ -214,9 +217,10 @@ fun PlaybackScreen(
 
     val engine = remember { viewModel.exoForPlayback() }
     val recoveryEpoch by viewModel.playbackUiRecoveryEpoch.collectAsState()
+    // Do not key on uiRefreshGeneration — recovery remounts the current slide without restarting the loop.
     val slideKey =
         state.slides.joinToString("|") { s ->
-            "${s.url}#${s.fileType}#${s.durationSeconds}#${s.zoomLevel}#${state.contentRevision}#${state.isFromCache}#${state.uiRefreshGeneration}#${state.transitionStyle}#${state.shuffleEnabled}"
+            "${s.url}#${s.fileType}#${s.durationSeconds}#${s.zoomLevel}#${state.contentRevision}#${state.isFromCache}#${state.transitionStyle}#${state.shuffleEnabled}"
         }
     var index by remember(slideKey) { mutableIntStateOf(0) }
     var visit by remember(slideKey) { mutableIntStateOf(0) }
@@ -299,38 +303,38 @@ fun PlaybackScreen(
                         "dissolve" -> 650
                         else -> 0
                     }
-                if (transitionMillis == 0) {
+                key(index, visit, slide.url, recoveryEpoch, state.contentRevision) {
                     ImageSlide(
                         url = slide.url,
                         durationSeconds = slide.durationSeconds,
+                        fadeInMillis = transitionMillis,
                         recoveryEpoch = recoveryEpoch,
-                        uiRefreshGeneration = state.uiRefreshGeneration,
                         contentRevision = state.contentRevision,
                         viewModel = viewModel,
                         onDone = {
                             index = (index + 1) % n
                             visit += 1
                         },
+                        content = { displayUrl ->
+                            if (transitionMillis == 0) {
+                                ImageSlideContent(
+                                    url = displayUrl,
+                                    contentRevision = state.contentRevision,
+                                )
+                            } else {
+                                Crossfade(
+                                    targetState = displayUrl,
+                                    animationSpec = tween(transitionMillis),
+                                    label = "imageSlideTransition",
+                                ) { url ->
+                                    ImageSlideContent(
+                                        url = url,
+                                        contentRevision = state.contentRevision,
+                                    )
+                                }
+                            }
+                        },
                     )
-                } else {
-                    Crossfade(
-                        targetState = slide.url,
-                        animationSpec = tween(transitionMillis),
-                        label = "imageSlideTransition",
-                    ) {
-                        ImageSlide(
-                            url = it,
-                            durationSeconds = slide.durationSeconds,
-                            recoveryEpoch = recoveryEpoch,
-                            uiRefreshGeneration = state.uiRefreshGeneration,
-                            contentRevision = state.contentRevision,
-                            viewModel = viewModel,
-                            onDone = {
-                                index = (index + 1) % n
-                                visit += 1
-                            },
-                        )
-                    }
                 }
             }
         }
@@ -473,17 +477,11 @@ private fun HoldUnderImageFullBleed(url: String) {
 }
 
 @Composable
-private fun ImageSlide(
+private fun ImageSlideContent(
     url: String,
-    durationSeconds: Int?,
-    recoveryEpoch: Long,
-    uiRefreshGeneration: Long,
     contentRevision: String?,
-    viewModel: MainViewModel,
-    onDone: () -> Unit,
 ) {
     val context = LocalContext.current
-    val dwellMs = (durationSeconds ?: 8).coerceIn(2, 120) * 1000L
     val request =
         remember(url, contentRevision) {
             ImageRequest.Builder(context)
@@ -502,34 +500,6 @@ private fun ImageSlide(
         modifier = Modifier.fillMaxSize(),
         contentScale = ContentScale.Crop,
     ) {
-        LaunchedEffect(url, dwellMs, recoveryEpoch, uiRefreshGeneration, contentRevision) {
-            val settled =
-                withTimeoutOrNull(120_000) {
-                    snapshotFlow { painter.state }.first {
-                        it is AsyncImagePainter.State.Success || it is AsyncImagePainter.State.Error
-                    }
-                }
-            when (settled) {
-                is AsyncImagePainter.State.Success -> {
-                    var remaining = dwellMs
-                    while (remaining > 0) {
-                        val chunk = remaining.coerceAtMost(25_000L)
-                        delay(chunk)
-                        remaining -= chunk
-                        viewModel.signalPlaybackHealthy()
-                    }
-                }
-                is AsyncImagePainter.State.Error -> {
-                    viewModel.signalPlaybackHealthy()
-                    delay(8_000)
-                }
-                else -> {
-                    viewModel.recoverPlaybackAsIfPlaylistChanged(reason = "image_load_stuck", force = true)
-                    return@LaunchedEffect
-                }
-            }
-            onDone()
-        }
         when (val s = painter.state) {
             is AsyncImagePainter.State.Success -> SubcomposeAsyncImageContent()
             is AsyncImagePainter.State.Error -> {
@@ -565,6 +535,63 @@ private fun ImageSlide(
             }
         }
     }
+}
+
+@Composable
+private fun ImageSlide(
+    url: String,
+    durationSeconds: Int?,
+    fadeInMillis: Int,
+    recoveryEpoch: Long,
+    contentRevision: String?,
+    viewModel: MainViewModel,
+    onDone: () -> Unit,
+    content: @Composable (displayUrl: String) -> Unit,
+) {
+    val context = LocalContext.current
+    val dwellMs = (durationSeconds ?: 8).coerceIn(2, 120) * 1000L
+    val loadRequest =
+        remember(url, contentRevision) {
+            ImageRequest.Builder(context)
+                .data(url)
+                .build()
+        }
+
+    // Timing lives outside Crossfade so exit/enter children cannot start duplicate dwell timers.
+    LaunchedEffect(url, dwellMs, fadeInMillis, recoveryEpoch, contentRevision) {
+        val loaded =
+            withTimeoutOrNull(120_000) {
+                withContext(Dispatchers.IO) {
+                    context.imageLoader.execute(loadRequest)
+                }
+            }
+        when (loaded) {
+            is SuccessResult -> {
+                if (fadeInMillis > 0) {
+                    delay(fadeInMillis.toLong())
+                }
+                var remaining = dwellMs
+                while (remaining > 0) {
+                    val chunk = remaining.coerceAtMost(25_000L)
+                    delay(chunk)
+                    remaining -= chunk
+                    viewModel.signalPlaybackHealthy()
+                }
+            }
+            null -> {
+                viewModel.recoverPlaybackAsIfPlaylistChanged(reason = "image_load_stuck", force = true)
+                return@LaunchedEffect
+            }
+            is ErrorResult -> {
+                Log.e(LOG_TAG, "Image load failed: $url", loaded.throwable)
+                viewModel.signalPlaybackHealthy()
+                delay(8_000)
+            }
+        }
+        onDone()
+    }
+
+    content(url)
 }
 
 @Composable
