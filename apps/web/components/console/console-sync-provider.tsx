@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { pullConsoleData } from "@/lib/console-sync";
 import {
   applyDevicePresenceRows,
@@ -10,6 +10,7 @@ import {
   type DevicePresenceRow,
 } from "@/lib/device-presence";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useConsoleStoreHydrated } from "@/hooks/use-console-store-hydrated";
 import { clearConsoleCachePersist, useConsoleDataStore } from "@/stores/console-data-store";
 
 const DEFAULT_INTERVAL_MS = 120_000;
@@ -60,23 +61,7 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
   const syncInFlightRef = useRef<Promise<void> | null>(null);
   const syncAgainRef = useRef(false);
 
-  // persist APIs use localStorage — only available after client mount.
-  const [cacheReady, setCacheReady] = useState(false);
-
-  useEffect(() => {
-    const persist = useConsoleDataStore.persist;
-    if (!persist) {
-      setCacheReady(true);
-      return;
-    }
-    if (persist.hasHydrated()) {
-      setCacheReady(true);
-    }
-    const unsub = persist.onFinishHydration(() => {
-      setCacheReady(true);
-    });
-    return unsub;
-  }, []);
+  const cacheReady = useConsoleStoreHydrated();
 
   const syncNow = useCallback(async () => {
     if (syncInFlightRef.current) {

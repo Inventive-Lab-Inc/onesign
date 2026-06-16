@@ -1,5 +1,8 @@
 import type { Media } from "@signage/types";
 
+/** Fixed locale so SSR (Vercel) and browser hydration produce identical text. */
+const MEDIA_AGE_DATE_LOCALE = "en-GB";
+
 export function formatMediaAge(iso: string): string {
   const d = new Date(iso);
   const diff = Date.now() - d.getTime();
@@ -7,7 +10,13 @@ export function formatMediaAge(iso: string): string {
   const min = Math.floor(sec / 60);
   const hr = Math.floor(min / 60);
   const day = Math.floor(hr / 24);
-  if (day > 30) return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  if (day > 30) {
+    return d.toLocaleDateString(MEDIA_AGE_DATE_LOCALE, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
   if (day > 0) return day === 1 ? "yesterday" : `${day} days ago`;
   if (hr > 0) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
   if (min > 0) return `${min} min ago`;

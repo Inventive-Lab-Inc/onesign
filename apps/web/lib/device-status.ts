@@ -7,6 +7,9 @@ import type { Device, DeviceStatus } from "@signage/types";
  */
 export const STALE_ONLINE_MS = 90_000;
 
+/** Fixed locale so SSR (Vercel) and browser hydration produce identical text. */
+const DEVICE_DATE_LOCALE = "en-GB";
+
 /**
  * DB `status` can lag behind TV heartbeats (e.g. after mark_stale_devices_offline on sync).
  * Fresh `last_seen` is the source of truth for whether the screen is reachable right now,
@@ -41,7 +44,13 @@ export function formatDeviceLastSeen(iso: string | null): string {
   const min = Math.floor(sec / 60);
   const hr = Math.floor(min / 60);
   const day = Math.floor(hr / 24);
-  if (day > 30) return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  if (day > 30) {
+    return d.toLocaleDateString(DEVICE_DATE_LOCALE, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
   if (day > 0) return day === 1 ? "Yesterday" : `${day} days ago`;
   if (hr > 0) return `${hr}h ago`;
   if (min > 0) return `${min}m ago`;
@@ -51,7 +60,7 @@ export function formatDeviceLastSeen(iso: string | null): string {
 
 /** Compact hint for admin plan screen picker (linked date + last activity). */
 export function formatDevicePlanAdded(device: Pick<Device, "created_at">): string {
-  const linked = new Date(device.created_at).toLocaleDateString(undefined, {
+  const linked = new Date(device.created_at).toLocaleDateString(DEVICE_DATE_LOCALE, {
     month: "short",
     day: "numeric",
   });

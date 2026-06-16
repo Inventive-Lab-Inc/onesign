@@ -21,15 +21,17 @@ Console supports **Google (Auth.js)** and **email/password (Supabase)** during t
 
 1. Apply migration `00032_auth_google_identities.sql` in the Supabase SQL editor.
 2. [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → **OAuth client ID** (Web application).
-3. Authorized redirect URIs:
+3. Authorized redirect URIs (add every console domain):
    - `http://localhost:3000/api/auth/callback/google`
-   - `https://YOUR_PRODUCTION_DOMAIN/api/auth/callback/google`
-4. Set in `.env.local` / Vercel:
+   - `https://onesign.inventivelab.bd/api/auth/callback/google`
+   - `https://onesign.inventivelab.co.uk/api/auth/callback/google`
+4. Supabase → Authentication → URL Configuration → Redirect URLs — same domains under `/auth/confirm`.
+5. Set in `.env.local` / Vercel:
    - `AUTH_SECRET` — `openssl rand -base64 32`
    - `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — from Google Cloud
    - `SUPABASE_SERVICE_ROLE_KEY` — Dashboard → Settings → API (server-only)
-   - `NEXT_PUBLIC_APP_URL` — public console URL in production
-5. Email/password users can later sign in with Google using the same email; accounts are linked automatically.
+   - `NEXT_PUBLIC_APP_URL` — canonical URL for server-sent invite emails (browser auth uses the active domain)
+6. Email/password users can later sign in with Google using the same email; accounts are linked automatically.
 
 ## Develop
 

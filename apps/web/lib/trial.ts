@@ -45,9 +45,12 @@ export function formatTrialRemaining(trialEndsAt: string | null | undefined): st
   return `${days} days left`;
 }
 
+/** Fixed locale so SSR (Vercel) and browser hydration produce identical text. */
+const TRIAL_DATE_LOCALE = "en-GB";
+
 export function formatTrialEndDate(trialEndsAt: string | null | undefined): string | null {
   if (!trialEndsAt) return null;
-  return new Date(trialEndsAt).toLocaleDateString(undefined, {
+  return new Date(trialEndsAt).toLocaleDateString(TRIAL_DATE_LOCALE, {
     weekday: "short",
     month: "short",
     day: "numeric",

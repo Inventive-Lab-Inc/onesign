@@ -5,6 +5,7 @@ import { Bell, ChevronDown, Download, LayoutDashboard, LogOut, Menu, Shield, Use
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useHasMounted } from "@/hooks/use-has-mounted";
 import { setStaffPortalChoice } from "@/lib/auth/staff-portal-choice";
 import { useNotifications } from "./notifications-context";
 import { useSettings } from "./settings-context";
@@ -16,14 +17,17 @@ import { ConfirmModal } from "./confirm-modal";
 import { shellChrome } from "./shell-chrome";
 import { TrialTopBarPill } from "@/components/console/trial-status";
 
-function formatNotificationTime(ts: number) {
+const NOTIFICATION_DATE_LOCALE = "en-GB";
+
+function formatNotificationTime(ts: number, mounted: boolean) {
+  if (!mounted) return "";
   const d = new Date(ts);
   const now = Date.now();
   const diff = now - ts;
   if (diff < 60_000) return "Just now";
   if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`;
   if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}h ago`;
-  return d.toLocaleDateString();
+  return d.toLocaleDateString(NOTIFICATION_DATE_LOCALE);
 }
 
 const HOVER_CLOSE_DELAY_MS = 150;
@@ -38,6 +42,7 @@ export type ProfilePortalSwitch = {
 function NotificationBellDropdown() {
   const [open, setOpen] = useState(false);
   const [iconHovered, setIconHovered] = useState(false);
+  const mounted = useHasMounted();
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { notifications, unreadCount, markAsRead, markAllRead, addNotification } = useNotifications();
   const { settings } = useSettings();
@@ -209,7 +214,7 @@ function NotificationBellDropdown() {
                     <div style={{ marginTop: "0.25rem", color: "#6B7280", fontWeight: 400 }}>{n.message}</div>
                   )}
                   <div style={{ marginTop: "0.25rem", fontSize: "0.6875rem", color: "#9CA3AF" }}>
-                    {formatNotificationTime(n.createdAt)}
+                    {formatNotificationTime(n.createdAt, mounted)}
                   </div>
                 </button>
               ))

@@ -1,9 +1,10 @@
 /** Public origin for auth redirects (password reset, email confirm). */
 export function getAppUrl(): string {
+  // Prefer the active browser origin so multi-domain deploys (.bd / .co.uk) stay correct.
+  if (typeof window !== "undefined") return window.location.origin;
+
   const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, "");
-
-  if (typeof window !== "undefined") return window.location.origin;
 
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
 
@@ -23,7 +24,9 @@ export function getOAuthConfirmRedirectUrl(nextPath = "/dashboard"): string {
 /** Auth.js Google sign-in completes at /auth/google/complete, then bridges to Supabase. */
 export function getGoogleAuthCallbackUrl(nextPath = "/dashboard"): string {
   const next = encodeURIComponent(nextPath);
-  return `${getAppUrl()}/auth/google/complete?next=${next}`;
+  // Relative URL — Auth.js rejects absolute callback URLs on a different origin than the
+  // active request (e.g. NEXT_PUBLIC_APP_URL baked as .co.uk while users visit .bd).
+  return `/auth/google/complete?next=${next}`;
 }
 
 /** Self-serve signup confirmation lands on the dashboard. */
