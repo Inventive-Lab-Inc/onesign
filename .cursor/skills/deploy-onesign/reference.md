@@ -4,7 +4,7 @@
 
 | Resource | Value |
 |----------|--------|
-| GitHub repo | `aminul-inventivelab/onesign` |
+| GitHub repo | `Inventive-Lab-Technologies/onesign` |
 | Vercel project | `onesign-tv` |
 | Supabase project ref | `nlkjbfwhzzpebsunmzrw` |
 | Supabase project name | `tv-sign` |

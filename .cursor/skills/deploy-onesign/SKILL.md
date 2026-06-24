@@ -14,7 +14,7 @@ Production stack for this monorepo:
 | **Supabase** | Postgres, RLS, TV RPCs, `app_releases` OTA metadata |
 | **VPS MinIO** | Public APK + media at `https://s3.storage.inventivelab.bd` |
 
-Repo: `https://github.com/aminul-inventivelab/onesign.git`
+Repo: `https://github.com/Inventive-Lab-Technologies/onesign.git`
 
 ---
 
