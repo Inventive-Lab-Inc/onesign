@@ -1,4 +1,14 @@
 /** @type {import('next').NextConfig} */
+
+// Local dev only — bypass TLS-inspecting proxies for all server-side HTTPS (Supabase,
+// MinIO, Next.js image optimizer). Never set SUPABASE_INSECURE_TLS in production.
+if (
+  process.env.SUPABASE_INSECURE_TLS === "true" ||
+  process.env.DEV_INSECURE_TLS === "true"
+) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
+
 const supabaseAnonKey =
   process.env.SUPABASE_ANON_KEY?.trim() || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
