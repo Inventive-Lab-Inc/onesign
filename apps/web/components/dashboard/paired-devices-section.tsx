@@ -9,12 +9,17 @@ import {
   Eye,
   Layers,
   Monitor,
+  Plus,
   Tv,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useConsoleSync } from "@/components/console/console-sync-provider";
+import { usePlanQuota } from "@/components/console/plan-quota-context";
+import { LinkScreenDialog } from "@/components/devices/link-screen-dialog";
+import { Button } from "@/components/ui/button";
 import { PlaylistPreviewButton } from "@/components/playlist-preview";
 import { getDeviceDisplayDimensionsPx } from "@/components/device-telemetry-panel";
 import type { ActiveAppRelease } from "@/hooks/use-active-app-release";
@@ -345,6 +350,13 @@ export function PairedDevicesSection({
   ownerId: string | null;
 }) {
   const router = useRouter();
+  const plan = usePlanQuota();
+  const { syncNow } = useConsoleSync();
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+
+  const refreshAfterMutation = useCallback(async () => {
+    await syncNow();
+  }, [syncNow]);
 
   const rows = useMemo(
     () =>
@@ -361,6 +373,7 @@ export function PairedDevicesSection({
   const onlineCount = rows.filter((row) => row.status === "online").length;
 
   return (
+    <>
     <section className="space-y-3" aria-label="Screen fleet">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
@@ -406,13 +419,10 @@ export function PairedDevicesSection({
           <p className="mt-1 text-sm text-muted-foreground">
             Link a TV player to start monitoring playback from here.
           </p>
-          <Link
-            href="/screens"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[var(--dashboard-brand)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--dashboard-brand-hover)]"
-          >
-            Link a screen
-            <ArrowUpRight className="h-4 w-4" aria-hidden />
-          </Link>
+          <Button type="button" className="mt-4 gap-2" onClick={() => setLinkDialogOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden />
+            Link screen
+          </Button>
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
@@ -445,5 +455,14 @@ export function PairedDevicesSection({
         </div>
       )}
     </section>
+
+      <LinkScreenDialog
+        open={linkDialogOpen}
+        onClose={() => setLinkDialogOpen(false)}
+        deviceCount={devices.length}
+        deviceLimit={plan?.deviceLimit ?? null}
+        onLinked={refreshAfterMutation}
+      />
+    </>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import type { Device } from "@signage/types";
-import { Tv, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { Button } from "@/components/ui/button";
@@ -30,8 +31,13 @@ export function LinkScreenDialog({
   const [pairingCode, setPairingCode] = useState("");
   const [friendlyName, setFriendlyName] = useState("");
   const [linking, setLinking] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const atDeviceLimit = deviceLimit != null && deviceCount >= deviceLimit;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -85,9 +91,9 @@ export function LinkScreenDialog({
     }
   }
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <button
         type="button"
@@ -108,7 +114,7 @@ export function LinkScreenDialog({
               Link a screen
             </h2>
             <p id={descId} className="mt-1 text-sm text-muted-foreground">
-              Enter the six-digit code shown on the TV after it signs in.
+              Enter the six-digit code shown on the TV.
             </p>
           </div>
           <button
@@ -120,12 +126,6 @@ export function LinkScreenDialog({
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
-
-        {deviceLimit != null ? (
-          <p className="mt-4 text-xs tabular-nums text-muted-foreground">
-            {deviceCount} of {deviceLimit} screens linked
-          </p>
-        ) : null}
 
         {atDeviceLimit ? (
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
@@ -164,13 +164,13 @@ export function LinkScreenDialog({
             Cancel
           </Button>
           {!atDeviceLimit ? (
-            <Button type="button" className="gap-2" disabled={linking} onClick={() => void linkDevice()}>
-              <Tv className="h-4 w-4" aria-hidden />
-              {linking ? "Linking…" : "Link screen"}
+            <Button type="button" disabled={linking} onClick={() => void linkDevice()}>
+              {linking ? "Linking…" : "Continue"}
             </Button>
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
