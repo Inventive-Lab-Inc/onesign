@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtAppMetadataFlag } from "@/lib/auth/jwt-app-metadata";
+import { isTrialExpired } from "@/lib/trial";
 import { getSupabaseConnectEnv } from "./env";
 
 const PROTECTED_PREFIXES = ["/screens", "/devices", "/groups", "/playlists", "/content", "/media", "/dashboard", "/account", "/profile", "/download-app", "/settings", "/admin"];
@@ -103,33 +104,20 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
         }
       }
     } else if (isProtectedPath(pathname) && pathname !== "/account-suspended" && pathname !== "/trial-expired") {
-      const jwtDisabled = jwtAppMetadataFlag(appMetadata, "is_disabled");
-      if (jwtDisabled === true) {
+      // Always read live profile state — JWT flags are only synced on signup/admin
+      // actions and can say "trial ok" long after trial_ends_at has passed.
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_disabled, trial_ends_at")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (profile?.is_disabled) {
         return NextResponse.redirect(new URL("/account-suspended", request.url));
       }
 
-      const jwtTrialExpired = jwtAppMetadataFlag(appMetadata, "trial_expired");
-      if (jwtTrialExpired === true) {
+      if (isTrialExpired(profile?.trial_ends_at)) {
         return NextResponse.redirect(new URL("/trial-expired", request.url));
-      }
-
-      if (jwtDisabled === undefined || jwtTrialExpired === undefined) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_disabled, trial_ends_at")
-          .eq("id", userId)
-          .maybeSingle();
-
-        if (profile?.is_disabled) {
-          return NextResponse.redirect(new URL("/account-suspended", request.url));
-        }
-
-        if (
-          profile?.trial_ends_at &&
-          Date.now() > new Date(profile.trial_ends_at).getTime()
-        ) {
-          return NextResponse.redirect(new URL("/trial-expired", request.url));
-        }
       }
     }
   }

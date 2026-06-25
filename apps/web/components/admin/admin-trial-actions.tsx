@@ -3,7 +3,7 @@
 import type { AdminUserDirectoryEntry } from "@signage/types";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Sparkles } from "lucide-react";
+import { CalendarPlus, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { useAdminStaff } from "@/components/admin/admin-staff-context";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,9 @@ export function AdminTrialActions({
         variant="outline"
         disabled={loading !== null}
         onClick={() => {
+          if (!window.confirm(`Extend ${client.email}'s trial by 7 days?`)) {
+            return;
+          }
           setLoading("extend");
           void (async () => {
             try {
@@ -70,7 +73,7 @@ export function AdminTrialActions({
         }}
       >
         <CalendarPlus className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-        {loading === "extend" ? "Extending…" : "+7 days"}
+        {loading === "extend" ? "Extending…" : "Extend trial +7 days"}
       </Button>
       <Button
         type="button"
@@ -95,7 +98,7 @@ export function AdminTrialActions({
           })();
         }}
       >
-        <Sparkles className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+        <CreditCard className="mr-1.5 h-3.5 w-3.5" aria-hidden />
         {loading === "convert" ? "Converting…" : "Convert to paid"}
       </Button>
     </div>

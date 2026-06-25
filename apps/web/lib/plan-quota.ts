@@ -2,11 +2,16 @@
 
 export const DEFAULT_DEVICE_LIMIT = 1;
 export const DEFAULT_TRIAL_DAYS = 7;
-export const DEFAULT_STORAGE_LIMIT_BYTES = 2 * 1024 ** 3;
+export const DEFAULT_STORAGE_LIMIT_BYTES = 500 * 1024 ** 2;
 export const MIN_STORAGE_LIMIT_BYTES = 1024 ** 2;
 export const MAX_UPLOAD_FILE_BYTES = 500 * 1024 ** 2;
 
-export const STORAGE_GB_PRESETS = [1, 2, 5, 10, 25, 50] as const;
+export type StorageUnit = "MB" | "GB";
+
+const STORAGE_UNIT_BYTES: Record<StorageUnit, number> = {
+  MB: 1024 ** 2,
+  GB: 1024 ** 3,
+};
 
 export function formatStorageBytes(bytes: number, digits = 1): string {
   if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
@@ -16,12 +21,16 @@ export function formatStorageBytes(bytes: number, digits = 1): string {
   return `${(bytes / 1024 ** 3).toFixed(digits)} GB`;
 }
 
-export function parseStorageGbInput(value: string): number | null {
+export function parseStorageInput(value: string, unit: StorageUnit): number | null {
   const trimmed = value.trim().replace(/,/g, "");
   if (!trimmed) return null;
   const n = Number.parseFloat(trimmed);
   if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.round(n * 1024 ** 3);
+  return Math.round(n * STORAGE_UNIT_BYTES[unit]);
+}
+
+export function bytesToStorageUnit(bytes: number, unit: StorageUnit): number {
+  return bytes / STORAGE_UNIT_BYTES[unit];
 }
 
 export function storageUsageRatio(usedBytes: number, limitBytes: number): number {

@@ -4,10 +4,9 @@ import { InviteUserError, inviteAuthUser } from "@/lib/auth/invite-user";
 import { isStaffWriter } from "@/lib/auth/staff-utils";
 import { getRouteHandlerStaffAuth } from "@/lib/auth/route-handler-staff";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { DEFAULT_STORAGE_LIMIT_BYTES } from "@/lib/plan-quota";
 
 export const runtime = "nodejs";
-
-const DEFAULT_STORAGE_LIMIT_BYTES = 2 * 1024 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   const { user, staff, supabase } = await getRouteHandlerStaffAuth();

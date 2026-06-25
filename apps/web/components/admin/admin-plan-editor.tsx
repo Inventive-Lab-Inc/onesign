@@ -12,11 +12,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDevicePlanActive, formatDevicePlanAdded, formatDevicePlanHint } from "@/lib/device-status";
 import {
-  STORAGE_GB_PRESETS,
+  type StorageUnit,
+  bytesToStorageUnit,
   formatStorageBytes,
-  parseStorageGbInput,
+  parseStorageInput,
 } from "@/lib/plan-quota";
 import { cn } from "@/lib/utils";
+
+function formatStorageValueForUnit(bytes: number, unit: StorageUnit): string {
+  const value = bytesToStorageUnit(bytes, unit);
+  return unit === "GB" ? value.toFixed(1) : String(Math.round(value));
+}
 
 type AdminPlanEditorProps = {
   userId: string;
@@ -136,14 +142,32 @@ export function AdminPlanEditor({
   const router = useRouter();
   const { canWrite } = useAdminStaff();
   const [screenLimit, setScreenLimit] = useState(String(deviceLimit));
-  const [storageGb, setStorageGb] = useState(String((storageLimitBytes / 1024 ** 3).toFixed(1)));
+  const [storageUnit, setStorageUnit] = useState<StorageUnit>(() =>
+    storageLimitBytes < 1024 ** 3 ? "MB" : "GB",
+  );
+  const [storageValue, setStorageValue] = useState(() =>
+    formatStorageValueForUnit(storageLimitBytes, storageLimitBytes < 1024 ** 3 ? "MB" : "GB"),
+  );
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>(() =>
     pickMostRecentlyActiveDeviceIds(devices, deviceLimit),
   );
   const [loading, setLoading] = useState(false);
 
   const parsedScreenLimit = Number.parseInt(screenLimit, 10);
-  const parsedStorageBytes = parseStorageGbInput(storageGb);
+  const parsedStorageBytes = parseStorageInput(storageValue, storageUnit);
+  const storageStepConfig =
+    storageUnit === "GB"
+      ? { min: 1, max: 512, step: 1, decimals: 1 }
+      : { min: 1, max: 1024, step: 64, decimals: 0 };
+
+  function changeStorageUnit(next: StorageUnit) {
+    if (next === storageUnit) return;
+    const bytes = parseStorageInput(storageValue, storageUnit);
+    setStorageUnit(next);
+    if (bytes != null) {
+      setStorageValue(formatStorageValueForUnit(bytes, next));
+    }
+  }
   const screenValid = Number.isInteger(parsedScreenLimit) && parsedScreenLimit >= 1;
   const storageValid = parsedStorageBytes != null && parsedStorageBytes >= 1024 ** 2;
   const needsDevicePick = screenValid && parsedScreenLimit < deviceCount;
@@ -209,7 +233,8 @@ export function AdminPlanEditor({
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
           Set how many screens can play and how much cloud storage this client receives. Lowering
           screens below the linked count pauses playback on the rest immediately. If you do not pick
-          active screens, the most recently seen devices are kept online automatically.
+          active screens, the most recently seen devices are kept online automatically. Changing these
+          limits does not end a trial — use “Convert to paid” for that.
         </p>
       </div>
 
@@ -239,36 +264,43 @@ export function AdminPlanEditor({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="plan-storage" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Storage (GB)
-          </Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="plan-storage" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Storage
+            </Label>
+            <div
+              className="inline-flex overflow-hidden rounded-md border border-input text-[0.6875rem] font-semibold"
+              role="group"
+              aria-label="Storage unit"
+            >
+              {(["MB", "GB"] as const).map((unit) => (
+                <button
+                  key={unit}
+                  type="button"
+                  onClick={() => changeStorageUnit(unit)}
+                  aria-pressed={storageUnit === unit}
+                  className={cn(
+                    "px-2 py-0.5 transition",
+                    storageUnit === unit
+                      ? "bg-brand-strong text-white"
+                      : "bg-background text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {unit}
+                </button>
+              ))}
+            </div>
+          </div>
           <QuantityStepper
             id="plan-storage"
-            value={storageGb}
-            onChange={(next) => setStorageGb(next.replace(/[^\d.]/g, ""))}
-            min={1}
-            max={512}
-            step={1}
-            decimals={1}
-            ariaLabel="Storage limit in gigabytes"
+            value={storageValue}
+            onChange={(next) => setStorageValue(next.replace(/[^\d.]/g, ""))}
+            min={storageStepConfig.min}
+            max={storageStepConfig.max}
+            step={storageStepConfig.step}
+            decimals={storageStepConfig.decimals}
+            ariaLabel={`Storage limit in ${storageUnit === "GB" ? "gigabytes" : "megabytes"}`}
           />
-          <div className="flex flex-wrap gap-1.5">
-            {STORAGE_GB_PRESETS.map((gb) => (
-              <button
-                key={gb}
-                type="button"
-                onClick={() => setStorageGb(String(gb))}
-                className={cn(
-                  "rounded-full border px-2 py-0.5 text-[0.6875rem] font-medium transition",
-                  storageGb === String(gb)
-                    ? "border-brand-faint25 bg-brand-faint15 text-foreground"
-                    : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground",
-                )}
-              >
-                {gb} GB
-              </button>
-            ))}
-          </div>
           {storageValid && storageUsedBytes > parsedStorageBytes! ? (
             <p className="text-[0.6875rem] text-amber-800 dark:text-amber-200">
               Client is using {formatStorageBytes(storageUsedBytes)} — uploads stay blocked until they
