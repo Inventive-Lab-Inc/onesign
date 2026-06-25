@@ -1,14 +1,15 @@
 #!/bin/sh
 # Enforce dual authorship on every commit and drop the Cursor co-author.
 # Primary author stays the gmail identity (GitHub-verified, required by Vercel);
-# aminulnv is attributed via a Co-authored-by trailer so GitHub shows both.
+# aminul-inventive is attributed via a Co-authored-by trailer so GitHub shows both.
 
 msg_file="$1"
-coauthor="Co-authored-by: aminulnv <aminul@inventivelab.com.bd>"
+coauthor="Co-authored-by: aminul-inventive <aminul@inventivelab.com.bd>"
 
 # Remove the auto-injected Cursor co-author trailer, then trim trailing blanks
 # so the appended trailer sits exactly one blank line below the body.
-grep -v '^Co-authored-by: Cursor <cursoragent@cursor.com>$' "$msg_file" \
+grep -v -e '^Co-authored-by: Cursor <cursoragent@cursor.com>$' \
+        -e '^Co-authored-by: aminulnv <aminul@inventivelab.com.bd>$' "$msg_file" \
   | awk '{ lines[NR] = $0 }
          END { last = NR
                while (last > 0 && lines[last] ~ /^[[:space:]]*$/) last--
