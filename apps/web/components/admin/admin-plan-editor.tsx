@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, Minus, Monitor, Plus } from "lucide-react";
 import { useAdminStaff } from "@/components/admin/admin-staff-context";
-import { PlanUsageSummary } from "@/components/plan/plan-usage-meter";
+import { PlanUsageMeter, PlanUsageSummary } from "@/components/plan/plan-usage-meter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,7 +103,7 @@ function QuantityStepper({
       <Button
         type="button"
         variant="ghost"
-        className="h-9 w-9 shrink-0 rounded-none border-r border-input px-0 hover:bg-muted/80"
+        className="h-8 w-8 shrink-0 rounded-none border-r border-input px-0 hover:bg-muted/80"
         disabled={!canDec}
         aria-label={`Decrease ${ariaLabel}`}
         onClick={() => applyDelta(-step)}
@@ -114,13 +114,13 @@ function QuantityStepper({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 min-w-0 flex-1 rounded-none border-0 bg-transparent text-center tabular-nums shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="h-8 min-w-0 flex-1 rounded-none border-0 bg-transparent text-center tabular-nums shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
         aria-label={ariaLabel}
       />
       <Button
         type="button"
         variant="ghost"
-        className="h-9 w-9 shrink-0 rounded-none border-l border-input px-0 hover:bg-muted/80"
+        className="h-8 w-8 shrink-0 rounded-none border-l border-input px-0 hover:bg-muted/80"
         disabled={!canInc}
         aria-label={`Increase ${ariaLabel}`}
         onClick={() => applyDelta(step)}
@@ -227,88 +227,97 @@ export function AdminPlanEditor({
   }
 
   return (
-    <div className="space-y-5 rounded-xl border border-border/90 bg-card p-5 shadow-sm">
+    <div className="space-y-4 rounded-xl border border-border/90 bg-card p-4 shadow-sm">
       <div>
         <h2 className="text-sm font-semibold text-foreground">Plan & usage</h2>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          Set how many screens can play and how much cloud storage this client receives. Lowering
-          screens below the linked count pauses playback on the rest immediately. If you do not pick
-          active screens, the most recently seen devices are kept online automatically. Changing these
-          limits does not end a trial — use “Convert to paid” for that.
+          Lowering screens below the linked count pauses the rest immediately; unselected devices
+          default to the most recently active. Limit changes don’t end a trial.
         </p>
       </div>
 
-      <PlanUsageSummary
-        deviceCount={deviceCount}
-        deviceLimit={deviceLimit}
-        storageUsedBytes={storageUsedBytes}
-        storageLimitBytes={storageLimitBytes}
-      />
-
-      <div className="grid gap-4 border-t border-border/70 pt-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="plan-screens" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Screen limit
-          </Label>
-          <QuantityStepper
-            id="plan-screens"
-            value={screenLimit}
-            onChange={setScreenLimitValue}
-            min={1}
-            max={9999}
-            ariaLabel="Screen limit"
-          />
-          <p className="text-[0.6875rem] text-muted-foreground">
-            {deviceCount} screen{deviceCount === 1 ? "" : "s"} currently linked.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <Label htmlFor="plan-storage" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Storage
-            </Label>
-            <div
-              className="inline-flex overflow-hidden rounded-md border border-input text-[0.6875rem] font-semibold"
-              role="group"
-              aria-label="Storage unit"
-            >
-              {(["MB", "GB"] as const).map((unit) => (
-                <button
-                  key={unit}
-                  type="button"
-                  onClick={() => changeStorageUnit(unit)}
-                  aria-pressed={storageUnit === unit}
-                  className={cn(
-                    "px-2 py-0.5 transition",
-                    storageUnit === unit
-                      ? "bg-brand-strong text-white"
-                      : "bg-background text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {unit}
-                </button>
-              ))}
+      <section className="grid gap-3 sm:grid-cols-2" aria-label="Plan usage">
+        <PlanUsageMeter
+          variant="screens"
+          used={deviceCount}
+          limit={deviceLimit}
+          footer={
+            <div className="space-y-1.5">
+              <Label
+                htmlFor="plan-screens"
+                className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground"
+              >
+                Screen limit
+              </Label>
+              <QuantityStepper
+                id="plan-screens"
+                value={screenLimit}
+                onChange={setScreenLimitValue}
+                min={1}
+                max={9999}
+                ariaLabel="Screen limit"
+              />
             </div>
-          </div>
-          <QuantityStepper
-            id="plan-storage"
-            value={storageValue}
-            onChange={(next) => setStorageValue(next.replace(/[^\d.]/g, ""))}
-            min={storageStepConfig.min}
-            max={storageStepConfig.max}
-            step={storageStepConfig.step}
-            decimals={storageStepConfig.decimals}
-            ariaLabel={`Storage limit in ${storageUnit === "GB" ? "gigabytes" : "megabytes"}`}
-          />
-          {storageValid && storageUsedBytes > parsedStorageBytes! ? (
-            <p className="text-[0.6875rem] text-amber-800 dark:text-amber-200">
-              Client is using {formatStorageBytes(storageUsedBytes)} — uploads stay blocked until they
-              delete {formatStorageBytes(storageUsedBytes - parsedStorageBytes!)} or you raise the limit.
-            </p>
-          ) : null}
-        </div>
-      </div>
+          }
+        />
+
+        <PlanUsageMeter
+          variant="storage"
+          used={storageUsedBytes}
+          limit={storageLimitBytes}
+          footer={
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <Label
+                  htmlFor="plan-storage"
+                  className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Storage limit
+                </Label>
+                <div
+                  className="inline-flex overflow-hidden rounded-md border border-input text-[0.6875rem] font-semibold"
+                  role="group"
+                  aria-label="Storage unit"
+                >
+                  {(["MB", "GB"] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => changeStorageUnit(unit)}
+                      aria-pressed={storageUnit === unit}
+                      className={cn(
+                        "px-2 py-0.5 transition",
+                        storageUnit === unit
+                          ? "bg-brand-strong text-white"
+                          : "bg-background text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {unit}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <QuantityStepper
+                id="plan-storage"
+                value={storageValue}
+                onChange={(next) => setStorageValue(next.replace(/[^\d.]/g, ""))}
+                min={storageStepConfig.min}
+                max={storageStepConfig.max}
+                step={storageStepConfig.step}
+                decimals={storageStepConfig.decimals}
+                ariaLabel={`Storage limit in ${storageUnit === "GB" ? "gigabytes" : "megabytes"}`}
+              />
+              {storageValid && storageUsedBytes > parsedStorageBytes! ? (
+                <p className="text-[0.6875rem] text-amber-800 dark:text-amber-200">
+                  Client is using {formatStorageBytes(storageUsedBytes)} — uploads stay blocked until
+                  they delete {formatStorageBytes(storageUsedBytes - parsedStorageBytes!)} or you raise
+                  the limit.
+                </p>
+              ) : null}
+            </div>
+          }
+        />
+      </section>
 
       {needsDevicePick ? (
         <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">

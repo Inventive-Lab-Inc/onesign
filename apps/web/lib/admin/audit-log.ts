@@ -5,6 +5,7 @@ export const AUDIT_ACTION_FILTERS = [
   { id: "plan_update", label: "Plan updates" },
   { id: "account_disable", label: "Suspensions" },
   { id: "account_enable", label: "Re-enables" },
+  { id: "account_delete", label: "Deletions" },
   { id: "client_invite", label: "Invitations" },
   { id: "trial_extend", label: "Trial extensions" },
   { id: "trial_convert", label: "Trial conversions" },
@@ -23,6 +24,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   plan_update: "Plan updated",
   account_disable: "Account disabled",
   account_enable: "Account enabled",
+  account_delete: "Account deleted",
   client_invite: "Client invited",
   trial_extend: "Trial extended",
   trial_convert: "Trial converted",
@@ -105,6 +107,15 @@ export function formatAuditMetadata(action: string, metadata: Record<string, unk
     if (email && clientName) return `Invitation sent to ${email} (${clientName})`;
     if (email) return `Invitation sent to ${email}`;
     return "Client invitation sent";
+  }
+
+  if (action === "account_delete") {
+    const email = typeof metadata.email === "string" ? metadata.email : null;
+    const clientName = typeof metadata.client_name === "string" ? metadata.client_name.trim() : "";
+    const who = clientName && email ? `${clientName} (${email})` : (email ?? clientName);
+    return who
+      ? `Account ${who} deleted with all screens, playlists, and files`
+      : "Client account permanently deleted with all content";
   }
 
   if (action === "trial_extend") {

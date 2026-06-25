@@ -5,8 +5,9 @@ import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ViewClientButton } from "@/components/admin/view-client-button";
+import { ClientSettingsButton } from "@/components/admin/client-settings-button";
 import { AccountStatusBadge } from "@/components/admin/account-status-badge";
+import { AdminAccountActions } from "@/components/admin/admin-account-actions";
 import { PlanUsageMeter } from "@/components/plan/plan-usage-meter";
 import { useAdminStaff } from "@/components/admin/admin-staff-context";
 import { useAppRouter } from "@/hooks/use-app-router";
@@ -16,21 +17,8 @@ import { cn } from "@/lib/utils";
 
 type StatusFilter = "all" | "active" | "disabled";
 
-async function setAccountDisabled(userId: string, disabled: boolean) {
-  const response = await fetch("/api/admin/account-disabled", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify({ userId, disabled }),
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? "Failed to update account");
-  }
-}
-
 async function resendClientInvite(email: string) {
-  const response = await fetch("/api/admin/invite-client", {
+  const response = await fetch("/api/admin/resend-setup-email", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
@@ -69,54 +57,7 @@ function ResendInviteButton({ email }: { email: string }) {
         })();
       }}
     >
-      {loading ? "Sending…" : "Resend invite"}
-    </Button>
-  );
-}
-
-function AccountDisableToggle({
-  userId,
-  isDisabled,
-  email,
-}: {
-  userId: string;
-  isDisabled: boolean;
-  email: string;
-}) {
-  const router = useAppRouter();
-  const [loading, setLoading] = useState(false);
-
-  const nextDisabled = !isDisabled;
-  const label = isDisabled ? "Enable" : "Disable";
-
-  return (
-    <Button
-      type="button"
-      size="sm"
-      variant={isDisabled ? "default" : "outline"}
-      disabled={loading}
-      className={cn(!isDisabled && "text-destructive hover:text-destructive")}
-      onClick={() => {
-        const message = nextDisabled
-          ? `Disable ${email}? All of their screens will pause immediately.`
-          : `Re-enable ${email}? Quota-active screens will resume; over-limit screens stay paused.`;
-        if (!window.confirm(message)) return;
-
-        setLoading(true);
-        void (async () => {
-          try {
-            await setAccountDisabled(userId, nextDisabled);
-            toast.success(nextDisabled ? "Account disabled" : "Account enabled");
-            router.refresh();
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not update account");
-          } finally {
-            setLoading(false);
-          }
-        })();
-      }}
-    >
-      {loading ? "Saving…" : label}
+      {loading ? "Sending…" : "Resend invitation"}
     </Button>
   );
 }
@@ -296,8 +237,9 @@ export function AdminUsersTable({
                 users.map((row) => (
                   <tr
                     key={row.id}
+                    onClick={() => router.push(`/admin/clients/${row.id}`)}
                     className={cn(
-                      "border-b border-border/80 last:border-0",
+                      "cursor-pointer border-b border-border/80 transition-colors last:border-0 hover:bg-muted/40",
                       row.is_disabled && "bg-muted/20",
                     )}
                   >
@@ -340,21 +282,21 @@ export function AdminUsersTable({
                     <td className="px-4 py-3 whitespace-nowrap tabular-nums text-muted-foreground">
                       {formatDate(row.created_at)}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <ViewClientButton userId={row.id} />
+                    <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2">
                         {!row.is_staff && canWrite ? (
                           <>
                             {row.invitation_pending ? (
                               <ResendInviteButton email={row.email} />
                             ) : null}
-                            <AccountDisableToggle
+                            <AdminAccountActions
                               userId={row.id}
-                              isDisabled={row.is_disabled}
                               email={row.email}
+                              isDisabled={row.is_disabled}
                             />
                           </>
                         ) : null}
+                        <ClientSettingsButton userId={row.id} />
                       </div>
                     </td>
                   </tr>

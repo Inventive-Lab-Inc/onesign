@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, HardDrive, Layers, LayoutGrid, Monitor, ScrollText, Tv, UserRound } from "lucide-react";
+import { HardDrive, Layers, LayoutGrid, Monitor, ScrollText, Tv, UserRound } from "lucide-react";
 import type { AdminUserDirectoryEntry } from "@signage/types";
 import { useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { AdminAccountActions } from "@/components/admin/admin-account-actions";
 import { AccountStatusBadge } from "@/components/admin/account-status-badge";
 import { AdminTrialActions } from "@/components/admin/admin-trial-actions";
+import { BackNavLink } from "@/components/back-nav-link";
 import { formatStorageBytes } from "@/lib/plan-quota";
 import { cn } from "@/lib/utils";
 
@@ -39,21 +40,16 @@ export function AdminClientShell({
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-2">
       <div className="space-y-3">
-        <Link
-          href="/admin"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-          Back to clients
-        </Link>
-
         <div className="flex flex-col gap-3 border-b border-border/80 pb-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0 space-y-1">
-            <p className="text-[0.625rem] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-              Client account
-            </p>
-            <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">{displayName}</h1>
-            <p className="truncate text-sm text-muted-foreground">{client.email}</p>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <BackNavLink href="/admin" label="Back to clients" />
+            <div className="min-w-0 space-y-1">
+              <p className="text-[0.625rem] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                Client account
+              </p>
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">{displayName}</h1>
+              <p className="truncate text-sm text-muted-foreground">{client.email}</p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <AccountStatusBadge

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AdminPlanEditor } from "@/components/admin/admin-plan-editor";
 import { AdminClientOverview } from "@/components/admin/admin-client-shell";
+import { AdminDeleteClient } from "@/components/admin/admin-delete-client";
 import { getAdminClientEntry } from "@/lib/admin/get-client-entry";
 import { getServerStaffAuth } from "@/lib/auth/staff";
 
@@ -34,6 +35,11 @@ export default async function AdminClientOverviewPage({
         storageLimitBytes={client.storage_limit_bytes}
         storageUsedBytes={client.storage_used_bytes}
         devices={devices ?? []}
+      />
+      <AdminDeleteClient
+        userId={client.id}
+        email={client.email}
+        clientName={client.client_name}
       />
     </AdminClientOverview>
   );

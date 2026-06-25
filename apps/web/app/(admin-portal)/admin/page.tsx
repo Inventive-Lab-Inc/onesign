@@ -1,10 +1,41 @@
 import type { AdminDirectoryStats, AdminUserDirectoryEntry } from "@signage/types";
-import { Clock3, Monitor, Users } from "lucide-react";
+import { Clock3, Info, Monitor, Users } from "lucide-react";
 import { AdminOverviewSections } from "@/components/admin/admin-overview-sections";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getServerStaffAuth } from "@/lib/auth/staff";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 50;
+
+const STAT_CARD_CLASS =
+  "group border-border/90 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-brand-faint25 hover:shadow-md";
+
+const STAT_ICON_BASE = "rounded-lg bg-muted/60 p-2 transition-colors";
+
+const STAT_ICON_BRAND = `${STAT_ICON_BASE} group-hover:bg-brand-soft`;
+const STAT_ICON_EMERALD = `${STAT_ICON_BASE} group-hover:bg-emerald-100`;
+const STAT_ICON_AMBER = `${STAT_ICON_BASE} group-hover:bg-amber-100`;
+const STAT_ICON_RED = `${STAT_ICON_BASE} group-hover:bg-red-100`;
+
+function InfoHint({ text, className }: { text: string; className?: string }) {
+  return (
+    <span className={cn("group/info relative ml-auto inline-flex", className)}>
+      <button
+        type="button"
+        aria-label={text}
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-faint30"
+      >
+        <Info className="h-3.5 w-3.5" aria-hidden />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full right-0 z-10 mb-1.5 w-max max-w-[13rem] rounded-md border border-border bg-card px-2.5 py-1.5 text-xs leading-snug text-muted-foreground opacity-0 shadow-md transition-opacity duration-150 group-hover/info:opacity-100 group-focus-within/info:opacity-100"
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
 
 type AdminOverviewSearchParams = {
   page?: string;
@@ -77,75 +108,75 @@ export default async function AdminOverviewPage({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <Card className="border-border/90 shadow-sm">
+        <Card className={STAT_CARD_CLASS}>
           <CardHeader className="space-y-2 pb-2">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-lg bg-muted/60 p-2">
+              <div className={STAT_ICON_BRAND}>
                 <Users className="h-4 w-4 text-brand-strong" aria-hidden />
               </div>
               <CardTitle className="text-base">Clients</CardTitle>
+              <InfoHint text="Registered business accounts" />
             </div>
-            <CardDescription>Registered business accounts</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tabular-nums">{stats.client_count}</p>
           </CardContent>
         </Card>
 
-        <Card className="border-border/90 shadow-sm">
+        <Card className={STAT_CARD_CLASS}>
           <CardHeader className="space-y-2 pb-2">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-lg bg-muted/60 p-2">
+              <div className={STAT_ICON_BRAND}>
                 <Monitor className="h-4 w-4 text-brand-strong" aria-hidden />
               </div>
               <CardTitle className="text-base">Devices</CardTitle>
+              <InfoHint text="Linked screens across all clients" />
             </div>
-            <CardDescription>Linked screens across all clients</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tabular-nums">{stats.device_count}</p>
           </CardContent>
         </Card>
 
-        <Card className="border-border/90 shadow-sm">
+        <Card className={STAT_CARD_CLASS}>
           <CardHeader className="space-y-2 pb-2">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-lg bg-muted/60 p-2">
+              <div className={STAT_ICON_EMERALD}>
                 <Monitor className="h-4 w-4 text-emerald-600" aria-hidden />
               </div>
               <CardTitle className="text-base">Online now</CardTitle>
+              <InfoHint text="Screens reporting recent heartbeats" />
             </div>
-            <CardDescription>Screens reporting recent heartbeats</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tabular-nums">{stats.online_device_count}</p>
           </CardContent>
         </Card>
 
-        <Card className="border-border/90 shadow-sm">
+        <Card className={STAT_CARD_CLASS}>
           <CardHeader className="space-y-2 pb-2">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-lg bg-muted/60 p-2">
+              <div className={STAT_ICON_AMBER}>
                 <Clock3 className="h-4 w-4 text-amber-600" aria-hidden />
               </div>
               <CardTitle className="text-base">Active trials</CardTitle>
+              <InfoHint text="Self-serve signups still in trial" />
             </div>
-            <CardDescription>Self-serve signups still in trial</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tabular-nums">{stats.active_trial_count ?? 0}</p>
           </CardContent>
         </Card>
 
-        <Card className="border-border/90 shadow-sm">
+        <Card className={STAT_CARD_CLASS}>
           <CardHeader className="space-y-2 pb-2">
             <div className="flex items-center gap-2.5">
-              <div className="rounded-lg bg-muted/60 p-2">
+              <div className={STAT_ICON_RED}>
                 <Users className="h-4 w-4 text-red-600" aria-hidden />
               </div>
               <CardTitle className="text-base">Expired trials</CardTitle>
+              <InfoHint text="Need upgrade or extension" />
             </div>
-            <CardDescription>Need upgrade or extension</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold tabular-nums">{stats.expired_trial_count ?? 0}</p>

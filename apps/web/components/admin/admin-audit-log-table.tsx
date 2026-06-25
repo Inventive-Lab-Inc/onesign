@@ -4,7 +4,7 @@ import type { AdminAuditLogEntry } from "@signage/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useTransition } from "react";
-import { ViewClientButton } from "@/components/admin/view-client-button";
+import { ClientSettingsButton } from "@/components/admin/client-settings-button";
 import { useAppRouter } from "@/hooks/use-app-router";
 import {
   auditActionLabel,
@@ -49,7 +49,7 @@ function ActionBadge({
       : null;
 
   const tone =
-    action === "account_disable" || statusAfter === "dismissed"
+    action === "account_disable" || action === "account_delete" || statusAfter === "dismissed"
       ? "bg-red-500/10 text-red-800"
       : action === "account_enable" || statusAfter === "invited"
         ? "bg-emerald-500/10 text-emerald-800"
@@ -78,7 +78,7 @@ function AuditSubjectCell({ entry }: { entry: AdminAuditLogEntry }) {
       <div className="space-y-1">
         <div className="font-medium text-foreground">{targetDisplayName(entry)}</div>
         <div className="text-xs text-muted-foreground">{entry.target_email}</div>
-        <ViewClientButton userId={entry.target_user_id} />
+        <ClientSettingsButton userId={entry.target_user_id} />
       </div>
     );
   }

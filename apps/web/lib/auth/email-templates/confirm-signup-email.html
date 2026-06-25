@@ -1,9 +1,6 @@
 <!--
-  OneSign "set / reset password" email (Supabase Auth: mailer_templates_recovery_content).
-
-  Sent for BOTH first-time client onboarding (admin "Add client" -> set-password link)
-  and self-serve "Forgot password". Copy is intentionally neutral so it reads correctly
-  in both cases ("set a password" works for new and returning users).
+  OneSign "confirm your email" email (Supabase Auth: mailer_templates_confirmation_content).
+  Sent to self-serve signups to verify their email address.
 
   Logo (MinIO): https://s3.storage.inventivelab.bd/onesign-media/branding/onesign-logo-email.png
   Variables: {{ .ConfirmationURL }} — Supabase Go template syntax.
@@ -75,16 +72,15 @@
             <tr>
               <td style="padding: 16px 32px 0">
                 <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #111827">
-                  Set your password
+                  Confirm your email
                 </h1>
               </td>
             </tr>
             <tr>
               <td style="padding: 12px 32px 0">
                 <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #4b5563">
-                  Click the button below to set a password for your OneSign account. Once it's set,
-                  you can sign in and start managing your screens. For your security, this link
-                  expires shortly.
+                  Welcome to OneSign! Confirm your email address to activate your account and start
+                  managing your screens.
                 </p>
               </td>
             </tr>
@@ -104,7 +100,7 @@
                           text-decoration: none;
                           border-radius: 8px;
                         "
-                        >Set password</a
+                        >Confirm email</a
                       >
                     </td>
                   </tr>
@@ -133,8 +129,7 @@
                     padding-top: 16px;
                   "
                 >
-                  If you weren't expecting this email, you can safely ignore it — your account stays
-                  unchanged.
+                  If you didn't create a OneSign account, you can safely ignore this email.
                 </p>
               </td>
             </tr>

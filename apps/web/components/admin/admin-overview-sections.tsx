@@ -1,11 +1,7 @@
 "use client";
 
 import type { AdminUserDirectoryEntry } from "@signage/types";
-import { useState } from "react";
-import {
-  AdminInviteClientPanel,
-  type InviteClientPrefill,
-} from "@/components/admin/admin-invite-client-panel";
+import { AdminAddClientPanel } from "@/components/admin/admin-add-client-panel";
 import { AdminUsersTable } from "@/components/admin/admin-users-table";
 
 interface AdminOverviewSectionsProps {
@@ -25,22 +21,12 @@ export function AdminOverviewSections({
   initialQuery,
   initialStatus,
 }: AdminOverviewSectionsProps) {
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [invitePrefill, setInvitePrefill] = useState<InviteClientPrefill | null>(null);
-
   return (
     <div className="space-y-8">
       <section className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-sm font-semibold tracking-tight text-foreground">Client accounts</h2>
-          <AdminInviteClientPanel
-            open={inviteOpen}
-            onOpenChange={(open) => {
-              setInviteOpen(open);
-              if (!open) setInvitePrefill(null);
-            }}
-            prefill={invitePrefill}
-          />
+          <AdminAddClientPanel />
         </div>
         <AdminUsersTable
           users={users}
