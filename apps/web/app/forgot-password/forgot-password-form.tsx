@@ -9,6 +9,15 @@ import { getPasswordResetRedirectUrl } from "@/lib/auth/app-url";
 import { assets, getBackgroundStyle } from "@/lib/config/assets";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
+function formatAuthError(error: { message?: string }, fallback: string): string {
+  const message = error.message?.trim();
+  if (!message || message === "{}") return fallback;
+  if (message === "Error sending recovery email") {
+    return "We couldn't send the reset email right now. The mail server rejected our login — check the no-reply mailbox password in cPanel, then try again.";
+  }
+  return message;
+}
+
 const inputBase: React.CSSProperties = {
   width: "100%",
   padding: "0.625rem 0.75rem",
@@ -179,8 +188,12 @@ export function ForgotPasswordForm() {
       });
 
       if (resetError) {
-        setError(resetError.message);
-        toast.error(resetError.message);
+        const message = formatAuthError(
+          resetError,
+          "Could not send reset email. Please try again in a few minutes.",
+        );
+        setError(message);
+        toast.error(message);
         return;
       }
 

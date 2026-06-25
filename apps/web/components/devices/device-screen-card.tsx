@@ -21,6 +21,12 @@ import "./device-screen-card.css";
 /** Stable fallback — inline `[]` in a Zustand selector creates a new reference every render → #185. */
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
 
+/**
+ * When true, screen cards show a generic TV icon thumbnail instead of the live
+ * content preview. Flip back to `false` to restore the original content preview.
+ */
+const SHOW_TV_ICON_THUMBNAIL = true;
+
 function statusLabel(status: DeviceStatus): string {
   switch (status) {
     case "online":
@@ -107,7 +113,11 @@ export function DeviceScreenCard({
         aria-label={`Open screen: ${device.name}`}
       >
         <div className="device-screen-card__preview relative aspect-[16/10] bg-muted/60">
-          {thumbnailUrl ? (
+          {SHOW_TV_ICON_THUMBNAIL ? (
+            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/60">
+              <Tv className="h-14 w-14" strokeWidth={1.25} aria-hidden />
+            </div>
+          ) : thumbnailUrl ? (
             <Image
               key={device.thumbnail_storage_path ?? device.id}
               src={thumbnailUrl}
