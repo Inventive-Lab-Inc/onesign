@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
-import { DEFAULT_TRIAL_DAYS } from "@/lib/plan-quota";
+import { DEFAULT_TRIAL_DAYS, formatStorageBytes } from "@/lib/plan-quota";
 import { assets } from "@/lib/config/assets";
 import {
   TRIAL_UPGRADE_MAILTO,
@@ -31,6 +31,7 @@ function useTrialStatus() {
     daysLeft,
     remainingLabel,
     endLabel,
+    storageLabel: formatStorageBytes(quota.storageLimitBytes, 0),
     elapsed: trialElapsedRatio(quota.trialEndsAt, DEFAULT_TRIAL_DAYS),
   };
 }
@@ -51,7 +52,7 @@ export function TrialTopBarPill() {
           ? "border-amber-300/70 bg-amber-400/20 text-amber-50 shadow-[0_0_20px_rgba(251,191,36,0.35)]"
           : "border-amber-200/40 bg-amber-500/15 text-amber-50 hover:border-amber-200/60 hover:bg-amber-500/25",
       )}
-      title={`${DEFAULT_TRIAL_DAYS}-day trial · ${trial.deviceLimit} screen · ${trial.remainingLabel}`}
+      title={`${DEFAULT_TRIAL_DAYS}-day trial · ${trial.deviceLimit} screen · ${trial.storageLabel} storage · ${trial.remainingLabel}`}
     >
       <span
         className={cn(
@@ -100,7 +101,7 @@ export function TrialStrip() {
           </span>
           <p className="text-sm font-medium text-white">
             <span className="font-semibold text-amber-200">{trial.remainingLabel}</span>
-            <span className="text-white/70"> · {trial.deviceLimit} screen included</span>
+            <span className="text-white/70"> · {trial.deviceLimit} screen · {trial.storageLabel} storage</span>
             {trial.endLabel ? (
               <span className="hidden text-white/55 sm:inline"> · ends {trial.endLabel}</span>
             ) : null}
@@ -202,8 +203,9 @@ export function TrialHomeCard() {
             </h2>
             <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
               You can link{" "}
-              <strong className="font-semibold text-foreground">{trial.deviceLimit} screen</strong> and use
-              cloud storage while you evaluate OneSign.
+              <strong className="font-semibold text-foreground">{trial.deviceLimit} screen</strong> and use{" "}
+              <strong className="font-semibold text-foreground">{trial.storageLabel}</strong> of cloud storage
+              while you evaluate OneSign.
               {trial.endLabel ? (
                 <>
                   {" "}

@@ -200,7 +200,7 @@ export function SignupForm() {
   const next = searchParams.get("next") ?? "/dashboard";
 
   const [view, setView] = useState<SignupView>("form");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => searchParams.get("email")?.trim() ?? "");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [showPassword, setShowPassword] = useState(false);

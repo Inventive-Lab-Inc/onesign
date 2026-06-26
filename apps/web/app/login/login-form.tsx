@@ -167,22 +167,48 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accountNotFound, setAccountNotFound] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  async function accountExists(candidateEmail: string): Promise<boolean | null> {
+    try {
+      const res = await fetch("/api/auth/account-exists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: candidateEmail }),
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { exists?: boolean | null };
+      return data.exists ?? null;
+    } catch {
+      return null;
+    }
+  }
 
   async function onLoginSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setAccountNotFound(false);
     setLoading(true);
     try {
       const supabase = getSupabaseBrowserClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
-        const message =
-          signInError.message === "Invalid login credentials"
-            ? "Email or password is incorrect. If you recently reset your password, use the new one."
-            : signInError.message;
-        setError(message);
-        toast.error(message);
+        if (signInError.message === "Invalid login credentials") {
+          const exists = await accountExists(email);
+          if (exists === false) {
+            setAccountNotFound(true);
+            toast.error("Account not found.");
+            return;
+          }
+          const message =
+            "Email or password is incorrect. If you recently reset your password, use the new one.";
+          setError(message);
+          toast.error(message);
+          return;
+        }
+        setError(signInError.message);
+        toast.error(signInError.message);
         return;
       }
       router.replace(next);
@@ -239,6 +265,22 @@ export function LoginForm() {
                 <div style={styles.error} role="alert">
                   Google sign-in is not configured yet. Set AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, and
                   AUTH_SECRET.
+                </div>
+              )}
+              {accountNotFound && (
+                <div style={styles.error} role="alert">
+                  Account not found. If you are new here,{" "}
+                  <Link
+                    href={
+                      email.trim()
+                        ? `/signup?email=${encodeURIComponent(email.trim())}`
+                        : "/signup"
+                    }
+                    style={{ color: assets.themePrimary, fontWeight: 700 }}
+                  >
+                    Sign Up
+                  </Link>{" "}
+                  now.
                 </div>
               )}
               {error && (
@@ -301,7 +343,7 @@ export function LoginForm() {
             <p className="auth-login-footer" data-auth-anchor style={styles.footer}>
               New to OneSign?{" "}
               <Link href="/signup" style={{ color: assets.themePrimary, fontWeight: 600 }}>
-                Start free trial
+                Sign Up
               </Link>
             </p>
           </div>
