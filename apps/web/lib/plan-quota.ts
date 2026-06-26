@@ -15,10 +15,30 @@ const STORAGE_UNIT_BYTES: Record<StorageUnit, number> = {
 
 export function formatStorageBytes(bytes: number, digits = 1): string {
   if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
+  // Keep decimals only when they carry information (e.g. "45.1 MB" but "500 MB").
+  const trim = (value: number) => Number(value.toFixed(digits)).toString();
   if (bytes < 1024) return `${Math.round(bytes)} B`;
-  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(digits)} KB`;
-  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(digits)} MB`;
-  return `${(bytes / 1024 ** 3).toFixed(digits)} GB`;
+  if (bytes < 1024 ** 2) return `${trim(bytes / 1024)} KB`;
+  if (bytes < 1024 ** 3) return `${trim(bytes / 1024 ** 2)} MB`;
+  return `${trim(bytes / 1024 ** 3)} GB`;
+}
+
+/** Formats used/limit sharing a single unit chosen from the limit, e.g. "0/500 MB" or "0.45/2 GB". */
+export function formatStorageUsage(usedBytes: number, limitBytes: number): string {
+  const safeUsed = Number.isFinite(usedBytes) && usedBytes > 0 ? usedBytes : 0;
+  const safeLimit = Number.isFinite(limitBytes) && limitBytes > 0 ? limitBytes : 0;
+  const unit =
+    safeLimit >= 1024 ** 3
+      ? { suffix: "GB", bytes: 1024 ** 3 }
+      : safeLimit >= 1024 ** 2
+        ? { suffix: "MB", bytes: 1024 ** 2 }
+        : safeLimit >= 1024
+          ? { suffix: "KB", bytes: 1024 }
+          : { suffix: "B", bytes: 1 };
+  const trim = (value: number, digits: number) => Number(value.toFixed(digits)).toString();
+  const used = trim(safeUsed / unit.bytes, 2);
+  const limit = trim(safeLimit / unit.bytes, 1);
+  return `${used}/${limit} ${unit.suffix}`;
 }
 
 export function parseStorageInput(value: string, unit: StorageUnit): number | null {

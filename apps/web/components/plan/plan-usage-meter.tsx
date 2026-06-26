@@ -7,6 +7,7 @@ import {
   deviceUsageRatio,
   deviceUsageTone,
   formatStorageBytes,
+  formatStorageUsage,
   storageUsageRatio,
   storageUsageTone,
 } from "@/lib/plan-quota";
@@ -15,8 +16,8 @@ type PlanUsageMeterProps = {
   variant: "screens" | "storage";
   used: number;
   limit: number;
-  /** Compact row for tables; card for overview panels; inline for header center slots */
-  layout?: "compact" | "card" | "inline";
+  /** Compact row for tables; stacked single-unit "used/limit"; card for overview panels; inline for header center slots */
+  layout?: "compact" | "stacked" | "card" | "inline";
   /** Extra content (e.g. an admin control) rendered inside the card layout. */
   footer?: ReactNode;
   className?: string;
@@ -122,6 +123,23 @@ export function PlanUsageMeter({
           </span>
         ) : null}
       </div>
+    );
+  }
+
+  if (layout === "stacked") {
+    const value = variant === "screens" ? `${used}/${limit}` : formatStorageUsage(used, limit);
+
+    return (
+      <span
+        className={cn(
+          "whitespace-nowrap text-xs font-medium tabular-nums",
+          tone === "ok" ? "text-foreground" : styles.label,
+          className,
+        )}
+        title={`${title}: ${usageLabel(variant, used, limit)} (${pct}%)`}
+      >
+        {value}
+      </span>
     );
   }
 

@@ -15,6 +15,7 @@ import {
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { ContentViewTabs } from "@/components/content/content-view-tabs";
 import { ListPageHeader } from "@/components/console/list-page-header";
+import { CONSOLE_PANEL_CHROME, useFlatConsolePanels } from "@/components/console/console-panel";
 import { CreatePlaylistForm } from "@/components/create-playlist-form";
 import { MediaLibrary } from "@/components/media-library";
 import { DeviceGroupFolderCard, GroupFolderCreateCard } from "@/components/device-groups/device-group-folder-card";
@@ -23,6 +24,7 @@ import type { PlaylistGroupWithMembers } from "@/lib/console-sync";
 import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
 import { formatPlaylistClockLabel } from "@/lib/playlist-timing";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import { cn } from "@/lib/utils";
 import "@/components/device-groups/device-groups.css";
 
 const CONTENT_FOLDER_GRID = "device-group-folder-grid device-group-folder-grid--dense";
@@ -230,6 +232,8 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
     navigateToGroup("all");
   }, [activePlaylistId, navigateToGroup, playlistsBackHref, router]);
 
+  const flatPanels = useFlatConsolePanels();
+
   if (!ownerId) {
     return (
       <div className="min-h-[min(70vh,720px)] animate-pulse rounded-xl border border-border bg-muted/40" />
@@ -249,7 +253,7 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
         <MediaLibrary userId={ownerId} embedded />
       ) : (
     <div className="flex min-h-[min(70vh,720px)] flex-col">
-      <div className="flex min-h-full flex-1 flex-col rounded-xl border border-border bg-card shadow-sm">
+      <div className={cn("flex min-h-full flex-1 flex-col", !flatPanels && CONSOLE_PANEL_CHROME)}>
         <ListPageHeader
           title={pageTitle}
           subtitle={mainPanelSubtitle}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
+import { PageContainer } from "@/components/shell/page-container";
 import { DEFAULT_TRIAL_DAYS, formatStorageBytes } from "@/lib/plan-quota";
 import { assets } from "@/lib/config/assets";
 import {
@@ -93,7 +94,7 @@ export function TrialStrip() {
         }}
         aria-hidden
       />
-      <div className="relative mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-2 px-4 py-2.5 sm:justify-between sm:px-5">
+      <PageContainer className="relative flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-4 py-2.5 sm:justify-between sm:px-5">
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center sm:justify-start sm:text-left">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/15 px-2.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-[0.18em] text-amber-200 ring-1 ring-amber-400/30">
             <Sparkles className="h-3 w-3" aria-hidden />
@@ -121,7 +122,7 @@ export function TrialStrip() {
             Upgrade
           </Link>
         </div>
-      </div>
+      </PageContainer>
     </div>
   );
 }

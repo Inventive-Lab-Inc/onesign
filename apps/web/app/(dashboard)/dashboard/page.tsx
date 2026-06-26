@@ -43,7 +43,7 @@ export default function DashboardHomePage() {
   }
 
   return (
-    <div className="dashboard-home mx-auto max-w-6xl space-y-8 pb-4">
+    <div className="dashboard-home space-y-8">
       <TrialHomeCard />
 
       <DashboardStatsSection

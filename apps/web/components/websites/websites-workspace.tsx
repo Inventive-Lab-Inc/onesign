@@ -6,7 +6,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
+import { CONSOLE_PANEL_CHROME, useFlatConsolePanels } from "@/components/console/console-panel";
 import { ListPageHeader } from "@/components/console/list-page-header";
+import { cn } from "@/lib/utils";
 import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
@@ -120,9 +122,11 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
     }
   }
 
+  const flatPanels = useFlatConsolePanels();
+
   return (
     <>
-      <div className="flex min-h-[min(70vh,720px)] flex-col rounded-xl border border-border bg-card shadow-sm">
+      <div className={cn("flex min-h-[min(70vh,720px)] flex-col", !flatPanels && CONSOLE_PANEL_CHROME)}>
         <ListPageHeader
           title="Websites"
           search={search}

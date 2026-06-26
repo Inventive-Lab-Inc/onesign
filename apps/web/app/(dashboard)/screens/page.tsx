@@ -19,10 +19,8 @@ function DevicesPageContent() {
 
 export default function DevicesPage() {
   return (
-    <div className="mx-auto max-w-6xl pb-4">
-      <Suspense fallback={<ConsolePageSkeleton />}>
-        <DevicesPageContent />
-      </Suspense>
-    </div>
+    <Suspense fallback={<ConsolePageSkeleton />}>
+      <DevicesPageContent />
+    </Suspense>
   );
 }

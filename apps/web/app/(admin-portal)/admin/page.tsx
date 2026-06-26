@@ -99,7 +99,7 @@ export default async function AdminOverviewPage({
   const totalCount = users[0]?.total_count ?? users.length;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 pb-4">
+    <div className="space-y-8">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Client directory</h1>
         <p className="text-sm text-muted-foreground">

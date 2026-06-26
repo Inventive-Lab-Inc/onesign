@@ -4,9 +4,13 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useRouteNavigationPending } from "@/hooks/use-route-navigation-pending";
 import { TopBar, type ProfilePortalSwitch } from "./top-bar";
+import { SidebarNav } from "./top-nav";
 import { useBreakpoint } from "./use-breakpoint";
+import { useSettings } from "./settings-context";
 import type { AppLayoutConfig, NavItem } from "./types";
 import { assets, getBackgroundStyle } from "@/lib/config/assets";
+import { PageContainer } from "./page-container";
+import { TopBarActionSlotProvider } from "./top-bar-action-slot";
 
 interface AppLayoutProps extends AppLayoutConfig {
   banner?: ReactNode;
@@ -49,6 +53,8 @@ export function AppLayout({
   const pathname = usePathname();
   const { pendingPath } = useRouteNavigationPending();
   const { isMobile } = useBreakpoint();
+  const { settings, setSidebarCollapsed } = useSettings();
+  const useSidebar = !isMobile && settings.layoutMode === "sidebar";
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
@@ -114,8 +120,20 @@ export function AppLayout({
           flex: 1,
           minHeight: 0,
           padding: isMobile ? 0 : "0.5rem",
+          gap: useSidebar ? "0.5rem" : 0,
         }}
       >
+        {useSidebar && (
+          <SidebarNav
+            brand={brand}
+            navItems={navItems}
+            bottomNavItem={bottomNavItem}
+            pendingPath={pendingPath}
+            collapsed={settings.sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(!settings.sidebarCollapsed)}
+          />
+        )}
+        <TopBarActionSlotProvider>
         <div
           style={{
             flex: 1,
@@ -133,6 +151,7 @@ export function AppLayout({
             brand={brand}
             navItems={navItems}
             bottomNavItem={bottomNavItem}
+            showNav={!useSidebar}
             mobileNavOpen={isMobileNavOpen}
             onMobileNavClose={() => setIsMobileNavOpen(false)}
             userName={userName}
@@ -159,19 +178,12 @@ export function AppLayout({
               position: "relative",
             }}
           >
-            <main
-              style={{
-                flex: 1,
-                minHeight: 0,
-                overflowY: "auto",
-                overscrollBehavior: "contain",
-                padding: isMobile ? "0.875rem" : "1.25rem",
-              }}
-            >
-              {children}
+            <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+              <PageContainer className="pb-4">{children}</PageContainer>
             </main>
           </div>
         </div>
+        </TopBarActionSlotProvider>
       </div>
     </div>
   );

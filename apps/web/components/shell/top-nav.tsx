@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAppRouter } from "@/hooks/use-app-router";
-import { X } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavRadialSpinner } from "@/components/ui/nav-radial-spinner";
 import { BrandMark } from "@/components/brand-mark";
@@ -334,6 +334,234 @@ export function TopNavBar({ brand, navItems, bottomNavItem, pendingPath, centerN
       />
       {navLinks}
     </div>
+  );
+}
+
+export const SIDEBAR_WIDTH = "15rem";
+export const SIDEBAR_COLLAPSED_WIDTH = "4rem";
+
+interface SidebarNavProps {
+  brand: BrandConfig;
+  navItems: NavItem[];
+  bottomNavItem?: NavItem;
+  pendingPath?: string | null;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+/** Persistent left sidebar navigation for the desktop "sidebar" layout mode. */
+export function SidebarNav({
+  brand,
+  navItems,
+  bottomNavItem,
+  pendingPath,
+  collapsed = false,
+  onToggleCollapse,
+}: SidebarNavProps) {
+  const pathname = usePathname();
+  const { name, subtitle, icon: BrandIcon, logoColor = "var(--theme)" } = brand;
+  const items = useMemo(
+    () => (bottomNavItem ? [...navItems, bottomNavItem] : navItems),
+    [navItems, bottomNavItem],
+  );
+
+  const rowStyle = (active: boolean) =>
+    ({
+      display: "flex",
+      flexDirection: collapsed ? "column" : "row",
+      alignItems: "center",
+      justifyContent: collapsed ? "center" : "flex-start",
+      gap: collapsed ? "0.25rem" : "0.625rem",
+      width: collapsed ? "100%" : undefined,
+      minWidth: collapsed ? 0 : undefined,
+      boxSizing: "border-box",
+      padding: collapsed ? "0.5rem 0" : "0.625rem 0.75rem",
+      borderRadius: "0.5rem",
+      textDecoration: "none",
+      fontSize: "0.8125rem",
+      fontWeight: active ? 600 : 500,
+      color: active ? "#fff" : "rgba(255,255,255,0.72)",
+      background: active ? logoColor : "transparent",
+      transition: "color 0.15s, background 0.15s",
+      whiteSpace: collapsed ? "normal" : "nowrap",
+      overflow: "hidden",
+    }) as const;
+
+  return (
+    <aside
+      style={{
+        width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        padding: collapsed ? "0.5rem 0" : "0.5rem 0.25rem 0.5rem 0.5rem",
+        transition: "width 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+      }}
+      aria-label="Sidebar"
+    >
+      <Link
+        prefetch
+        href={HOME_PATH}
+        title={collapsed ? name : undefined}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: collapsed ? "center" : "flex-start",
+          gap: "0.5rem",
+          textDecoration: "none",
+          width: collapsed ? "100%" : undefined,
+          padding: collapsed ? "0.375rem 0" : "0.375rem 0.5rem",
+          flexShrink: 0,
+        }}
+      >
+        <BrandMark icon={BrandIcon} logoColor={logoColor} iconSize={18} />
+        {!collapsed && (
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                color: "#fff",
+                fontSize: "0.9375rem",
+                fontWeight: 700,
+                lineHeight: 1.15,
+                letterSpacing: "-0.01em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {name}
+            </div>
+            {subtitle && (
+              <div
+                style={{
+                  color: "rgba(255,255,255,0.45)",
+                  fontSize: "0.5625rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  marginTop: "0.0625rem",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {subtitle}
+              </div>
+            )}
+          </div>
+        )}
+      </Link>
+      <div
+        style={{
+          height: "0.0625rem",
+          background: "rgba(255,255,255,0.12)",
+          margin: collapsed ? "0.5rem 0 0.625rem" : "0.5rem 0.5rem 0.625rem",
+          flexShrink: 0,
+        }}
+        aria-hidden
+      />
+      <nav
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: collapsed ? "stretch" : undefined,
+          gap: "0.1875rem",
+          scrollbarWidth: "none",
+          width: "100%",
+        }}
+        className="top-nav-scroll"
+        aria-label="Main"
+      >
+        {items.map((item) => {
+          const { icon: Icon, label, path, end } = item;
+          const active = navMatches(path, pathname, end ?? path === "/");
+          const showLoader = navItemMatchesDestination(item, pendingPath);
+          return (
+            <Link prefetch key={path} href={path} style={rowStyle(active)} title={label}>
+              <span
+                style={{
+                  position: "relative",
+                  width: 18,
+                  height: 18,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+                aria-hidden={showLoader}
+              >
+                {showLoader ? (
+                  <NavRadialSpinner size={18} style={{ color: "rgba(255,255,255,0.95)" }} aria-hidden />
+                ) : (
+                  <Icon size={18} strokeWidth={NAV_ICON_STROKE} />
+                )}
+              </span>
+              {collapsed ? (
+                <span
+                  style={{
+                    fontSize: "0.5625rem",
+                    fontWeight: active ? 600 : 500,
+                    lineHeight: 1.1,
+                    width: "100%",
+                    textAlign: "center",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {label}
+                </span>
+              ) : (
+                label
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+      {onToggleCollapse && (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          style={{
+            marginTop: "0.5rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: collapsed ? "center" : "flex-start",
+            gap: "0.625rem",
+            width: collapsed ? "100%" : undefined,
+            padding: collapsed ? "0.5rem 0" : "0.5rem 0.75rem",
+            borderRadius: "0.5rem",
+            border: "none",
+            background: "transparent",
+            color: "rgba(255,255,255,0.55)",
+            cursor: "pointer",
+            fontSize: "0.75rem",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 18,
+              height: 18,
+              flexShrink: 0,
+            }}
+          >
+            {collapsed ? (
+              <PanelLeftOpen size={18} strokeWidth={NAV_ICON_STROKE} />
+            ) : (
+              <PanelLeftClose size={18} strokeWidth={NAV_ICON_STROKE} />
+            )}
+          </span>
+          {!collapsed && "Collapse"}
+        </button>
+      )}
+    </aside>
   );
 }
 

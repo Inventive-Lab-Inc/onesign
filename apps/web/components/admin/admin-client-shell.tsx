@@ -38,7 +38,7 @@ export function AdminClientShell({
   const displayName = client.client_name?.trim() || client.email.split("@")[0];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-2">
+    <div className="space-y-5">
       <div className="space-y-3">
         <div className="flex flex-col gap-3 border-b border-border/80 pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex min-w-0 items-center gap-2.5">

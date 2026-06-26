@@ -73,7 +73,7 @@ export default async function AdminAuditPage({
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-4">
+    <div className="space-y-6">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <ScrollText className="h-5 w-5 text-brand-strong" aria-hidden />

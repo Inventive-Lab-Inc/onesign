@@ -8,6 +8,7 @@ import { devicesListPath, groupDetailPath, useAdminClientRoutes } from "@/compon
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
 import { ListPageHeader } from "@/components/console/list-page-header";
+import { CONSOLE_PANEL_CHROME, useFlatConsolePanels } from "@/components/console/console-panel";
 import { ViewModeToggle } from "@/components/console/view-mode-toggle";
 import { DeviceGroupEditorDialog } from "@/components/device-groups/device-group-editor-dialog";
 import {
@@ -64,8 +65,10 @@ export function DeviceGroupsManager() {
       .filter((entry) => !q || entry.group.name.toLowerCase().includes(q));
   }, [deviceGroups, devices, search]);
 
+  const flatPanels = useFlatConsolePanels();
+
   return (
-    <div className="flex min-h-[min(70vh,720px)] flex-col rounded-xl border border-border bg-card shadow-sm">
+    <div className={cn("flex min-h-[min(70vh,720px)] flex-col", !flatPanels && CONSOLE_PANEL_CHROME)}>
       <ListPageHeader
         title="Screen groups"
         search={search}

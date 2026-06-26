@@ -51,7 +51,6 @@ function GroupDetailPageContent() {
 
 export default function GroupDetailPage() {
   return (
-    <div className="mx-auto max-w-6xl pb-4">
       <Suspense
         fallback={
           <div className="space-y-4">
@@ -62,6 +61,5 @@ export default function GroupDetailPage() {
       >
         <GroupDetailPageContent />
       </Suspense>
-    </div>
   );
 }

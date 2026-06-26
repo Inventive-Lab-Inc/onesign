@@ -21,7 +21,6 @@ function GroupsPageContent() {
 
 export default function GroupsPage() {
   return (
-    <div className="mx-auto max-w-6xl pb-4">
       <Suspense
         fallback={
           <div className="space-y-4">
@@ -32,6 +31,5 @@ export default function GroupsPage() {
       >
         <GroupsPageContent />
       </Suspense>
-    </div>
   );
 }

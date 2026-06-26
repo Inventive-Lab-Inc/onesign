@@ -24,7 +24,6 @@ function WebsitesPageContent() {
 
 export default function WebsitesPage() {
   return (
-    <div className="mx-auto max-w-6xl pb-4">
       <Suspense
         fallback={
           <div className="space-y-4">
@@ -35,6 +34,5 @@ export default function WebsitesPage() {
       >
         <WebsitesPageContent />
       </Suspense>
-    </div>
   );
 }
