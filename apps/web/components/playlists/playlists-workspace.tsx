@@ -15,7 +15,7 @@ import {
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { ContentViewTabs } from "@/components/content/content-view-tabs";
 import { ListPageHeader } from "@/components/console/list-page-header";
-import { CONSOLE_PANEL_CHROME, useFlatConsolePanels } from "@/components/console/console-panel";
+import { CONSOLE_PANEL_CHROME } from "@/components/console/console-panel";
 import { CreatePlaylistForm } from "@/components/create-playlist-form";
 import { MediaLibrary } from "@/components/media-library";
 import { DeviceGroupFolderCard, GroupFolderCreateCard } from "@/components/device-groups/device-group-folder-card";
@@ -232,8 +232,6 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
     navigateToGroup("all");
   }, [activePlaylistId, navigateToGroup, playlistsBackHref, router]);
 
-  const flatPanels = useFlatConsolePanels();
-
   if (!ownerId) {
     return (
       <div className="min-h-[min(70vh,720px)] animate-pulse rounded-xl border border-border bg-muted/40" />
@@ -253,7 +251,7 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
         <MediaLibrary userId={ownerId} embedded />
       ) : (
     <div className="flex min-h-[min(70vh,720px)] flex-col">
-      <div className={cn("flex min-h-full flex-1 flex-col", !flatPanels && CONSOLE_PANEL_CHROME)}>
+      <div className={cn("flex min-h-full flex-1 flex-col", CONSOLE_PANEL_CHROME)}>
         <ListPageHeader
           title={pageTitle}
           subtitle={mainPanelSubtitle}

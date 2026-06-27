@@ -29,7 +29,7 @@ import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
-import { CONSOLE_PANEL_CHROME, useFlatConsolePanels } from "@/components/console/console-panel";
+import { CONSOLE_PANEL_CHROME } from "@/components/console/console-panel";
 import { ListPageHeader } from "@/components/console/list-page-header";
 import { ViewModeToggle } from "@/components/console/view-mode-toggle";
 import { DeviceGroupEditorDialog } from "@/components/device-groups/device-group-editor-dialog";
@@ -289,11 +289,10 @@ export function DevicesManager() {
   );
 
   const pageTitle = isGroupView ? groupFilterLabel(groupFilter, activeGroup) : "Screens";
-  const flatPanels = useFlatConsolePanels();
 
   return (
     <>
-      <div className={cn("flex min-h-[min(70vh,720px)] flex-col", !flatPanels && CONSOLE_PANEL_CHROME)}>
+      <div className={cn("flex min-h-[min(70vh,720px)] flex-col", CONSOLE_PANEL_CHROME)}>
         <ListPageHeader
           title={pageTitle}
           backButton={
@@ -309,10 +308,12 @@ export function DevicesManager() {
           }
           primaryAction={
             !readOnly ? (
-              <HeaderPrimaryButton type="button" onClick={() => setLinkDialogOpen(true)}>
-                <Plus className="h-4 w-4" aria-hidden />
-                Link screen
-              </HeaderPrimaryButton>
+              <HeaderPrimaryButton
+                type="button"
+                onClick={() => setLinkDialogOpen(true)}
+                label="Link screen"
+                icon={<Plus className="h-4 w-4" aria-hidden />}
+              />
             ) : undefined
           }
           search={search}

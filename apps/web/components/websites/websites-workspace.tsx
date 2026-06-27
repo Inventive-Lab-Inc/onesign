@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
-import { CONSOLE_PANEL_CHROME, useFlatConsolePanels } from "@/components/console/console-panel";
+import { CONSOLE_PANEL_CHROME } from "@/components/console/console-panel";
 import { ListPageHeader } from "@/components/console/list-page-header";
 import { cn } from "@/lib/utils";
 import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
@@ -122,11 +122,9 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
     }
   }
 
-  const flatPanels = useFlatConsolePanels();
-
   return (
     <>
-      <div className={cn("flex min-h-[min(70vh,720px)] flex-col", !flatPanels && CONSOLE_PANEL_CHROME)}>
+      <div className={cn("flex min-h-[min(70vh,720px)] flex-col", CONSOLE_PANEL_CHROME)}>
         <ListPageHeader
           title="Websites"
           search={search}
@@ -137,10 +135,12 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
           onSortChange={(id) => setWebsiteSort(id as WebsiteSort)}
           primaryAction={
             effectiveReadOnly ? undefined : (
-              <HeaderPrimaryButton type="button" onClick={() => setEditorOpen(true)}>
-                <Plus className="h-4 w-4" aria-hidden />
-                Add Website
-              </HeaderPrimaryButton>
+              <HeaderPrimaryButton
+                type="button"
+                onClick={() => setEditorOpen(true)}
+                label="Add Website"
+                icon={<Plus className="h-4 w-4" aria-hidden />}
+              />
             )
           }
         />

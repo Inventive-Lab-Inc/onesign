@@ -1,15 +1,14 @@
 "use client";
 
-import { useCallback, useRef, useEffect, useState } from "react";
-import { Bell, ChevronDown, Download, LayoutDashboard, LogOut, Menu, PanelLeft, PanelTop, Shield, UserRound } from "lucide-react";
+import { useRef, useEffect, useState } from "react";
+import { Bell, ChevronDown, Download, LogOut, Menu, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { setStaffPortalChoice } from "@/lib/auth/staff-portal-choice";
 import { useNotifications } from "./notifications-context";
 import { useSettings } from "./settings-context";
-import { useTopBarActionSlot } from "./top-bar-action-slot";
-import { MobileNavDrawer, TopNavBar } from "./top-nav";
+import { MobileNavDrawer } from "./top-nav";
 import type { BrandConfig, NavItem } from "./types";
 import { NavRadialSpinner } from "@/components/ui/nav-radial-spinner";
 import { assets } from "@/lib/config/assets";
@@ -236,39 +235,6 @@ function NotificationBellDropdown() {
   );
 }
 
-function LayoutModeToggle() {
-  const { settings, setLayoutMode } = useSettings();
-  const isSidebar = settings.layoutMode === "sidebar";
-  const Icon = isSidebar ? PanelTop : PanelLeft;
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <button
-      type="button"
-      onClick={() => setLayoutMode(isSidebar ? "topbar" : "sidebar")}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      aria-label={isSidebar ? "Switch to top bar navigation" : "Switch to sidebar navigation"}
-      title={isSidebar ? "Switch to top bar" : "Switch to sidebar"}
-      style={{
-        width: "2rem",
-        height: "2rem",
-        borderRadius: "0.4375rem",
-        border: shellChrome.border,
-        background: hovered ? shellChrome.backgroundHover : shellChrome.background,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: "pointer",
-        flexShrink: 0,
-        transition: "background 0.15s",
-      }}
-    >
-      <Icon size={14} color={shellChrome.icon} strokeWidth={2} />
-    </button>
-  );
-}
-
 export interface TopBarProps {
   title: string | ((pathname: string) => string);
   titleIcon?: LucideIcon;
@@ -291,8 +257,6 @@ export interface TopBarProps {
   onLanguageClick?: () => void;
   onMobileMenuOpen: () => void;
   isMobile?: boolean;
-  /** When false (desktop sidebar mode), the header shows the page title instead of inline nav. */
-  showNav?: boolean;
 }
 
 function ProfileDropdown({
@@ -576,16 +540,9 @@ export function TopBar({
   onLanguageClick,
   onMobileMenuOpen,
   isMobile = false,
-  showNav = true,
 }: TopBarProps) {
   const pathname = usePathname();
   const titleText = typeof title === "function" ? title(pathname) : title;
-  const actionSlot = useTopBarActionSlot();
-  const setActionContainer = actionSlot?.setContainer;
-  const actionSlotRef = useCallback(
-    (el: HTMLElement | null) => setActionContainer?.(el),
-    [setActionContainer],
-  );
 
   if (isMobile) {
     return (
@@ -696,51 +653,41 @@ export function TopBar({
       style={{
         position: "relative",
         background: "transparent",
-        minHeight: showNav ? "3.5rem" : "2.75rem",
+        minHeight: "2.75rem",
         display: "flex",
         alignItems: "center",
-        padding: showNav ? "0.375rem 1.25rem" : "0.125rem 1rem 0.125rem 0.75rem",
+        padding: "0.125rem 1rem 0.125rem 0.75rem",
         gap: "0.75rem",
         flexShrink: 0,
       }}
     >
-      {showNav ? (
-        <TopNavBar
-          brand={brand}
-          navItems={navItems}
-          bottomNavItem={bottomNavItem}
-          pendingPath={pendingPath}
-        />
-      ) : (
-        <span
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            fontSize: "1.0625rem",
-            fontWeight: 700,
-            color: "#fff",
-            overflow: "hidden",
-            minWidth: 0,
-          }}
-        >
-          {pendingPath != null ? (
-            <NavRadialSpinner
-              size={18}
-              style={{ color: "rgba(255,255,255,0.85)" }}
-              aria-label="Loading page"
-              aria-hidden={false}
-            />
-          ) : (
-            TitleIcon && (
-              <TitleIcon size={18} strokeWidth={1.75} style={{ flexShrink: 0, color: "rgba(255,255,255,0.85)" }} />
-            )
-          )}
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleText}</span>
-          <span ref={actionSlotRef} style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }} />
-        </span>
-      )}
+      <span
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          fontSize: "1.0625rem",
+          fontWeight: 700,
+          color: "#fff",
+          overflow: "hidden",
+          minWidth: 0,
+        }}
+      >
+        {pendingPath != null ? (
+          <NavRadialSpinner
+            size={18}
+            style={{ color: "rgba(255,255,255,0.85)" }}
+            aria-label="Loading page"
+            aria-hidden={false}
+          />
+        ) : (
+          TitleIcon && (
+            <TitleIcon size={18} strokeWidth={1.75} style={{ flexShrink: 0, color: "rgba(255,255,255,0.85)" }} />
+          )
+        )}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleText}</span>
+      </span>
       {centerSlot}
       <div
         style={{
@@ -777,7 +724,6 @@ export function TopBar({
           <>
             <TrialTopBarPill />
             {syncControl}
-            <LayoutModeToggle />
             <NotificationBellDropdown />
             <ProfileDropdown
               userName={userName}

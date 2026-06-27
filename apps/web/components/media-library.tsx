@@ -22,7 +22,6 @@ import { useSearchParams } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
-import { CONSOLE_PANEL_CHROME, useFlatConsolePanels } from "@/components/console/console-panel";
 import { ListPageHeader } from "@/components/console/list-page-header";
 import { Button } from "@/components/ui/button";
 import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
@@ -207,7 +206,6 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
 
   const activeGroupName = groupFilterLabel(groupFilter, activeGroup);
   const showBackButton = isInsideFolder;
-  const flatPanels = useFlatConsolePanels();
 
   const pageTitle = useMemo(() => {
     if (isInsideFolder) return activeGroupName;
@@ -458,10 +456,8 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
         <input {...getInputProps()} />
         <div
           className={cn(
-            "flex min-h-full flex-1 flex-col rounded-xl transition-colors",
-            flatPanels
-              ? isDragActive && "ring-2 ring-brand-faint20"
-              : cn("border bg-card shadow-sm", isDragActive ? "border-primary ring-2 ring-brand-faint20" : "border-border"),
+            "flex min-h-full flex-1 flex-col rounded-xl border bg-card shadow-sm transition-colors",
+            isDragActive ? "border-primary ring-2 ring-brand-faint20" : "border-border",
           )}
         >
           <ListPageHeader
@@ -486,10 +482,13 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
             }
             primaryAction={
               !readOnly && !storageFull ? (
-                <HeaderPrimaryButton type="button" onClick={() => open()} disabled={uploading}>
-                  <Upload className="h-4 w-4" aria-hidden />
-                  {uploading ? "Uploading…" : "Upload files"}
-                </HeaderPrimaryButton>
+                <HeaderPrimaryButton
+                  type="button"
+                  onClick={() => open()}
+                  disabled={uploading}
+                  label={uploading ? "Uploading…" : "Upload files"}
+                  icon={<Upload className="h-4 w-4" aria-hidden />}
+                />
               ) : undefined
             }
             search={search}

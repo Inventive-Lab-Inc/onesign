@@ -3,12 +3,9 @@
 import type { LucideIcon } from "lucide-react";
 import { ArrowUpDown, Filter, Search } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useSettings } from "@/components/shell/settings-context";
 import { useBreakpoint } from "@/components/shell/use-breakpoint";
-import { useTopBarActionSlot } from "@/components/shell/top-bar-action-slot";
 import { cn } from "@/lib/utils";
 
 type MenuOption = {
@@ -158,24 +155,18 @@ export function ListPageHeader({
   const hasSort = sortOptions != null && sortOptions.length > 0 && onSortChange != null && activeSortId != null;
   const hasSearch = search != null && onSearchChange != null;
 
-  const { settings } = useSettings();
   const { isMobile } = useBreakpoint();
-  // In sidebar mode the top bar already shows the page title, so repeating it in
+  // On desktop the top bar already shows the page title, so repeating it in
   // the body is redundant. Nested views (with a back button) keep their title
   // because the top bar only shows the generic section name there.
-  const sidebarOwnsTitle = !isMobile && settings.layoutMode === "sidebar";
+  const sidebarOwnsTitle = !isMobile;
   const hideTitle = sidebarOwnsTitle && backButton == null;
-
-  // When the title lives in the top bar, hoist the primary action up next to it
-  // so it isn't left stranded on its own in the body toolbar.
-  const actionSlot = useTopBarActionSlot();
-  const topBarActionContainer = hideTitle && primaryAction != null ? actionSlot?.container ?? null : null;
 
   return (
     <div
       className={cn(
         "flex flex-col gap-4 border-b border-border px-4 sm:px-5",
-        hideTitle ? "pb-4 pt-1 sm:pb-5 sm:pt-1.5" : "py-4 sm:py-5",
+        hideTitle ? "py-3 sm:py-3.5" : "py-4 sm:py-5",
       )}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -190,9 +181,7 @@ export function ListPageHeader({
             </div>
             {subtitle ? <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p> : null}
           </div>
-          {primaryAction && topBarActionContainer == null ? (
-            <div className="shrink-0">{primaryAction}</div>
-          ) : null}
+          {primaryAction ? <div className="shrink-0">{primaryAction}</div> : null}
         </div>
 
         {center ? (
@@ -241,7 +230,6 @@ export function ListPageHeader({
           {trailing}
         </div>
       </div>
-      {topBarActionContainer ? createPortal(primaryAction, topBarActionContainer) : null}
     </div>
   );
 }

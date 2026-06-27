@@ -90,12 +90,6 @@ optgroup,
   display: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .top-nav-slide-indicator {
-    transition: none !important;
-  }
-}
-
 .auth-card input::placeholder {
   color: #9ca3af;
 }

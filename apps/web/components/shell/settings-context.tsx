@@ -12,19 +12,15 @@ import {
 
 const STORAGE_KEY = "signage-console-settings";
 
-export type LayoutMode = "topbar" | "sidebar";
-
 export interface AppSettings {
   notifications: boolean;
   language: string;
-  layoutMode: LayoutMode;
   sidebarCollapsed: boolean;
 }
 
 const defaults: AppSettings = {
   notifications: true,
   language: "en",
-  layoutMode: "topbar",
   sidebarCollapsed: false,
 };
 
@@ -37,7 +33,6 @@ function loadSettings(): AppSettings {
     return {
       notifications: parsed.notifications ?? defaults.notifications,
       language: parsed.language ?? defaults.language,
-      layoutMode: parsed.layoutMode === "sidebar" ? "sidebar" : defaults.layoutMode,
       sidebarCollapsed: parsed.sidebarCollapsed ?? defaults.sidebarCollapsed,
     };
   } catch {
@@ -57,7 +52,6 @@ export interface SettingsContextValue {
   settings: AppSettings;
   setNotifications: (enabled: boolean) => void;
   setLanguage: (language: string) => void;
-  setLayoutMode: (mode: LayoutMode) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
@@ -83,10 +77,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     (language: string) => persist({ ...settings, language }),
     [persist, settings],
   );
-  const setLayoutMode = useCallback(
-    (layoutMode: LayoutMode) => persist({ ...settings, layoutMode }),
-    [persist, settings],
-  );
   const setSidebarCollapsed = useCallback(
     (sidebarCollapsed: boolean) => persist({ ...settings, sidebarCollapsed }),
     [persist, settings],
@@ -97,10 +87,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       settings,
       setNotifications,
       setLanguage,
-      setLayoutMode,
       setSidebarCollapsed,
     }),
-    [settings, setNotifications, setLanguage, setLayoutMode, setSidebarCollapsed],
+    [settings, setNotifications, setLanguage, setSidebarCollapsed],
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

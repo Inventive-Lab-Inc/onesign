@@ -25,7 +25,7 @@ import { contentLibraryPath, mediaDetailPath, useAdminClientRoutes } from "@/com
 import { DeviceGroupFolderCard } from "@/components/device-groups/device-group-folder-card";
 import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
 import { ListPageHeader } from "@/components/console/list-page-header";
-import { CONSOLE_PANEL_CHROME, useFlatConsolePanels } from "@/components/console/console-panel";
+import { CONSOLE_PANEL_CHROME } from "@/components/console/console-panel";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { AddMediaToScreensDialog } from "@/components/media/add-media-to-screens-dialog";
@@ -328,11 +328,9 @@ export function FileManagementWorkspace({ userId }: { userId: string }) {
   const sortDirection = (column: "title" | "type" | "uploaded" | "size") =>
     tableSort.startsWith(column) ? (tableSort.endsWith("-desc") ? "desc" : "asc") : "desc";
 
-  const flatPanels = useFlatConsolePanels();
-
   return (
     <div className="flex min-h-[min(70vh,720px)] flex-col">
-      <div className={cn("flex min-h-full flex-1 flex-col", !flatPanels && CONSOLE_PANEL_CHROME)}>
+      <div className={cn("flex min-h-full flex-1 flex-col", CONSOLE_PANEL_CHROME)}>
         <ListPageHeader
           title={pageTitle}
           backButton={

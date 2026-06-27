@@ -10,7 +10,6 @@ import { useSettings } from "./settings-context";
 import type { AppLayoutConfig, NavItem } from "./types";
 import { assets, getBackgroundStyle } from "@/lib/config/assets";
 import { PageContainer } from "./page-container";
-import { TopBarActionSlotProvider } from "./top-bar-action-slot";
 
 interface AppLayoutProps extends AppLayoutConfig {
   banner?: ReactNode;
@@ -54,7 +53,7 @@ export function AppLayout({
   const { pendingPath } = useRouteNavigationPending();
   const { isMobile } = useBreakpoint();
   const { settings, setSidebarCollapsed } = useSettings();
-  const useSidebar = !isMobile && settings.layoutMode === "sidebar";
+  const useSidebar = !isMobile;
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
@@ -133,7 +132,6 @@ export function AppLayout({
             onToggleCollapse={() => setSidebarCollapsed(!settings.sidebarCollapsed)}
           />
         )}
-        <TopBarActionSlotProvider>
         <div
           style={{
             flex: 1,
@@ -151,7 +149,6 @@ export function AppLayout({
             brand={brand}
             navItems={navItems}
             bottomNavItem={bottomNavItem}
-            showNav={!useSidebar}
             mobileNavOpen={isMobileNavOpen}
             onMobileNavClose={() => setIsMobileNavOpen(false)}
             userName={userName}
@@ -178,12 +175,11 @@ export function AppLayout({
               position: "relative",
             }}
           >
-            <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
+            <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4 sm:py-4">
               <PageContainer className="pb-4">{children}</PageContainer>
             </main>
           </div>
         </div>
-        </TopBarActionSlotProvider>
       </div>
     </div>
   );
