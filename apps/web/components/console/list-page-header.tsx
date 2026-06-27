@@ -5,7 +5,6 @@ import { ArrowUpDown, Filter, Search } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useBreakpoint } from "@/components/shell/use-breakpoint";
 import { cn } from "@/lib/utils";
 
 type MenuOption = {
@@ -155,12 +154,10 @@ export function ListPageHeader({
   const hasSort = sortOptions != null && sortOptions.length > 0 && onSortChange != null && activeSortId != null;
   const hasSearch = search != null && onSearchChange != null;
 
-  const { isMobile } = useBreakpoint();
-  // On desktop the top bar already shows the page title, so repeating it in
-  // the body is redundant. Nested views (with a back button) keep their title
-  // because the top bar only shows the generic section name there.
-  const sidebarOwnsTitle = !isMobile;
-  const hideTitle = sidebarOwnsTitle && backButton == null;
+  // The top bar already shows the section name, so repeating it in the body is
+  // redundant. Nested views (with a back button) keep their title because the
+  // top bar only shows the generic section name there.
+  const hideTitle = backButton == null;
 
   return (
     <div
@@ -172,15 +169,19 @@ export function ListPageHeader({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex min-w-0 items-center gap-2.5">
           {backButton}
-          <div className="min-w-0">
-            <div className="flex items-center gap-1">
-              <h1 className={cn("text-xl font-semibold tracking-tight text-foreground sm:text-2xl", hideTitle && "sr-only")}>
-                {title}
-              </h1>
-              {titleMenu && !hideTitle ? <div className="shrink-0">{titleMenu}</div> : null}
+          {(!hideTitle || subtitle) ? (
+            <div className="min-w-0">
+              <div className="flex items-center gap-1">
+                <h1 className={cn("text-xl font-semibold tracking-tight text-foreground sm:text-2xl", hideTitle && "sr-only")}>
+                  {title}
+                </h1>
+                {titleMenu && !hideTitle ? <div className="shrink-0">{titleMenu}</div> : null}
+              </div>
+              {subtitle ? <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p> : null}
             </div>
-            {subtitle ? <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p> : null}
-          </div>
+          ) : (
+            <h1 className="sr-only">{title}</h1>
+          )}
           {primaryAction ? <div className="shrink-0">{primaryAction}</div> : null}
         </div>
 
