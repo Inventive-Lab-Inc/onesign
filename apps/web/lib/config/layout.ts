@@ -1,4 +1,4 @@
-import { Globe, Layers, LayoutDashboard, Monitor, Tv } from "lucide-react";
+import { CreditCard, Globe, Layers, LayoutDashboard, Monitor, Tv } from "lucide-react";
 import type { AppLayoutConfig } from "@/components/shell/types";
 
 export const layoutConfig: Omit<AppLayoutConfig, "getPageTitle"> = {
@@ -14,6 +14,7 @@ export const layoutConfig: Omit<AppLayoutConfig, "getPageTitle"> = {
     { path: "/screens", label: "Screens", icon: Monitor, end: true },
     { path: "/groups", label: "Groups", icon: Tv, end: true },
     { path: "/websites", label: "Websites", icon: Globe, end: true },
+    { path: "/plans", label: "Plans", icon: CreditCard, end: true },
   ],
 };
 
@@ -24,6 +25,7 @@ export function getPageTitle(pathname: string): string {
     "/groups": "Groups",
     "/content": "Content",
     "/websites": "Websites",
+    "/plans": "Plans",
     "/account": "Account",
     "/download-app": "Download App",
   };

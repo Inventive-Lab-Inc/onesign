@@ -1,0 +1,283 @@
+.landing {
+  --landing-dark: color-mix(in srgb, var(--theme) 30%, #050b09);
+  --landing-dark-2: color-mix(in srgb, var(--theme) 16%, #02110c);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  overflow-x: hidden;
+}
+
+/* ---- Nav ------------------------------------------------------------------ */
+
+.landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: saturate(180%) blur(12px);
+  background: color-mix(in srgb, hsl(var(--background)) 78%, transparent);
+  border-bottom: 1px solid hsl(var(--border) / 0.7);
+}
+
+.landing-nav-link {
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+.landing-nav-link:hover {
+  color: var(--theme);
+}
+
+/* ---- Buttons -------------------------------------------------------------- */
+
+.landing-btn-primary {
+  background: var(--theme);
+  color: var(--theme-contrast);
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--theme) 75%, transparent);
+}
+.landing-btn-primary:hover {
+  background: var(--theme-hover);
+  transform: translateY(-1px);
+}
+
+.landing-btn-ghost {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.landing-btn-ghost:hover {
+  border-color: var(--theme);
+  color: var(--theme);
+}
+
+/* ---- Hero ----------------------------------------------------------------- */
+
+.landing-hero {
+  position: relative;
+}
+
+.landing-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% -10%, var(--theme-soft) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 90% 10%, var(--theme-softer) 0%, transparent 55%);
+}
+
+.landing-hero-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, hsl(var(--border) / 0.6) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border) / 0.6) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 0%, transparent 75%);
+}
+
+.landing-eyebrow {
+  background: var(--theme-soft);
+  color: var(--theme-foreground-strong);
+}
+
+.landing-title-accent {
+  color: var(--theme);
+}
+
+/* ---- Device mockup -------------------------------------------------------- */
+
+.landing-screen {
+  position: relative;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  box-shadow:
+    0 40px 80px -40px color-mix(in srgb, var(--theme) 45%, transparent),
+    0 8px 24px -12px rgba(0, 0, 0, 0.15);
+}
+
+.landing-screen-bar {
+  background: linear-gradient(160deg, var(--landing-dark) 0%, var(--landing-dark-2) 100%);
+}
+
+.landing-screen-canvas {
+  background:
+    radial-gradient(ellipse 100% 80% at 100% 0%, var(--theme-soft) 0%, transparent 55%),
+    linear-gradient(160deg, color-mix(in srgb, var(--theme) 10%, #fff) 0%, hsl(var(--card)) 100%);
+}
+
+.landing-float-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.25);
+}
+
+.landing-live-dot {
+  background: var(--theme);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--theme) 70%, transparent);
+  animation: landing-pulse 2s infinite;
+}
+
+@keyframes landing-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--theme) 60%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing-float {
+    animation: landing-bob 5s ease-in-out infinite;
+  }
+  .landing-float--slow {
+    animation-duration: 7s;
+  }
+}
+
+@keyframes landing-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* ---- Feature cards -------------------------------------------------------- */
+
+.landing-feature {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  transition:
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.landing-feature:hover {
+  transform: translateY(-4px);
+  border-color: var(--theme-faint-30);
+  box-shadow: 0 18px 40px -28px color-mix(in srgb, var(--theme) 60%, transparent);
+}
+
+.landing-feature-icon {
+  background: var(--theme-soft);
+  color: var(--theme-foreground-strong);
+}
+
+/* ---- Steps ---------------------------------------------------------------- */
+
+.landing-step-num {
+  background: var(--theme);
+  color: var(--theme-contrast);
+}
+
+/* ---- Stats / CTA bands ---------------------------------------------------- */
+
+.landing-band-dark {
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  background:
+    radial-gradient(ellipse 80% 90% at 100% 0%, color-mix(in srgb, var(--theme) 50%, transparent) 0%, transparent 55%),
+    linear-gradient(150deg, var(--landing-dark) 0%, var(--landing-dark-2) 100%);
+}
+
+.landing-band-dark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(150deg, black 0%, transparent 70%);
+}
+
+.landing-btn-on-dark {
+  background: #fff;
+  color: var(--theme-foreground-strong);
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease;
+}
+.landing-btn-on-dark:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--theme) 6%, #fff);
+}
+
+/* ---- Pricing teaser highlight -------------------------------------------- */
+
+.landing-price-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 1.25rem;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.landing-price-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 44px -30px color-mix(in srgb, var(--theme) 55%, transparent);
+}
+.landing-price-card--popular {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(160deg, var(--landing-dark) 0%, var(--landing-dark-2) 100%);
+  box-shadow: 0 24px 56px -30px color-mix(in srgb, var(--theme) 65%, transparent);
+}
+
+.landing-price-badge {
+  background: var(--theme);
+  color: var(--theme-contrast);
+}
+
+.landing-price-check {
+  color: var(--theme);
+}
+.landing-price-check--dark {
+  color: var(--theme-foreground-on-dark);
+}
+
+/* ---- Reveal animation ----------------------------------------------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .landing-reveal {
+    animation: landing-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes landing-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-footer-link {
+  color: hsl(var(--muted-foreground));
+  transition: color 0.15s ease;
+}
+.landing-footer-link:hover {
+  color: var(--theme);
+}

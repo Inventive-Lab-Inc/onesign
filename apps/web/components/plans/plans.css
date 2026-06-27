@@ -1,0 +1,127 @@
+.plans-page {
+  /* Dark surface for the highlighted card — derived from the app theme, not a
+     hand-picked hex, so it retints automatically with --theme. */
+  --plan-dark: color-mix(in srgb, var(--theme) 30%, #050b09);
+  --plan-dark-2: color-mix(in srgb, var(--theme) 16%, #02110c);
+}
+
+.plans-title-accent {
+  color: var(--theme);
+}
+
+/* ---- Cards ---------------------------------------------------------------- */
+
+.plan-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  transition:
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s ease;
+}
+
+.plan-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px -24px color-mix(in srgb, var(--theme) 55%, transparent);
+}
+
+.plan-card--popular {
+  border-color: transparent;
+  color: #fff;
+  background:
+    radial-gradient(ellipse 120% 90% at 100% -10%, color-mix(in srgb, var(--theme) 45%, transparent) 0%, transparent 55%),
+    linear-gradient(160deg, var(--plan-dark) 0%, var(--plan-dark-2) 100%);
+  box-shadow: 0 24px 60px -28px color-mix(in srgb, var(--theme) 65%, transparent);
+}
+
+.plan-card--popular::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 16px 16px;
+  mask-image: linear-gradient(150deg, black 10%, transparent 65%);
+  pointer-events: none;
+}
+
+@media (min-width: 1024px) {
+  .plan-card--popular {
+    transform: scale(1.03);
+  }
+  .plan-card--popular:hover {
+    transform: scale(1.03) translateY(-4px);
+  }
+}
+
+.plan-popular-badge {
+  background: var(--theme);
+  color: var(--theme-contrast);
+}
+
+.plan-icon-tile {
+  background: var(--theme-soft);
+  color: var(--theme-foreground-strong);
+}
+
+.plan-icon-tile--dark {
+  background: var(--theme);
+  color: var(--theme-contrast);
+}
+
+.plan-price-strike {
+  color: hsl(var(--muted-foreground) / 0.7);
+}
+
+.plan-price-strike--dark {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.plan-check {
+  color: var(--theme);
+}
+
+.plan-check--dark {
+  color: var(--theme-foreground-on-dark);
+}
+
+/* CTA on the dark popular card */
+.plan-cta-popular {
+  background: var(--theme);
+  color: var(--theme-contrast);
+  transition: background-color 0.15s ease;
+}
+
+.plan-cta-popular:hover {
+  background: var(--theme-hover);
+}
+
+/* ---- Entrance animation --------------------------------------------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .plans-enter {
+    animation: plans-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .plans-enter-1 {
+    animation-delay: 0.05s;
+  }
+  .plans-enter-2 {
+    animation-delay: 0.12s;
+  }
+  .plans-enter-3 {
+    animation-delay: 0.19s;
+  }
+}
+
+@keyframes plans-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
