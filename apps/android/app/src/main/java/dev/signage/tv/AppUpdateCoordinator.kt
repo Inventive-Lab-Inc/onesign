@@ -279,10 +279,7 @@ class AppUpdateCoordinator(
             buildList {
                 val configured = BuildConfig.RELEASES_BASE_URL.trim().trimEnd('/')
                 if (configured.isNotBlank()) add(configured)
-                // New canonical host first, then legacy host so field devices built
-                // before the domain migration can still self-update.
                 add("https://storage.onesigntv.com/onesign-releases")
-                add("https://s3.storage.inventivelab.bd/onesign-releases")
             }.distinct()
         return bases.map { base -> "$base/$path" }
     }

@@ -30,6 +30,22 @@ cp .cursor/deploy.local.env.example .cursor/deploy.local.env
 
 Agent must `source .cursor/deploy.local.env` before any SSH/scp/mc deploy commands.
 
+## VPS architecture (OneSign-only)
+
+The VPS (`194.164.91.252`) is **dedicated to OneSign**. Its only job is hosting object
+storage (media + APK releases).
+
+| Layer | Detail |
+|-------|--------|
+| MinIO | Host **systemd** service (`minio`), data in `/data/minio`, listens on `:9000` (S3 API) + `:9001` (console). Root user is admin-only. |
+| App creds | The app uses the least-privilege MinIO user `onesign-app` (policy `onesign-app-policy`, scoped to `onesign-media` + `onesign-releases`). Never the root key. Set as `S3_ACCESS_KEY`/`S3_SECRET_KEY` in Vercel + `apps/web/.env.local`. |
+| Edge | Host **systemd** Caddy (`caddy`, `/etc/caddy/Caddyfile`) owns `:80/:443`, terminates TLS, and reverse-proxies `storage.onesigntv.com` → `127.0.0.1:9000` (signed/presigned/object paths) and `127.0.0.1:9001` (console root). Reinstall/repair with `scripts/vps-add-s3-storage-host.sh`. |
+| Public ports | Only `22`, `80`, `443`. MinIO `:9000/:9001` are not publicly reachable (firewalled). |
+| OOM safety | 2 GB swap (`vm.swappiness=10`). |
+| Postgres | None on the box — OneSign uses Supabase cloud. |
+
+If `storage.onesigntv.com` is down: `systemctl status caddy minio` and `journalctl -u caddy -n 50`.
+
 ## Vercel MCP workflow
 
 ```

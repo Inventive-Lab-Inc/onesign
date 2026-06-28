@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
-# One-time MinIO + Caddy setup for OneSign storage on a fresh VPS.
+# One-time MinIO + Caddy setup for OneSign storage on a FRESH, DEDICATED VPS.
 # Run as root on the server:
 #   scp scripts/vps-setup-minio.sh root@194.164.91.252:/root/
 #   ssh root@194.164.91.252 'bash /root/vps-setup-minio.sh'
 #
 # After DNS A record storage.onesigntv.com → this VPS IP:
 #   curl -sI https://storage.onesigntv.com/onesign-media/ | head -5
+#
+# The VPS is dedicated to OneSign: this installs the host MinIO service and a
+# host systemd Caddy that owns :80/:443 and serves storage.onesigntv.com. To
+# (re)install only the Caddy storage route on an existing box, use
+# scripts/vps-add-s3-storage-host.sh instead.
+#
+# This script also creates the least-privilege MinIO app user `onesign-app`
+# (scoped to onesign buckets) so the app never uses the MinIO root key.
 
 set -euo pipefail
 
 S3_HOST="${S3_HOST:-storage.onesigntv.com}"
-MINIO_USER="${MINIO_ROOT_USER:-krunch}"
+MINIO_USER="${MINIO_ROOT_USER:-onesign-admin}"
 MINIO_PASS="${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}"
 MEDIA_BUCKET="${S3_MEDIA_BUCKET:-onesign-media}"
 RELEASES_BUCKET="${S3_RELEASES_BUCKET:-onesign-releases}"
@@ -115,6 +123,33 @@ mc mb --ignore-existing "local/${MEDIA_BUCKET}"
 mc mb --ignore-existing "local/${RELEASES_BUCKET}"
 mc anonymous set download "local/${MEDIA_BUCKET}"
 mc anonymous set download "local/${RELEASES_BUCKET}"
+
+echo "==> Creating least-privilege app user 'onesign-app' (scoped to onesign buckets)"
+ONESIGN_APP_USER="onesign-app"
+ONESIGN_APP_SECRET="${ONESIGN_APP_SECRET:-$(openssl rand -hex 20)}"
+cat > /tmp/onesign-app-policy.json <<JSON
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow", "Action": ["s3:GetBucketLocation", "s3:ListAllMyBuckets"], "Resource": ["arn:aws:s3:::*"] },
+    { "Effect": "Allow", "Action": ["s3:*"], "Resource": [
+        "arn:aws:s3:::${MEDIA_BUCKET}", "arn:aws:s3:::${MEDIA_BUCKET}/*",
+        "arn:aws:s3:::${RELEASES_BUCKET}", "arn:aws:s3:::${RELEASES_BUCKET}/*"
+    ] }
+  ]
+}
+JSON
+mc admin policy create local onesign-app-policy /tmp/onesign-app-policy.json 2>/dev/null || \
+  mc admin policy add local onesign-app-policy /tmp/onesign-app-policy.json
+mc admin user add local "${ONESIGN_APP_USER}" "${ONESIGN_APP_SECRET}"
+mc admin policy attach local onesign-app-policy --user "${ONESIGN_APP_USER}" 2>/dev/null || \
+  mc admin policy set local onesign-app-policy user="${ONESIGN_APP_USER}"
+rm -f /tmp/onesign-app-policy.json
+
+echo ""
+echo "  >>> Set these as OneSign S3 creds (Vercel + apps/web/.env.local):"
+echo "      S3_ACCESS_KEY=${ONESIGN_APP_USER}"
+echo "      S3_SECRET_KEY=${ONESIGN_APP_SECRET}"
 
 echo ""
 echo "Done."
