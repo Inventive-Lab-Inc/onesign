@@ -4,6 +4,7 @@ import { MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export type ActionMenuItem = {
@@ -14,6 +15,8 @@ export type ActionMenuItem = {
   destructive?: boolean;
   icon?: ReactNode;
   disabled?: boolean;
+  /** Shown as a tooltip when the item is disabled (e.g. missing permission). */
+  disabledReason?: string;
   separatorBefore?: boolean;
 };
 
@@ -136,7 +139,7 @@ export function ItemActionMenu({
           </>
         );
 
-        const itemNode =
+        const baseNode =
           item.href && !item.disabled ? (
             <Link
               href={item.href}
@@ -154,7 +157,8 @@ export function ItemActionMenu({
               type="button"
               role="menuitem"
               disabled={item.disabled}
-              className={classNames}
+              // pointer-events-none lets the wrapping tooltip receive hover when disabled.
+              className={cn(classNames, item.disabled && item.disabledReason && "pointer-events-none")}
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -165,6 +169,20 @@ export function ItemActionMenu({
             >
               {content}
             </button>
+          );
+
+        const itemNode =
+          item.disabled && item.disabledReason ? (
+            <Tooltip
+              label={item.disabledReason}
+              className="w-full cursor-not-allowed"
+              placement="right"
+              multiline
+            >
+              {baseNode}
+            </Tooltip>
+          ) : (
+            baseNode
           );
 
         return (

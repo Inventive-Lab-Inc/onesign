@@ -11,6 +11,8 @@ import type { PlaylistGroupWithMembers } from "@/lib/console-sync";
 import { DEFAULT_GROUP_COLOR, DEVICE_GROUP_COLORS, resolveGroupColor } from "@/lib/device-group-colors";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
+import { scopedContentRow } from "@/lib/workspace/content-scope";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import "@/components/device-groups/device-groups.css";
@@ -35,6 +37,7 @@ export function PlaylistGroupEditorDialog({
   const titleId = useId();
   const descId = useId();
   const { syncNow } = useConsoleSync();
+  const workspace = useWorkspaceOptional();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   const [name, setName] = useState("");
@@ -90,7 +93,7 @@ export function PlaylistGroupEditorDialog({
       if (mode === "create") {
         const { data: created, error } = await supabase
           .from("playlist_groups")
-          .insert({ owner_id: ownerId, name: trimmed, accent_color: accentColor })
+          .insert(scopedContentRow(ownerId, workspace?.activeWorkspaceId, { name: trimmed, accent_color: accentColor }))
           .select("id")
           .single();
         if (error) {
@@ -114,6 +117,7 @@ export function PlaylistGroupEditorDialog({
             {
               id: created.id,
               owner_id: ownerId,
+              workspace_id: workspace?.activeWorkspaceId ?? null,
               name: trimmed,
               accent_color: accentColor,
               created_at: new Date().toISOString(),

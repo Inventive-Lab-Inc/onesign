@@ -16,6 +16,8 @@ export interface InviteAuthUserInput {
   email: string;
   clientName?: string;
   redirectTo: string;
+  /** Invited to an existing account — no personal workspace on signup. */
+  accountMemberInvite?: boolean;
 }
 
 export interface InviteAuthUserResult {
@@ -41,12 +43,13 @@ export async function inviteAuthUser(
   const email = input.email.trim().toLowerCase();
   const clientName = input.clientName?.trim() || undefined;
 
+  const inviteMetadata = input.accountMemberInvite
+    ? { full_name: clientName, skip_trial: "true", skip_account_setup: "true" }
+    : { full_name: clientName, skip_trial: "true" };
+
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: input.redirectTo,
-    data: {
-      full_name: clientName,
-      skip_trial: "true",
-    },
+    data: inviteMetadata,
   });
 
   if (!error && data.user?.id) {
@@ -76,14 +79,22 @@ export async function inviteAuthUser(
     );
   }
 
+  const resentMetadata = input.accountMemberInvite
+    ? {
+        full_name: clientName ?? existing.user_metadata?.full_name ?? undefined,
+        skip_trial: "true",
+        skip_account_setup: "true",
+      }
+    : {
+        full_name: clientName ?? existing.user_metadata?.full_name ?? undefined,
+        skip_trial: "true",
+      };
+
   const { data: resentData, error: resentError } = await admin.auth.admin.inviteUserByEmail(
     email,
     {
       redirectTo: input.redirectTo,
-      data: {
-        full_name: clientName ?? existing.user_metadata?.full_name ?? undefined,
-        skip_trial: "true",
-      },
+      data: resentMetadata,
     },
   );
 

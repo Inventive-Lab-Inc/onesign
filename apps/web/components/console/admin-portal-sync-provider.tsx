@@ -16,7 +16,7 @@ export function AdminPortalSyncProvider({ children }: { children: React.ReactNod
   }
 
   return (
-    <ConsoleSyncProvider userId={clientId}>
+    <ConsoleSyncProvider accountOwnerId={clientId} workspaceId={null}>
       {children}
     </ConsoleSyncProvider>
   );

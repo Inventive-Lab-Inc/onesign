@@ -1,7 +1,7 @@
 "use client";
 
 import type { Playlist, PlaylistItemWithMedia } from "@signage/types";
-import { ArrowLeft, ListVideo } from "lucide-react";
+import { ArrowLeft, ArrowRightLeft, ListVideo } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAppRouter } from "@/hooks/use-app-router";
@@ -16,8 +16,12 @@ import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { ContentViewTabs } from "@/components/content/content-view-tabs";
 import { ListPageHeader } from "@/components/console/list-page-header";
 import { CONSOLE_PANEL_CHROME } from "@/components/console/console-panel";
+import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
 import { CreatePlaylistForm } from "@/components/create-playlist-form";
 import { MediaLibrary } from "@/components/media-library";
+import { MoveToWorkspaceDialog } from "@/components/workspace/move-to-workspace-dialog";
+import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
+import { useWorkspacePermission } from "@/components/workspace/permission-guard";
 import { DeviceGroupFolderCard, GroupFolderCreateCard } from "@/components/device-groups/device-group-folder-card";
 import { PlaylistGroupEditorDialog } from "@/components/playlist-groups/playlist-group-editor-dialog";
 import type { PlaylistGroupWithMembers } from "@/lib/console-sync";
@@ -36,7 +40,13 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
   const router = useAppRouter();
   const adminRoutes = useAdminClientRoutes();
   const adminStaff = useOptionalAdminStaff();
-  const readOnly = adminStaff != null && !adminStaff.canWrite;
+  const adminReadOnly = adminStaff != null && !adminStaff.canWrite;
+  const canChangePlaylists = useWorkspacePermission("change_playlists");
+  // Folder + card management require playlist-change access; the standalone
+  // "Create playlist" CTA stays visible-but-disabled via CreatePlaylistForm.
+  const readOnly = adminReadOnly || !canChangePlaylists;
+  const workspace = useWorkspaceOptional();
+  const canMoveBetweenWorkspaces = (workspace?.workspaces.length ?? 0) > 1;
   const playlistsHomePath = adminRoutes?.playlistsPath ?? "/playlists";
   const contentView = parseContentView(searchParams);
   const ownerId = useConsoleDataStore((s) => s.ownerId);
@@ -47,6 +57,7 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
   const [groupEditorOpen, setGroupEditorOpen] = useState(false);
   const [groupEditorMode, setGroupEditorMode] = useState<"create" | "edit">("create");
   const [groupBeingEdited, setGroupBeingEdited] = useState<PlaylistGroupWithMembers | null>(null);
+  const [playlistPendingMove, setPlaylistPendingMove] = useState<Playlist | null>(null);
 
   const activePlaylistId = useMemo(() => {
     if (pathname === playlistsHomePath) return null;
@@ -268,7 +279,7 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
             ) : undefined
           }
           primaryAction={
-            !readOnly && !activePlaylistId ? (
+            !adminReadOnly && !activePlaylistId ? (
               <CreatePlaylistForm ownerId={ownerId} variant="empty" />
             ) : undefined
           }
@@ -313,6 +324,9 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
                           playlist={playlist}
                           href={playlistDetailPath(playlist.id, adminRoutes, null)}
                           items={playlistItemsByPlaylistId[playlist.id] ?? []}
+                          readOnly={readOnly}
+                          canMoveBetweenWorkspaces={canMoveBetweenWorkspaces}
+                          onMoveToWorkspace={() => setPlaylistPendingMove(playlist)}
                         />
                       ))}
                     </ul>
@@ -363,6 +377,9 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
                             playlist={playlist}
                             href={playlistDetailPath(playlist.id, adminRoutes, null)}
                             items={playlistItemsByPlaylistId[playlist.id] ?? []}
+                            readOnly={readOnly}
+                            canMoveBetweenWorkspaces={canMoveBetweenWorkspaces}
+                            onMoveToWorkspace={() => setPlaylistPendingMove(playlist)}
                           />
                         ))}
                       </ul>
@@ -378,6 +395,9 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
                             playlist={playlist}
                             href={playlistDetailPath(playlist.id, adminRoutes, null)}
                             items={playlistItemsByPlaylistId[playlist.id] ?? []}
+                            readOnly={readOnly}
+                            canMoveBetweenWorkspaces={canMoveBetweenWorkspaces}
+                            onMoveToWorkspace={() => setPlaylistPendingMove(playlist)}
                           />
                         ))}
                       </ul>
@@ -401,6 +421,9 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
                       playlist={playlist}
                       href={playlistDetailPath(playlist.id, adminRoutes, groupFilter)}
                       items={playlistItemsByPlaylistId[playlist.id] ?? []}
+                      readOnly={readOnly}
+                      canMoveBetweenWorkspaces={canMoveBetweenWorkspaces}
+                      onMoveToWorkspace={() => setPlaylistPendingMove(playlist)}
                     />
                   ))}
                 </ul>
@@ -421,6 +444,14 @@ export function PlaylistsWorkspace({ children }: { children: React.ReactNode }) 
           onClose={() => setGroupEditorOpen(false)}
         />
       ) : null}
+
+      <MoveToWorkspaceDialog
+        open={playlistPendingMove != null}
+        onClose={() => setPlaylistPendingMove(null)}
+        entityType="playlist"
+        entityId={playlistPendingMove?.id ?? ""}
+        entityLabel={playlistPendingMove?.name ?? "playlist"}
+      />
     </div>
       )}
     </div>
@@ -431,14 +462,31 @@ function PlaylistGridCard({
   playlist,
   href,
   items,
+  readOnly,
+  canMoveBetweenWorkspaces,
+  onMoveToWorkspace,
 }: {
   playlist: Playlist;
   href: string;
   items: PlaylistItemWithMedia[];
+  readOnly: boolean;
+  canMoveBetweenWorkspaces: boolean;
+  onMoveToWorkspace?: () => void;
 }) {
   const timingLabel = formatPlaylistClockLabel(items);
+  const menuItems = useMemo((): ActionMenuItem[] => {
+    if (readOnly || !canMoveBetweenWorkspaces || !onMoveToWorkspace) return [];
+    return [
+      {
+        label: "Move to a different workspace",
+        icon: <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden />,
+        onClick: onMoveToWorkspace,
+      },
+    ];
+  }, [canMoveBetweenWorkspaces, onMoveToWorkspace, readOnly]);
+
   return (
-    <li>
+    <li className="relative">
       <Link
         href={href}
         className="group flex flex-col overflow-hidden rounded-lg border border-border bg-background shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -455,6 +503,15 @@ function PlaylistGridCard({
           </div>
         </div>
       </Link>
+      {menuItems.length > 0 ? (
+        <div className="absolute bottom-2 right-2 z-10">
+          <ItemActionMenu
+            ariaLabel={`Actions for ${playlist.name}`}
+            className="rounded-md bg-background/90 shadow-sm ring-1 ring-border/80 backdrop-blur-sm"
+            items={menuItems}
+          />
+        </div>
+      ) : null}
     </li>
   );
 }

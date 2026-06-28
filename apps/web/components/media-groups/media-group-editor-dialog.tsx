@@ -12,6 +12,8 @@ import type { MediaGroupWithMembers } from "@/lib/console-sync";
 import { DEFAULT_GROUP_COLOR, DEVICE_GROUP_COLORS, resolveGroupColor } from "@/lib/device-group-colors";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
+import { scopedContentRow } from "@/lib/workspace/content-scope";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { useConsoleDataStore } from "@/stores/console-data-store";
@@ -57,6 +59,7 @@ export function MediaGroupEditorDialog({
   const titleId = useId();
   const descId = useId();
   const { syncNow } = useConsoleSync();
+  const workspace = useWorkspaceOptional();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const mediaGroups = useConsoleDataStore((s) => s.mediaGroups);
 
@@ -121,12 +124,13 @@ export function MediaGroupEditorDialog({
       if (mode === "create") {
         const { data: created, error } = await supabase
           .from("media_groups")
-          .insert({
-            owner_id: ownerId,
-            name: trimmed,
-            accent_color: accentColor,
-            parent_id: parentGroupId ?? null,
-          })
+          .insert(
+            scopedContentRow(ownerId, workspace?.activeWorkspaceId, {
+              name: trimmed,
+              accent_color: accentColor,
+              parent_id: parentGroupId ?? null,
+            }),
+          )
           .select("id")
           .single();
         if (error) {
@@ -150,6 +154,7 @@ export function MediaGroupEditorDialog({
             {
               id: created.id,
               owner_id: ownerId,
+              workspace_id: workspace?.activeWorkspaceId ?? null,
               name: trimmed,
               accent_color: accentColor,
               parent_id: parentGroupId,

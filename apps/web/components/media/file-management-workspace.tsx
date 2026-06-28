@@ -36,6 +36,11 @@ import { MediaFiltersPopover, type MediaFiltersState } from "@/components/media/
 import { MediaGroupEditorDialog } from "@/components/media-groups/media-group-editor-dialog";
 import { Button } from "@/components/ui/button";
 import {
+  GatedButton,
+  permissionHint,
+  useWorkspacePermission,
+} from "@/components/workspace/permission-guard";
+import {
   addMediaToDevicePlaylists,
   type AddMediaToPlaylistsOptions,
   moveMediaBatchToFolder,
@@ -107,6 +112,9 @@ export function FileManagementWorkspace({ userId }: { userId: string }) {
   const plan = usePlanQuota();
   const adminStaff = useOptionalAdminStaff();
   const readOnly = adminStaff != null && !adminStaff.canWrite;
+  const canManageContent = useWorkspacePermission("manage_content");
+  const canChangePlaylists = useWorkspacePermission("change_playlists");
+  const contentHint = permissionHint("manage_content");
   const { syncNow } = useConsoleSync();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
@@ -313,9 +321,11 @@ export function FileManagementWorkspace({ userId }: { userId: string }) {
           setCreateParentGroupId(activeFolderId);
           setGroupEditorOpen(true);
         },
+        disabled: !canManageContent,
+        disabledReason: contentHint,
       },
     ];
-  }, [activeFolderId, readOnly]);
+  }, [activeFolderId, readOnly, canManageContent, contentHint]);
 
   const openEditGroup = useCallback((group: MediaGroupWithMembers) => {
     setGroupEditorMode("edit");
@@ -425,7 +435,7 @@ export function FileManagementWorkspace({ userId }: { userId: string }) {
                     setPageIndex(0);
                     setSelectedIds(new Set());
                   }}
-                  onEdit={readOnly ? undefined : () => openEditGroup(group)}
+                  onEdit={readOnly || !canManageContent ? undefined : () => openEditGroup(group)}
                 />
               ))}
             </ul>
@@ -438,7 +448,8 @@ export function FileManagementWorkspace({ userId }: { userId: string }) {
               {selectedIds.size} Media file{selectedIds.size === 1 ? "" : "s"}
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <Button
+              <GatedButton
+                permission="change_playlists"
                 type="button"
                 size="sm"
                 className="h-9 gap-1.5"
@@ -447,8 +458,9 @@ export function FileManagementWorkspace({ userId }: { userId: string }) {
               >
                 <ListPlus className="h-4 w-4" aria-hidden />
                 Add
-              </Button>
-              <Button
+              </GatedButton>
+              <GatedButton
+                permission="manage_content"
                 type="button"
                 size="sm"
                 className="h-9 gap-1.5"
@@ -456,8 +468,9 @@ export function FileManagementWorkspace({ userId }: { userId: string }) {
               >
                 <FolderInput className="h-4 w-4" aria-hidden />
                 Move
-              </Button>
-              <Button
+              </GatedButton>
+              <GatedButton
+                permission="manage_content"
                 type="button"
                 variant="destructive"
                 size="sm"
@@ -466,7 +479,7 @@ export function FileManagementWorkspace({ userId }: { userId: string }) {
               >
                 <Trash2 className="h-4 w-4" aria-hidden />
                 Delete
-              </Button>
+              </GatedButton>
             </div>
           </div>
         ) : null}

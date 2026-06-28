@@ -29,6 +29,10 @@ import { MoveMediaToFolderDialog } from "@/components/media/move-media-to-folder
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  permissionHint,
+  useWorkspacePermission,
+} from "@/components/workspace/permission-guard";
 import { useAppRouter } from "@/hooks/use-app-router";
 import {
   buildMediaInformationRows,
@@ -117,6 +121,10 @@ export function MediaDetailWorkspace({
   const replaceTargetIdRef = useRef<string | null>(null);
 
   const effectiveReadOnly = readOnly || adminStaff?.canWrite === false;
+  const canManageContent = useWorkspacePermission("manage_content");
+  const canChangePlaylists = useWorkspacePermission("change_playlists");
+  const contentLocked = effectiveReadOnly || !canManageContent;
+  const contentHint = permissionHint("manage_content");
   const folder = media ? findMediaFolderContainingFile(mediaGroups, media.id) : null;
   const backHref = contentLibraryPath(adminRoutes, folder?.id ?? null);
   const fileManagementHref = contentFileManagementPath(adminRoutes);
@@ -155,7 +163,7 @@ export function MediaDetailWorkspace({
   }, []);
 
   const saveChanges = useCallback(async () => {
-    if (!media || effectiveReadOnly || !hasChanges) return;
+    if (!media || contentLocked || !hasChanges) return;
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
       toast.error("Title is required.");
@@ -203,7 +211,7 @@ export function MediaDetailWorkspace({
     }
   }, [
     media,
-    effectiveReadOnly,
+    contentLocked,
     hasChanges,
     title,
     description,
@@ -315,18 +323,22 @@ export function MediaDetailWorkspace({
         label: "Add to the playlists of multiple screens",
         icon: <ListPlus className="h-4 w-4 shrink-0" aria-hidden />,
         onClick: () => setAddToScreensOpen(true),
-        disabled: devices.length === 0,
+        disabled: !canChangePlaylists || devices.length === 0,
+        disabledReason: canChangePlaylists ? undefined : permissionHint("change_playlists"),
       },
       {
         label: "Remove from all playlists",
         icon: <ListX className="h-4 w-4 shrink-0" aria-hidden />,
         onClick: () => void handleRemoveFromPlaylists(),
-        disabled: countPlaylistReferences(playlistItemsByPlaylistId, media.id) === 0,
+        disabled: !canChangePlaylists || countPlaylistReferences(playlistItemsByPlaylistId, media.id) === 0,
+        disabledReason: canChangePlaylists ? undefined : permissionHint("change_playlists"),
       },
       {
         label: "Move to a different folder",
         icon: <FolderInput className="h-4 w-4 shrink-0" aria-hidden />,
         onClick: () => setMoveOpen(true),
+        disabled: !canManageContent,
+        disabledReason: contentHint,
       },
       {
         label: "Replace file",
@@ -335,13 +347,16 @@ export function MediaDetailWorkspace({
           replaceTargetIdRef.current = media.id;
           replaceInputRef.current?.click();
         },
-        disabled: storageFull,
+        disabled: !canManageContent || storageFull,
+        disabledReason: canManageContent ? undefined : contentHint,
       },
       {
         label: "Delete file",
         icon: <Trash2 className="h-4 w-4 shrink-0" aria-hidden />,
         onClick: () => setDeleteOpen(true),
         destructive: true,
+        disabled: !canManageContent,
+        disabledReason: contentHint,
       },
       {
         label: "File management",
@@ -354,6 +369,9 @@ export function MediaDetailWorkspace({
   }, [
     media,
     effectiveReadOnly,
+    canChangePlaylists,
+    canManageContent,
+    contentHint,
     devices.length,
     playlistItemsByPlaylistId,
     handleRemoveFromPlaylists,
@@ -439,7 +457,7 @@ export function MediaDetailWorkspace({
                     id="media-detail-title"
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
-                    disabled={effectiveReadOnly || saving}
+                    disabled={contentLocked || saving}
                     required
                   />
                 </div>
@@ -450,7 +468,7 @@ export function MediaDetailWorkspace({
                     id="media-detail-description"
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
-                    disabled={effectiveReadOnly || saving}
+                    disabled={contentLocked || saving}
                     rows={4}
                     placeholder="Optional description"
                     className={cn(
@@ -475,7 +493,7 @@ export function MediaDetailWorkspace({
                     className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-foreground"
                   >
                     {tag}
-                    {!effectiveReadOnly ? (
+                    {!contentLocked ? (
                       <button
                         type="button"
                         className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -488,7 +506,7 @@ export function MediaDetailWorkspace({
                     ) : null}
                   </span>
                 ))}
-                {!effectiveReadOnly ? (
+                {!contentLocked ? (
                   <Input
                     value={tagDraft}
                     onChange={(event) => setTagDraft(event.target.value)}
@@ -524,7 +542,7 @@ export function MediaDetailWorkspace({
                     type="datetime-local"
                     value={displayFrom}
                     onChange={(event) => setDisplayFrom(event.target.value)}
-                    disabled={effectiveReadOnly || saving}
+                    disabled={contentLocked || saving}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -534,13 +552,13 @@ export function MediaDetailWorkspace({
                     type="datetime-local"
                     value={displayUntil}
                     onChange={(event) => setDisplayUntil(event.target.value)}
-                    disabled={effectiveReadOnly || saving}
+                    disabled={contentLocked || saving}
                   />
                 </div>
               </div>
             </div>
 
-            {!effectiveReadOnly ? (
+            {!contentLocked ? (
               <Button
                 type="button"
                 className="w-full"

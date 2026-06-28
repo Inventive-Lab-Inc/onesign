@@ -3,6 +3,7 @@
 import type { Media } from "@signage/types";
 import {
   ArrowLeft,
+  ArrowRightLeft,
   FileImage,
   FileVideo,
   FolderInput,
@@ -21,7 +22,6 @@ import { useCallback, useMemo, useRef, useState, type ChangeEvent } from "react"
 import { useSearchParams } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
-import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
 import { ListPageHeader } from "@/components/console/list-page-header";
 import { Button } from "@/components/ui/button";
 import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
@@ -37,6 +37,14 @@ import { MoveMediaToFolderDialog } from "@/components/media/move-media-to-folder
 import { MediaDeleteDialog } from "@/components/media/media-delete-dialog";
 import { MediaFiltersPopover, type MediaFiltersState } from "@/components/media/media-filters-popover";
 import { useMediaUpload } from "@/hooks/use-media-upload";
+import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
+import {
+  GatedHeaderButton,
+  PermissionTooltip,
+  permissionHint,
+  useWorkspacePermission,
+} from "@/components/workspace/permission-guard";
+import { MoveToWorkspaceDialog } from "@/components/workspace/move-to-workspace-dialog";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { MEDIA_UPLOAD_ACCEPT, replaceMediaFile } from "@/lib/upload-media";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
@@ -101,7 +109,15 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   const playlistItemsByPlaylistId = useConsoleDataStore((s) => s.playlistItemsByPlaylistId);
   const storageFull = plan != null && isStorageFull(plan);
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
-  const { uploading, uploadFiles } = useMediaUpload(userId, { withDropzone: false });
+  const workspace = useWorkspaceOptional();
+  const canManageContent = useWorkspacePermission("manage_content");
+  const canChangePlaylists = useWorkspacePermission("change_playlists");
+  const contentHint = permissionHint("manage_content");
+  const canMoveBetweenWorkspaces = (workspace?.workspaces.length ?? 0) > 1;
+  const { uploading, uploadFiles } = useMediaUpload(userId, {
+    withDropzone: false,
+    workspaceId: workspace?.activeWorkspaceId,
+  });
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -120,6 +136,7 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   const [moveMediaTarget, setMoveMediaTarget] = useState<Media | Media[] | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Media | Media[] | null>(null);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [mediaPendingMove, setMediaPendingMove] = useState<Media | null>(null);
 
   const groupFilter = useMemo(
     () => parseGroupFilterFromSearchParam(searchParams.get("group"), mediaGroups),
@@ -247,7 +264,7 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
     onDrop: (files) => void uploadFiles(files),
     accept: MEDIA_UPLOAD_ACCEPT,
     multiple: true,
-    disabled: uploading || readOnly || storageFull,
+    disabled: uploading || readOnly || storageFull || !canManageContent,
     noClick: true,
     noKeyboard: true,
   });
@@ -293,19 +310,34 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
           label: "Add to the playlists of multiple screens",
           icon: <ListPlus className="h-4 w-4 shrink-0" aria-hidden />,
           onClick: () => setAddToScreensMedia(item),
-          disabled: devices.length === 0,
+          disabled: !canChangePlaylists || devices.length === 0,
+          disabledReason: canChangePlaylists ? undefined : permissionHint("change_playlists"),
         },
         {
           label: "Remove from all playlists",
           icon: <ListX className="h-4 w-4 shrink-0" aria-hidden />,
           onClick: () => void handleRemoveFromPlaylists(item),
-          disabled: countPlaylistReferences(playlistItemsByPlaylistId, item.id) === 0,
+          disabled: !canChangePlaylists || countPlaylistReferences(playlistItemsByPlaylistId, item.id) === 0,
+          disabledReason: canChangePlaylists ? undefined : permissionHint("change_playlists"),
         },
         {
           label: "Move to a different folder",
           icon: <FolderInput className="h-4 w-4 shrink-0" aria-hidden />,
           onClick: () => setMoveMediaTarget(item),
+          disabled: !canManageContent,
+          disabledReason: contentHint,
         },
+        ...(canMoveBetweenWorkspaces
+          ? [
+              {
+                label: "Move to a different workspace",
+                icon: <ArrowRightLeft className="h-4 w-4 shrink-0" aria-hidden />,
+                onClick: () => setMediaPendingMove(item),
+                disabled: !canManageContent,
+                disabledReason: contentHint,
+              },
+            ]
+          : []),
         {
           label: "Replace file",
           icon: <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />,
@@ -313,13 +345,16 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
             setReplaceTargetId(item.id);
             replaceInputRef.current?.click();
           },
-          disabled: storageFull,
+          disabled: !canManageContent || storageFull,
+          disabledReason: canManageContent ? undefined : contentHint,
         },
         {
           label: "Delete file",
           icon: <Trash2 className="h-4 w-4 shrink-0" aria-hidden />,
           onClick: () => setDeleteTarget(item),
           destructive: true,
+          disabled: !canManageContent,
+          disabledReason: contentHint,
         },
         {
           label: "File management",
@@ -330,7 +365,17 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
         },
       ];
     },
-    [devices.length, fileManagementHref, playlistItemsByPlaylistId, readOnly, storageFull],
+    [
+      canChangePlaylists,
+      canManageContent,
+      canMoveBetweenWorkspaces,
+      contentHint,
+      devices.length,
+      fileManagementHref,
+      playlistItemsByPlaylistId,
+      readOnly,
+      storageFull,
+    ],
   );
 
   async function handleRemoveFromPlaylists(item: Media) {
@@ -438,14 +483,22 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
 
   const titleMenuItems = useMemo<ActionMenuItem[]>(() => {
     if (readOnly) return [];
-    return [{ label: "New folder", icon: <FolderPlus className="h-4 w-4 shrink-0" aria-hidden />, onClick: openCreateGroup }];
-  }, [openCreateGroup, readOnly]);
+    return [
+      {
+        label: "New folder",
+        icon: <FolderPlus className="h-4 w-4 shrink-0" aria-hidden />,
+        onClick: openCreateGroup,
+        disabled: !canManageContent,
+        disabledReason: contentHint,
+      },
+    ];
+  }, [openCreateGroup, readOnly, canManageContent, contentHint]);
 
   const gridCommonProps = {
     view,
     readOnly,
     buildActionItems: buildMediaActionItems,
-    onRemove: readOnly ? undefined : (item: Media) => setDeleteTarget(item),
+    onRemove: readOnly || !canManageContent ? undefined : (item: Media) => setDeleteTarget(item),
     returnGroupId:
       groupFilter !== "all" && groupFilter !== "ungrouped" ? groupFilter : null,
   };
@@ -482,7 +535,8 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
             }
             primaryAction={
               !readOnly && !storageFull ? (
-                <HeaderPrimaryButton
+                <GatedHeaderButton
+                  permission="manage_content"
                   type="button"
                   onClick={() => open()}
                   disabled={uploading}
@@ -521,7 +575,7 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                         previewIcon={ImageIcon}
                         compact
                         onOpen={() => navigateToGroup(group.id)}
-                        onEdit={readOnly ? undefined : () => openEditGroup(group)}
+                        onEdit={readOnly || !canManageContent ? undefined : () => openEditGroup(group)}
                       />
                     ))}
                   </ul>
@@ -543,10 +597,12 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                     Upload images or videos, then organize them into folders.
                   </p>
                   {!readOnly && !storageFull ? (
-                    <Button type="button" className="mt-4 gap-2" onClick={() => open()} disabled={uploading}>
-                      <Upload className="h-4 w-4" />
-                      Upload files
-                    </Button>
+                    <UploadFilesButton
+                      allowed={canManageContent}
+                      reason={contentHint}
+                      uploading={uploading}
+                      onUpload={() => open()}
+                    />
                   ) : null}
                 </div>
               )
@@ -577,7 +633,7 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                               setSearch("");
                               navigateToGroup(group.id);
                             }}
-                            onEdit={readOnly ? undefined : () => openEditGroup(group)}
+                            onEdit={readOnly || !canManageContent ? undefined : () => openEditGroup(group)}
                           />
                         ))}
                       </ul>
@@ -619,7 +675,7 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                             previewIcon={ImageIcon}
                             compact
                             onOpen={() => navigateToGroup(group.id)}
-                            onEdit={readOnly ? undefined : () => openEditGroup(group)}
+                            onEdit={readOnly || !canManageContent ? undefined : () => openEditGroup(group)}
                           />
                         ))}
                       </ul>
@@ -646,10 +702,12 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                     : "Try another search or filter, or upload new assets."}
                 </p>
                 {items.length === 0 && !readOnly && !storageFull ? (
-                  <Button type="button" className="mt-4 gap-2" onClick={() => open()} disabled={uploading}>
-                    <Upload className="h-4 w-4" />
-                    Upload files
-                  </Button>
+                  <UploadFilesButton
+                    allowed={canManageContent}
+                    reason={contentHint}
+                    uploading={uploading}
+                    onUpload={() => open()}
+                  />
                 ) : null}
               </div>
             ) : (
@@ -713,6 +771,14 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
         onConfirm={handleConfirmDelete}
       />
 
+      <MoveToWorkspaceDialog
+        open={mediaPendingMove != null}
+        onClose={() => setMediaPendingMove(null)}
+        entityType="media"
+        entityId={mediaPendingMove?.id ?? ""}
+        entityLabel={mediaPendingMove?.original_filename ?? "file"}
+      />
+
       <MediaGroupEditorDialog
         open={groupEditorOpen}
         mode={groupEditorMode}
@@ -727,6 +793,32 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
       />
     </div>
   );
+}
+
+function UploadFilesButton({
+  allowed,
+  reason,
+  uploading,
+  onUpload,
+}: {
+  allowed: boolean;
+  reason: string;
+  uploading: boolean;
+  onUpload: () => void;
+}) {
+  const button = (
+    <Button
+      type="button"
+      className="mt-4 gap-2"
+      onClick={allowed ? onUpload : undefined}
+      disabled={uploading || !allowed}
+    >
+      <Upload className="h-4 w-4" />
+      Upload files
+    </Button>
+  );
+  if (allowed) return button;
+  return <PermissionTooltip reason={reason}>{button}</PermissionTooltip>;
 }
 
 function MediaFileGrid({

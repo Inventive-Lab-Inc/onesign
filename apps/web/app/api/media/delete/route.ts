@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { deleteMediaObject } from "@/lib/object-storage/server";
 import { getRouteHandlerStaffAuth } from "@/lib/auth/route-handler-staff";
 import { resolveDataOwnerId } from "@/lib/auth/resolve-data-owner";
+import { fetchAccountOwnerId } from "@/lib/workspace/account-context";
 import { isTrialExpired } from "@/lib/trial";
 
 export const runtime = "nodejs";
@@ -26,10 +27,12 @@ export async function DELETE(request: NextRequest) {
   }
 
   const isStaff = ctx.staff != null;
+  const accountOwnerId = isStaff ? null : await fetchAccountOwnerId(ctx.supabase);
   const resolved = resolveDataOwnerId(
     ctx.user.id,
     ctx.staff,
     isStaff ? body.ownerId : ctx.user.id,
+    accountOwnerId,
   );
   if ("error" in resolved) {
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });

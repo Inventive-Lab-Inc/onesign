@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { StaffPortalChoiceGate } from "@/components/auth/staff-portal-choice-gate";
 import { PlanQuotaProvider } from "@/components/console/plan-quota-context";
@@ -6,6 +7,8 @@ import { getServerStaffAuth } from "@/lib/auth/staff";
 import { getAccountPlanSnapshot } from "@/lib/plan/get-account-plan";
 import { getServerAuthWithProfile } from "@/lib/supabase/auth";
 import { isTrialExpired } from "@/lib/trial";
+import { fetchAccountContext, pickActiveWorkspaceId } from "@/lib/workspace/account-context";
+import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/workspace/constants";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [{ user, profile, supabase }, staff] = await Promise.all([
@@ -25,7 +28,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/trial-expired");
   }
 
-  const plan = await getAccountPlanSnapshot(supabase, user.id);
+  await supabase.rpc("accept_account_invitations");
+
+  const accountContext = await fetchAccountContext(supabase, user.id);
+  const cookieStore = await cookies();
+  const preferredWorkspaceId = cookieStore.get(ACTIVE_WORKSPACE_COOKIE)?.value ?? null;
+  pickActiveWorkspaceId(accountContext.workspaces, preferredWorkspaceId);
+
+  const plan = await getAccountPlanSnapshot(supabase, accountContext.accountOwnerId);
 
   const displayName =
     profile?.client_name?.trim() ||
@@ -35,7 +45,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <StaffPortalChoiceGate isStaff={!!staff}>
-      <DashboardShell authUserId={user.id} userEmail={user.email ?? ""} displayName={displayName} isStaff={!!staff}>
+      <DashboardShell
+        authUserId={user.id}
+        initialAccountContext={accountContext}
+        userEmail={user.email ?? ""}
+        displayName={displayName}
+        isStaff={!!staff}
+      >
         <PlanQuotaProvider quota={plan}>{children}</PlanQuotaProvider>
       </DashboardShell>
     </StaffPortalChoiceGate>

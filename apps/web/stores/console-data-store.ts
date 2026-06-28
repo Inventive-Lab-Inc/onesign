@@ -7,6 +7,7 @@ export type { DeviceWithAssignments, MediaGroupWithMembers, PlaylistGroupWithMem
 
 type ConsoleDataState = {
   ownerId: string | null;
+  workspaceId: string | null;
   devices: DeviceWithAssignments[];
   deviceGroups: DeviceGroupWithMembers[];
   playlistGroups: PlaylistGroupWithMembers[];
@@ -23,7 +24,13 @@ type ConsoleDataState = {
 
 type ConsoleDataActions = {
   setOwnerId: (id: string | null) => void;
-  applySnapshot: (ownerId: string, snapshot: ConsoleSnapshot, syncedAt: number) => void;
+  setWorkspaceId: (id: string | null) => void;
+  applySnapshot: (
+    ownerId: string,
+    workspaceId: string | null,
+    snapshot: ConsoleSnapshot,
+    syncedAt: number,
+  ) => void;
   patchDevice: (deviceId: string, patch: Partial<DeviceWithAssignments>) => void;
   patchMedia: (mediaId: string, patch: Partial<Media>) => void;
   patchWebsite: (websiteId: string, patch: Partial<Website>) => void;
@@ -34,6 +41,7 @@ type ConsoleDataActions = {
 
 const emptyState = (): ConsoleDataState => ({
   ownerId: null,
+  workspaceId: null,
   devices: [],
   deviceGroups: [],
   playlistGroups: [],
@@ -53,9 +61,11 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
     (set) => ({
       ...emptyState(),
       setOwnerId: (ownerId) => set((s) => (s.ownerId === ownerId ? s : { ownerId })),
-      applySnapshot: (ownerId, snapshot, syncedAt) =>
+      setWorkspaceId: (workspaceId) => set((s) => (s.workspaceId === workspaceId ? s : { workspaceId })),
+      applySnapshot: (ownerId, workspaceId, snapshot, syncedAt) =>
         set({
           ownerId,
+          workspaceId,
           devices: snapshot.devices,
           deviceGroups: snapshot.deviceGroups,
           playlistGroups: snapshot.playlistGroups,
@@ -151,10 +161,11 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
       reset: () => set(emptyState()),
     }),
     {
-      name: "signage-console-cache-v5",
+      name: "signage-console-cache-v6",
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         ownerId: s.ownerId,
+        workspaceId: s.workspaceId,
         devices: s.devices,
         deviceGroups: s.deviceGroups,
         playlistGroups: s.playlistGroups,
@@ -173,6 +184,7 @@ export const useConsoleDataStore = create<ConsoleDataState & ConsoleDataActions>
 export function clearConsoleCachePersist() {
   useConsoleDataStore.getState().reset();
   try {
+    localStorage.removeItem("signage-console-cache-v6");
     localStorage.removeItem("signage-console-cache-v5");
     localStorage.removeItem("signage-console-cache-v4");
     localStorage.removeItem("signage-console-cache-v3");

@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
+import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
+import { friendlyWorkspaceError } from "@/lib/workspace/error-messages";
 
 export function LinkScreenDialog({
   open,
@@ -28,6 +31,8 @@ export function LinkScreenDialog({
   const descId = useId();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const adminRoutes = useAdminClientRoutes();
+  const accountOwnerId = useConsoleOwnerId();
+  const workspace = useWorkspaceOptional();
   const [pairingCode, setPairingCode] = useState("");
   const [friendlyName, setFriendlyName] = useState("");
   const [linking, setLinking] = useState(false);
@@ -62,11 +67,12 @@ export function LinkScreenDialog({
         toast.error("Pairing code must be exactly 6 digits.");
         return;
       }
-      const ownerId = adminRoutes?.clientId ?? null;
+      const ownerId = adminRoutes?.clientId ?? accountOwnerId ?? null;
       const { data, error } = await supabase.rpc("link_device_by_pairing_code", {
         p_code: code,
         p_name: friendlyName.trim() || null,
         p_owner_id: ownerId,
+        p_workspace_id: workspace?.activeWorkspaceId ?? null,
       });
       if (error) {
         if (error.message.includes("device_limit_reached")) {
@@ -76,7 +82,7 @@ export function LinkScreenDialog({
         } else if (error.message.includes("trial_expired")) {
           toast.error("Your trial has ended. Contact us to upgrade and link more screens.");
         } else {
-          toast.error(error.message);
+          toast.error(friendlyWorkspaceError(error.message, "Unable to link this screen. Please try again."));
         }
         return;
       }

@@ -28,13 +28,20 @@ import {
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
-import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
 import { CONSOLE_PANEL_CHROME } from "@/components/console/console-panel";
 import { ListPageHeader } from "@/components/console/list-page-header";
 import { ViewModeToggle } from "@/components/console/view-mode-toggle";
 import { DeviceGroupEditorDialog } from "@/components/device-groups/device-group-editor-dialog";
 import { DeviceScreenCard } from "@/components/devices/device-screen-card";
 import { LinkScreenDialog } from "@/components/devices/link-screen-dialog";
+import { MoveToWorkspaceDialog } from "@/components/workspace/move-to-workspace-dialog";
+import { useWorkspace } from "@/components/workspace/workspace-provider";
+import {
+  GatedHeaderButton,
+  PermissionTooltip,
+  permissionHint,
+  useWorkspacePermission,
+} from "@/components/workspace/permission-guard";
 import { Button } from "@/components/ui/button";
 import type { DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
 import {
@@ -108,6 +115,11 @@ export function DevicesManager() {
   const [deviceFilters, setDeviceFilters] = useState<DeviceFiltersState>(DEFAULT_DEVICE_FILTERS);
   const [view, setView] = useState<"grid" | "list">("grid");
   const [devicePendingDelete, setDevicePendingDelete] = useState<Device | null>(null);
+  const [devicePendingMove, setDevicePendingMove] = useState<Device | null>(null);
+  const { workspaces } = useWorkspace();
+  const canManageScreens = useWorkspacePermission("manage_screens");
+  const screensHint = permissionHint("manage_screens");
+  const canMoveBetweenWorkspaces = workspaces.length > 1;
   const [deleteInProgress, setDeleteInProgress] = useState(false);
   const [groupEditorOpen, setGroupEditorOpen] = useState(false);
   const [groupBeingEdited, setGroupBeingEdited] = useState<DeviceGroupWithMembers | null>(null);
@@ -308,7 +320,8 @@ export function DevicesManager() {
           }
           primaryAction={
             !readOnly ? (
-              <HeaderPrimaryButton
+              <GatedHeaderButton
+                permission="manage_screens"
                 type="button"
                 onClick={() => setLinkDialogOpen(true)}
                 label="Link screen"
@@ -341,16 +354,25 @@ export function DevicesManager() {
                 </Link>
               ) : null}
               {isGroupView && activeGroup && !readOnly ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 gap-1.5"
-                  onClick={() => openEditGroup(activeGroup)}
-                >
-                  <Settings className="h-3.5 w-3.5" aria-hidden />
-                  Manage group
-                </Button>
+                canManageScreens ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5"
+                    onClick={() => openEditGroup(activeGroup)}
+                  >
+                    <Settings className="h-3.5 w-3.5" aria-hidden />
+                    Manage group
+                  </Button>
+                ) : (
+                  <PermissionTooltip reason={screensHint}>
+                    <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" disabled>
+                      <Settings className="h-3.5 w-3.5" aria-hidden />
+                      Manage group
+                    </Button>
+                  </PermissionTooltip>
+                )
               ) : null}
               <ViewModeToggle view={view} onViewChange={setView} />
             </div>
@@ -368,10 +390,19 @@ export function DevicesManager() {
                 Open the TV app, note the pairing code, then use Link screen to connect a display.
               </p>
               {!readOnly ? (
-                <Button type="button" className="mt-4 gap-2" onClick={() => setLinkDialogOpen(true)}>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  Link screen
-                </Button>
+                canManageScreens ? (
+                  <Button type="button" className="mt-4 gap-2" onClick={() => setLinkDialogOpen(true)}>
+                    <Plus className="h-4 w-4" aria-hidden />
+                    Link screen
+                  </Button>
+                ) : (
+                  <PermissionTooltip reason={screensHint}>
+                    <Button type="button" className="mt-4 gap-2" disabled>
+                      <Plus className="h-4 w-4" aria-hidden />
+                      Link screen
+                    </Button>
+                  </PermissionTooltip>
+                )
               ) : null}
             </div>
           ) : filtered.length === 0 ? (
@@ -390,15 +421,20 @@ export function DevicesManager() {
                   activeAppRelease={activeAppRelease}
                   accountDisabled={accountDisabled}
                   canControlPlayback={canControlPlayback}
-                  canDelete={!readOnly}
+                  canDelete={!readOnly && canManageScreens}
                   onRequestDelete={() => setDevicePendingDelete(device)}
+                  onMoveToWorkspace={
+                    canMoveBetweenWorkspaces && !readOnly && canManageScreens
+                      ? () => setDevicePendingMove(device)
+                      : undefined
+                  }
                   onRemoveFromFolder={
-                    isGroupView && !readOnly ? () => void removeDeviceFromFolder(device) : undefined
+                    isGroupView && !readOnly && canManageScreens ? () => void removeDeviceFromFolder(device) : undefined
                   }
                   folderName={activeGroup?.name}
-                  folders={!isGroupView && !readOnly ? deviceGroups : []}
+                  folders={!isGroupView && !readOnly && canManageScreens ? deviceGroups : []}
                   onAddToFolder={
-                    !isGroupView && !readOnly
+                    !isGroupView && !readOnly && canManageScreens
                       ? (groupId) => {
                           const group = deviceGroups.find((entry) => entry.id === groupId);
                           if (group) void addDeviceToFolder(device, group);
@@ -419,15 +455,15 @@ export function DevicesManager() {
                   activeAppRelease={activeAppRelease}
                   accountDisabled={accountDisabled}
                   canControlPlayback={canControlPlayback}
-                  canDelete={!readOnly}
+                  canDelete={!readOnly && canManageScreens}
                   onRequestDelete={() => setDevicePendingDelete(device)}
                   onRemoveFromFolder={
-                    isGroupView && !readOnly ? () => void removeDeviceFromFolder(device) : undefined
+                    isGroupView && !readOnly && canManageScreens ? () => void removeDeviceFromFolder(device) : undefined
                   }
                   folderName={activeGroup?.name}
-                  folders={!isGroupView && !readOnly ? deviceGroups : []}
+                  folders={!isGroupView && !readOnly && canManageScreens ? deviceGroups : []}
                   onAddToFolder={
-                    !isGroupView && !readOnly
+                    !isGroupView && !readOnly && canManageScreens
                       ? (groupId) => {
                           const group = deviceGroups.find((entry) => entry.id === groupId);
                           if (group) void addDeviceToFolder(device, group);
@@ -457,6 +493,14 @@ export function DevicesManager() {
         onClose={() => !deleteInProgress && setDevicePendingDelete(null)}
         onConfirm={confirmDeleteDevice}
         isConfirming={deleteInProgress}
+      />
+
+      <MoveToWorkspaceDialog
+        open={devicePendingMove !== null}
+        onClose={() => setDevicePendingMove(null)}
+        entityType="device"
+        entityId={devicePendingMove?.id ?? ""}
+        entityLabel={devicePendingMove?.name ?? "screen"}
       />
 
       <ConfirmActionDialog

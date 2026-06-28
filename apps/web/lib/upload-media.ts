@@ -12,6 +12,7 @@ export const MEDIA_UPLOAD_ACCEPT = {
 export async function uploadMediaFiles(
   files: File[],
   ownerId: string,
+  workspaceId?: string | null,
 ): Promise<{ uploaded: Media[]; errors: string[] }> {
   const uploaded: Media[] = [];
   const errors: string[] = [];
@@ -25,6 +26,9 @@ export async function uploadMediaFiles(
     const formData = new FormData();
     formData.append("file", file);
     formData.append("ownerId", ownerId);
+    if (workspaceId) {
+      formData.append("workspaceId", workspaceId);
+    }
 
     let response: Response;
     try {

@@ -17,6 +17,7 @@ import {
 import { BrandMark } from "@/components/brand-mark";
 import { layoutConfig } from "@/lib/config/layout";
 import { plans } from "@/components/plans/plan-data";
+import { LandingDownloadButton } from "./landing-download-button";
 import "./landing.css";
 
 const features = [
@@ -120,13 +121,7 @@ function LandingNav({ name }: { name: string }) {
           >
             Sign in
           </Link>
-          <Link
-            href="/signup"
-            className="landing-btn-primary flex h-9 items-center gap-1.5 rounded-lg px-4 text-sm font-semibold"
-          >
-            Get started
-            <ArrowRight size={15} strokeWidth={2.5} />
-          </Link>
+          <LandingDownloadButton className="landing-btn-primary flex h-9 items-center gap-1.5 rounded-lg px-4 text-sm font-semibold" />
         </div>
       </div>
     </header>
@@ -152,19 +147,14 @@ function Hero({ name }: { name: string }) {
             publish to all your screens in seconds — no technical setup required.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+            <LandingDownloadButton className="landing-btn-primary flex h-12 items-center gap-2 rounded-xl px-7 text-sm font-semibold" />
             <Link
               href="/signup"
-              className="landing-btn-primary flex h-11 items-center gap-2 rounded-xl px-6 text-sm font-semibold"
+              className="landing-btn-ghost flex h-12 items-center gap-2 rounded-xl px-6 text-sm font-semibold"
             >
               Start free trial
               <ArrowRight size={16} strokeWidth={2.5} />
             </Link>
-            <a
-              href="#pricing"
-              className="landing-btn-ghost flex h-11 items-center rounded-xl px-6 text-sm font-semibold"
-            >
-              See pricing
-            </a>
           </div>
           <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground lg:justify-start">
             <ShieldCheck size={13} className="text-brand" strokeWidth={2} />
@@ -419,18 +409,13 @@ function FinalCta() {
             minutes — free for 7 days.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <LandingDownloadButton className="landing-btn-on-dark flex h-11 items-center gap-2 rounded-xl px-6 text-sm font-semibold" />
             <Link
               href="/signup"
-              className="landing-btn-on-dark flex h-11 items-center gap-2 rounded-xl px-6 text-sm font-semibold"
+              className="flex h-11 items-center gap-2 rounded-xl border border-white/25 px-6 text-sm font-semibold text-white transition-colors hover:bg-white/10"
             >
               Start free trial
               <ArrowRight size={16} strokeWidth={2.5} />
-            </Link>
-            <Link
-              href="/login"
-              className="flex h-11 items-center rounded-xl border border-white/25 px-6 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              Sign in
             </Link>
           </div>
         </div>

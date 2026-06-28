@@ -27,6 +27,7 @@ export function getPageTitle(pathname: string): string {
     "/websites": "Websites",
     "/plans": "Plans",
     "/account": "Account",
+    "/profile": "My profile",
     "/download-app": "Download App",
   };
   if (titles[pathname]) return titles[pathname];

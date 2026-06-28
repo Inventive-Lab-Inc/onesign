@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useAppRouter } from "@/hooks/use-app-router";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { playlistDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
@@ -11,6 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
+import {
+  PermissionTooltip,
+  permissionHint,
+  useWorkspacePermission,
+} from "@/components/workspace/permission-guard";
+import { scopedContentRow } from "@/lib/workspace/content-scope";
 
 export function CreatePlaylistForm({
   ownerId,
@@ -24,17 +31,20 @@ export function CreatePlaylistForm({
   const adminStaff = useOptionalAdminStaff();
   const readOnly = adminStaff != null && !adminStaff.canWrite;
   const { syncNow } = useConsoleSync();
+  const workspace = useWorkspaceOptional();
+  const canChangePlaylists = useWorkspacePermission("change_playlists");
+  const playlistsHint = permissionHint("change_playlists");
   const [name, setName] = useState("New playlist");
   const [creating, setCreating] = useState(false);
 
   async function createPlaylist() {
-    if (readOnly) return;
+    if (readOnly || !canChangePlaylists) return;
     setCreating(true);
     try {
       const supabase = getSupabaseBrowserClient();
       const { data, error } = await supabase
         .from("playlists")
-        .insert({ owner_id: ownerId, name: name.trim() || "Untitled playlist" })
+        .insert(scopedContentRow(ownerId, workspace?.activeWorkspaceId, { name: name.trim() || "Untitled playlist" }))
         .select("id")
         .single();
       if (error) {
@@ -56,30 +66,33 @@ export function CreatePlaylistForm({
     return null;
   }
 
+  const gateButton = (button: ReactNode) =>
+    canChangePlaylists ? button : <PermissionTooltip reason={playlistsHint}>{button}</PermissionTooltip>;
+
   if (variant === "cta") {
-    return (
+    return gateButton(
       <Button
         type="button"
         className="h-10 w-full gap-2 font-semibold shadow-sm"
         onClick={() => void createPlaylist()}
-        disabled={creating}
+        disabled={creating || !canChangePlaylists}
       >
         {creating ? "Creating…" : "+ Create playlist"}
-      </Button>
+      </Button>,
     );
   }
 
   if (variant === "empty") {
-    return (
+    return gateButton(
       <Button
         type="button"
         className="h-11 gap-2 px-6 font-semibold shadow-sm"
         onClick={() => void createPlaylist()}
-        disabled={creating}
+        disabled={creating || !canChangePlaylists}
       >
         <Plus className="h-4 w-4" strokeWidth={2.25} />
         {creating ? "Creating…" : "Create playlist"}
-      </Button>
+      </Button>,
     );
   }
 
@@ -87,11 +100,13 @@ export function CreatePlaylistForm({
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 md:flex-row md:items-end">
       <div className="flex-1 space-y-2">
         <Label htmlFor="playlist-name">Name</Label>
-        <Input id="playlist-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input id="playlist-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!canChangePlaylists} />
       </div>
-      <Button type="button" onClick={() => void createPlaylist()} disabled={creating}>
-        {creating ? "Creating…" : "Create playlist"}
-      </Button>
+      {gateButton(
+        <Button type="button" onClick={() => void createPlaylist()} disabled={creating || !canChangePlaylists}>
+          {creating ? "Creating…" : "Create playlist"}
+        </Button>,
+      )}
     </div>
   );
 }

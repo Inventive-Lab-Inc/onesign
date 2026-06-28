@@ -1,11 +1,10 @@
 "use client";
 
 import type { Website } from "@signage/types";
-import { Globe, ListPlus, ListX, Plus, Trash2 } from "lucide-react";
+import { Globe, ListPlus, ListX, Plus, Trash2, ArrowRightLeft } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { HeaderPrimaryButton } from "@/components/console/header-primary-button";
 import { CONSOLE_PANEL_CHROME } from "@/components/console/console-panel";
 import { ListPageHeader } from "@/components/console/list-page-header";
 import { cn } from "@/lib/utils";
@@ -15,6 +14,13 @@ import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { websiteDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { MediaDeleteDialog } from "@/components/media/media-delete-dialog";
 import { WebsiteEditorDialog } from "@/components/websites/website-editor-dialog";
+import { MoveToWorkspaceDialog } from "@/components/workspace/move-to-workspace-dialog";
+import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
+import {
+  GatedHeaderButton,
+  permissionHint,
+  useWorkspacePermission,
+} from "@/components/workspace/permission-guard";
 import { WebsitePreviewFrame } from "@/components/websites/website-preview-frame";
 import { AddWebsiteToScreensDialog } from "@/components/websites/add-website-to-screens-dialog";
 import {
@@ -46,6 +52,11 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
   const effectiveReadOnly = readOnly || (adminStaff != null && !adminStaff.canWrite);
   const { syncNow } = useConsoleSync();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const workspace = useWorkspaceOptional();
+  const canManageWebsites = useWorkspacePermission("manage_websites");
+  const canChangePlaylists = useWorkspacePermission("change_playlists");
+  const websitesHint = permissionHint("manage_websites");
+  const canMoveBetweenWorkspaces = (workspace?.workspaces.length ?? 0) > 1;
   const websites = useConsoleDataStore((s) => s.websites);
   const devices = useConsoleDataStore((s) => s.devices);
   const playlistItemsByPlaylistId = useConsoleDataStore((s) => s.playlistItemsByPlaylistId);
@@ -57,6 +68,7 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
   const [addToScreensTarget, setAddToScreensTarget] = useState<Website | Website[] | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Website | null>(null);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [websitePendingMove, setWebsitePendingMove] = useState<Website | null>(null);
 
   const filtered = useMemo(
     () => sortWebsiteList(applyWebsiteSearchFilter(websites, search), websiteSort),
@@ -69,13 +81,15 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
       {
         label: "Add to screens",
         icon: <ListPlus className="h-4 w-4 shrink-0" aria-hidden />,
-        disabled: effectiveReadOnly,
+        disabled: effectiveReadOnly || !canChangePlaylists,
+        disabledReason: canChangePlaylists ? undefined : permissionHint("change_playlists"),
         onClick: () => setAddToScreensTarget(website),
       },
       {
         label: "Remove from all playlists",
         icon: <ListX className="h-4 w-4 shrink-0" aria-hidden />,
-        disabled: effectiveReadOnly || playlistRefs === 0,
+        disabled: effectiveReadOnly || !canChangePlaylists || playlistRefs === 0,
+        disabledReason: canChangePlaylists ? undefined : permissionHint("change_playlists"),
         onClick: () => {
           void (async () => {
             const { removedCount, error } = await removeWebsiteFromAllPlaylists(supabase, website.id);
@@ -88,11 +102,23 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
           })();
         },
       },
+      ...(canMoveBetweenWorkspaces
+        ? [
+            {
+              label: "Move to a different workspace",
+              icon: <ArrowRightLeft className="h-4 w-4 shrink-0" aria-hidden />,
+              disabled: effectiveReadOnly || !canManageWebsites,
+              disabledReason: canManageWebsites ? undefined : websitesHint,
+              onClick: () => setWebsitePendingMove(website),
+            },
+          ]
+        : []),
       {
         label: "Delete",
         icon: <Trash2 className="h-4 w-4 shrink-0" aria-hidden />,
         destructive: true,
-        disabled: effectiveReadOnly,
+        disabled: effectiveReadOnly || !canManageWebsites,
+        disabledReason: canManageWebsites ? undefined : websitesHint,
         onClick: () => setDeleteTarget(website),
       },
     ];
@@ -135,7 +161,8 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
           onSortChange={(id) => setWebsiteSort(id as WebsiteSort)}
           primaryAction={
             effectiveReadOnly ? undefined : (
-              <HeaderPrimaryButton
+              <GatedHeaderButton
+                permission="manage_websites"
                 type="button"
                 onClick={() => setEditorOpen(true)}
                 label="Add Website"
@@ -221,6 +248,14 @@ export function WebsitesWorkspace({ userId, readOnly = false }: { userId: string
           toast.success(`Added to ${addedCount} playlist item(s).`);
           await syncNow();
         }}
+      />
+
+      <MoveToWorkspaceDialog
+        open={websitePendingMove != null}
+        onClose={() => setWebsitePendingMove(null)}
+        entityType="website"
+        entityId={websitePendingMove?.id ?? ""}
+        entityLabel={websitePendingMove?.name ?? "website"}
       />
 
       <MediaDeleteDialog

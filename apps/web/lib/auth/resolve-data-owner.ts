@@ -12,14 +12,15 @@ export function parseUserId(value: string | undefined | null): string | null {
 
 type ResolveResult = { ownerId: string } | { error: string; status: number };
 
-/** Resolves media/console owner id — clients use auth id; staff pass the client owner id. */
+/** Resolves media/console owner id — clients use the billing account owner; staff pass the client owner id. */
 export function resolveDataOwnerId(
   authUserId: string,
   staff: PlatformStaff | null,
   requestedOwnerId: string | null | undefined,
+  accountOwnerId?: string | null,
 ): ResolveResult {
   if (!staff) {
-    return { ownerId: authUserId };
+    return { ownerId: accountOwnerId ?? authUserId };
   }
 
   if (!isStaffWriter(staff)) {

@@ -1,5 +1,74 @@
 /** Shared domain types for web + documentation parity with Supabase rows. */
 
+// ---------------------------------------------------------------------------
+// Workspaces & membership
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-workspace role. Mirrors the role dropdown in the Add User flow.
+ * "No access" is represented by the absence of a workspace_members row.
+ */
+export type WorkspaceRole =
+  | "owner"
+  | "account_admin"
+  | "admin"
+  | "standard"
+  | "content_manager"
+  | "custom";
+
+/** Granular permissions used when a member's role is `custom`. */
+export type WorkspacePermission =
+  | "view_screens"
+  | "manage_screens"
+  | "change_playlists"
+  | "view_content"
+  | "manage_content"
+  | "view_websites"
+  | "manage_websites"
+  | "administrator"
+  | "access_billing";
+
+export interface Workspace {
+  id: string;
+  account_id: string;
+  name: string;
+  is_default: boolean;
+  created_at: string;
+}
+
+export interface AccountMember {
+  id: string;
+  account_id: string;
+  user_id: string;
+  is_owner: boolean;
+  created_at: string;
+}
+
+export interface WorkspaceMember {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  role: WorkspaceRole;
+  permissions: WorkspacePermission[];
+  created_at: string;
+}
+
+/** A user listed under an account's "Users" tab, with their per-workspace roles. */
+export interface AccountUser {
+  user_id: string | null;
+  email: string;
+  display_name: string | null;
+  is_owner: boolean;
+  /** Pending invite that has not been accepted yet. */
+  invitation_pending: boolean;
+  /** Per-workspace role; workspaces the user has no access to are omitted. */
+  workspace_roles: Array<{
+    workspace_id: string;
+    role: WorkspaceRole;
+    permissions: WorkspacePermission[];
+  }>;
+}
+
 export type DeviceStatus = "offline" | "online" | "pending_pairing";
 
 /** Dashboard setting; Android applies via Activity.requestedOrientation while playback runs. */
@@ -131,6 +200,8 @@ export type DeviceTelemetry = Record<string, unknown>;
 export interface Device {
   id: string;
   owner_id: string | null;
+  /** Workspace this screen belongs to (null only for unclaimed devices). */
+  workspace_id?: string | null;
   registered_session_id: string | null;
   pairing_code: string;
   name: string;
@@ -185,6 +256,8 @@ export interface AppRelease {
 export interface Media {
   id: string;
   owner_id: string;
+  /** Workspace this file belongs to. */
+  workspace_id?: string | null;
   storage_path: string;
   file_type: MediaFileType;
   original_filename: string | null;
@@ -212,6 +285,8 @@ export type PlaylistTransitionStyle = "none" | "fade" | "dissolve";
 export interface Playlist {
   id: string;
   owner_id: string;
+  /** Workspace this playlist belongs to. */
+  workspace_id?: string | null;
   name: string;
   created_at: string;
   transition_style?: PlaylistTransitionStyle;
@@ -245,6 +320,8 @@ export interface DevicePlaylist {
 export interface DeviceGroup {
   id: string;
   owner_id: string;
+  /** Workspace this group belongs to. */
+  workspace_id?: string | null;
   name: string;
   /** Hex accent for UI chips, e.g. #047857 */
   accent_color: string | null;
@@ -263,6 +340,8 @@ export interface DeviceGroupMember {
 export interface PlaylistGroup {
   id: string;
   owner_id: string;
+  /** Workspace this group belongs to. */
+  workspace_id?: string | null;
   name: string;
   /** Hex accent for UI chips, e.g. #047857 */
   accent_color: string | null;
@@ -279,6 +358,8 @@ export interface PlaylistGroupMember {
 export interface MediaGroup {
   id: string;
   owner_id: string;
+  /** Workspace this folder belongs to. */
+  workspace_id?: string | null;
   name: string;
   /** Hex accent for UI chips, e.g. #047857 */
   accent_color: string | null;
@@ -300,6 +381,8 @@ export type WebsiteThumbnailStatus = "pending" | "ready" | "failed";
 export interface Website {
   id: string;
   owner_id: string;
+  /** Workspace this website belongs to. */
+  workspace_id?: string | null;
   name: string;
   source_type: WebsiteSourceType;
   url: string | null;
@@ -345,4 +428,96 @@ export interface PlaylistItemWithMedia extends PlaylistItem {
     | "display_until"
   > | null;
   website?: PlaylistItemWebsite | null;
+}
+
+// ---------------------------------------------------------------------------
+// Workspace role / permission helpers (runtime)
+// ---------------------------------------------------------------------------
+
+/** Every permission a member can hold. Order drives the custom-permission UI. */
+export const ALL_WORKSPACE_PERMISSIONS: readonly WorkspacePermission[] = [
+  "view_screens",
+  "manage_screens",
+  "change_playlists",
+  "view_content",
+  "manage_content",
+  "view_websites",
+  "manage_websites",
+  "administrator",
+  "access_billing",
+] as const;
+
+/** Human-readable labels for the custom-permission checkboxes. */
+export const WORKSPACE_PERMISSION_LABELS: Record<WorkspacePermission, string> = {
+  view_screens: "View screens",
+  manage_screens: "Add/delete/edit screens",
+  change_playlists: "Change playlists",
+  view_content: "View content library",
+  manage_content: "Upload/delete/edit files",
+  view_websites: "View websites",
+  manage_websites: "Add/delete/edit websites",
+  administrator: "Administrator",
+  access_billing: "Access billing portal",
+};
+
+/** Grouped permissions for the custom-role section (matches the product UI). */
+export const WORKSPACE_PERMISSION_GROUPS: ReadonlyArray<{
+  label: string;
+  permissions: readonly WorkspacePermission[];
+}> = [
+  { label: "Screens", permissions: ["view_screens", "manage_screens", "change_playlists"] },
+  { label: "Content", permissions: ["view_content", "manage_content", "view_websites", "manage_websites"] },
+  { label: "Account", permissions: ["administrator", "access_billing"] },
+];
+
+/** Role option metadata for the role dropdown. */
+export const WORKSPACE_ROLE_OPTIONS: ReadonlyArray<{
+  role: WorkspaceRole;
+  label: string;
+  description: string;
+}> = [
+  { role: "account_admin", label: "Account admin", description: "Full access including billing and user management" },
+  { role: "admin", label: "Admin", description: "Full access including user management" },
+  { role: "standard", label: "Standard", description: "Manage screens, content, and playlists" },
+  { role: "content_manager", label: "Content manager", description: "Manage content and playlists" },
+  { role: "custom", label: "Custom", description: "Choose individual permissions" },
+];
+
+const FULL_PERMISSIONS = [...ALL_WORKSPACE_PERMISSIONS];
+
+/** Permission set granted by each non-custom role. */
+const ROLE_PERMISSIONS: Record<Exclude<WorkspaceRole, "custom">, WorkspacePermission[]> = {
+  owner: FULL_PERMISSIONS,
+  account_admin: FULL_PERMISSIONS,
+  admin: FULL_PERMISSIONS.filter((p) => p !== "access_billing"),
+  standard: [
+    "view_screens",
+    "manage_screens",
+    "change_playlists",
+    "view_content",
+    "manage_content",
+    "view_websites",
+    "manage_websites",
+  ],
+  content_manager: ["view_content", "manage_content", "view_websites", "manage_websites", "change_playlists"],
+};
+
+/** Resolves the effective permission set for a member's role + custom permissions. */
+export function resolveWorkspacePermissions(
+  role: WorkspaceRole,
+  customPermissions: WorkspacePermission[] = [],
+): Set<WorkspacePermission> {
+  if (role === "custom") {
+    return new Set(customPermissions);
+  }
+  return new Set(ROLE_PERMISSIONS[role]);
+}
+
+/** Whether a member with the given role/custom set holds a specific permission. */
+export function workspaceRoleHasPermission(
+  role: WorkspaceRole,
+  permission: WorkspacePermission,
+  customPermissions: WorkspacePermission[] = [],
+): boolean {
+  return resolveWorkspacePermissions(role, customPermissions).has(permission);
 }

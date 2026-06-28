@@ -20,6 +20,8 @@ interface AppLayoutProps extends AppLayoutConfig {
   getPageTitle?: (pathname: string) => string;
   topBarCenterSlot?: ReactNode;
   topBarRightSlot?: ReactNode;
+  /** Shown immediately to the left of the profile button (e.g. workspace switcher). */
+  topBarProfileLeadingSlot?: ReactNode;
   /** Shown before notifications (e.g. Sync). */
   topBarSyncControl?: ReactNode;
   userName?: string;
@@ -43,6 +45,7 @@ export function AppLayout({
   portalSwitch,
   topBarCenterSlot,
   topBarRightSlot,
+  topBarProfileLeadingSlot,
   topBarSyncControl,
   userName,
   languageLabel,
@@ -157,6 +160,7 @@ export function AppLayout({
             portalSwitch={portalSwitch}
             centerSlot={topBarCenterSlot}
             rightSlot={topBarRightSlot}
+            profileLeadingSlot={topBarProfileLeadingSlot}
             syncControl={topBarSyncControl}
             languageLabel={languageLabel}
             onLanguageClick={onLanguageClick}

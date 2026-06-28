@@ -103,35 +103,54 @@ export type ConsoleSnapshot = {
   websitePlaylistRefCounts: Record<string, number>;
 };
 
-/**
- * Single bulk pull from Supabase (devices, playlists, media, all playlist items for those playlists).
- */
-export async function pullConsoleData(supabase: SupabaseClient, userId: string): Promise<ConsoleSnapshot> {
-  const [devicesRes, deviceGroupsRes, playlistGroupsRes, mediaGroupsRes, playlistsRes, mediaRes, websitesRes] = await Promise.all([
-    supabase
-      .from("devices")
-      .select("*, device_playlists(playlist_id,is_active,updated_at)")
-      .eq("owner_id", userId)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("device_groups")
-      .select("*, device_group_members(device_id)")
-      .eq("owner_id", userId)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("playlist_groups")
-      .select("*, playlist_group_members(playlist_id)")
-      .eq("owner_id", userId)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("media_groups")
-      .select("*, media_group_members(media_id)")
-      .eq("owner_id", userId)
-      .order("created_at", { ascending: true }),
-    supabase.from("playlists").select("*").eq("owner_id", userId).order("created_at", { ascending: false }),
-    supabase.from("media").select("*").eq("owner_id", userId).order("created_at", { ascending: false }),
-    supabase.from("websites").select("*").eq("owner_id", userId).order("created_at", { ascending: false }),
-  ]);
+export async function pullConsoleData(
+  supabase: SupabaseClient,
+  accountOwnerId: string,
+  workspaceId: string | null = null,
+): Promise<ConsoleSnapshot> {
+  let devicesBuilder = supabase
+    .from("devices")
+    .select("*, device_playlists(playlist_id,is_active,updated_at)")
+    .eq("owner_id", accountOwnerId);
+  if (workspaceId) devicesBuilder = devicesBuilder.eq("workspace_id", workspaceId);
+
+  let deviceGroupsBuilder = supabase
+    .from("device_groups")
+    .select("*, device_group_members(device_id)")
+    .eq("owner_id", accountOwnerId);
+  if (workspaceId) deviceGroupsBuilder = deviceGroupsBuilder.eq("workspace_id", workspaceId);
+
+  let playlistGroupsBuilder = supabase
+    .from("playlist_groups")
+    .select("*, playlist_group_members(playlist_id)")
+    .eq("owner_id", accountOwnerId);
+  if (workspaceId) playlistGroupsBuilder = playlistGroupsBuilder.eq("workspace_id", workspaceId);
+
+  let mediaGroupsBuilder = supabase
+    .from("media_groups")
+    .select("*, media_group_members(media_id)")
+    .eq("owner_id", accountOwnerId);
+  if (workspaceId) mediaGroupsBuilder = mediaGroupsBuilder.eq("workspace_id", workspaceId);
+
+  let playlistsBuilder = supabase.from("playlists").select("*").eq("owner_id", accountOwnerId);
+  if (workspaceId) playlistsBuilder = playlistsBuilder.eq("workspace_id", workspaceId);
+
+  let mediaBuilder = supabase.from("media").select("*").eq("owner_id", accountOwnerId);
+  if (workspaceId) mediaBuilder = mediaBuilder.eq("workspace_id", workspaceId);
+
+  let websitesBuilder = supabase.from("websites").select("*").eq("owner_id", accountOwnerId);
+  if (workspaceId) websitesBuilder = websitesBuilder.eq("workspace_id", workspaceId);
+
+  const [devicesRes, deviceGroupsRes, playlistGroupsRes, mediaGroupsRes, playlistsRes, mediaRes, websitesRes] =
+    await Promise.all([
+      devicesBuilder.order("created_at", { ascending: false }),
+      deviceGroupsBuilder.order("created_at", { ascending: true }),
+      playlistGroupsBuilder.order("created_at", { ascending: true }),
+      mediaGroupsBuilder.order("created_at", { ascending: true }),
+      playlistsBuilder.order("created_at", { ascending: false }),
+      mediaBuilder.order("created_at", { ascending: false }),
+      websitesBuilder.order("created_at", { ascending: false }),
+    ]);
 
   if (devicesRes.error) throw new Error(`devices: ${devicesRes.error.message}`);
   if (deviceGroupsRes.error) throw new Error(`device_groups: ${deviceGroupsRes.error.message}`);

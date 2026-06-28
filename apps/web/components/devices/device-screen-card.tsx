@@ -1,7 +1,7 @@
 "use client";
 
 import type { Device, DeviceStatus, PlaylistItemWithMedia } from "@signage/types";
-import { FolderOutput, Settings, Trash2, Tv } from "lucide-react";
+import { ArrowRightLeft, FolderOutput, Settings, Trash2, Tv } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { deviceDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
@@ -54,6 +54,7 @@ export function DeviceScreenCard({
   folders = [],
   onAddToFolder,
   onCreateFolder: _onCreateFolder,
+  onMoveToWorkspace,
   className,
 }: {
   device: DeviceWithAssignments | Device;
@@ -69,6 +70,7 @@ export function DeviceScreenCard({
   folders?: DeviceGroupWithMembers[];
   onAddToFolder?: (groupId: string) => void;
   onCreateFolder?: () => void;
+  onMoveToWorkspace?: () => void;
   className?: string;
 }) {
   const adminRoutes = useAdminClientRoutes();
@@ -180,6 +182,15 @@ export function DeviceScreenCard({
               icon: <Settings className="h-3.5 w-3.5" aria-hidden />,
             },
             ...groupMenuItems,
+            ...(onMoveToWorkspace
+              ? [
+                  {
+                    label: "Move to a different workspace",
+                    onClick: onMoveToWorkspace,
+                    icon: <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden />,
+                  },
+                ]
+              : []),
             ...(onRemoveFromFolder
               ? [
                   {

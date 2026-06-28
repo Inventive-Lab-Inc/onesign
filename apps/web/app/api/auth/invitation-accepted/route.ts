@@ -19,5 +19,10 @@ export async function POST() {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  const { error: accountInviteError } = await supabase.rpc("accept_account_invitations");
+  if (accountInviteError) {
+    return NextResponse.json({ error: accountInviteError.message }, { status: 400 });
+  }
+
   return NextResponse.json({ ok: true });
 }

@@ -47,12 +47,21 @@ function readIntervalMs(): number {
   return Number.isFinite(n) && n >= 15_000 ? n : DEFAULT_INTERVAL_MS;
 }
 
-export function ConsoleSyncProvider({ userId, children }: { userId: string; children: ReactNode }) {
+export function ConsoleSyncProvider({
+  accountOwnerId,
+  workspaceId,
+  children,
+}: {
+  accountOwnerId: string;
+  workspaceId: string | null;
+  children: ReactNode;
+}) {
   const lastSyncedAt = useConsoleDataStore((s) => s.lastSyncedAt);
   const isSyncing = useConsoleDataStore((s) => s.isSyncing);
   const syncError = useConsoleDataStore((s) => s.syncError);
   const applySnapshot = useConsoleDataStore((s) => s.applySnapshot);
   const setOwnerId = useConsoleDataStore((s) => s.setOwnerId);
+  const setWorkspaceId = useConsoleDataStore((s) => s.setWorkspaceId);
   const setSyncing = useConsoleDataStore((s) => s.setSyncing);
   const setSyncError = useConsoleDataStore((s) => s.setSyncError);
 
@@ -90,8 +99,8 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
         do {
           syncAgainRef.current = false;
           const supabase = getSupabaseBrowserClient();
-          const snapshot = await pullConsoleData(supabase, userId);
-          applySnapshot(userId, snapshot, Date.now());
+          const snapshot = await pullConsoleData(supabase, accountOwnerId, workspaceId);
+          applySnapshot(accountOwnerId, workspaceId, snapshot, Date.now());
         } while (syncAgainRef.current);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Sync failed";
@@ -104,7 +113,7 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
     const p = run();
     syncInFlightRef.current = p;
     return p;
-  }, [applySnapshot, setSyncError, setSyncing, userId]);
+  }, [accountOwnerId, applySnapshot, setSyncError, setSyncing, workspaceId]);
 
   const syncNowRef = useRef(syncNow);
   syncNowRef.current = syncNow;
@@ -113,17 +122,21 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
     if (!cacheReady) return;
 
     const state = useConsoleDataStore.getState();
-    if (state.ownerId !== null && state.ownerId !== userId) {
+    if (state.ownerId !== null && state.ownerId !== accountOwnerId) {
+      clearConsoleCachePersist();
+    }
+    if (state.workspaceId !== null && state.workspaceId !== workspaceId) {
       clearConsoleCachePersist();
     }
 
-    setOwnerId(userId);
+    setOwnerId(accountOwnerId);
+    setWorkspaceId(workspaceId);
 
     const after = useConsoleDataStore.getState();
-    if (after.lastSyncedAt === null) {
+    if (after.lastSyncedAt === null || after.ownerId !== accountOwnerId || after.workspaceId !== workspaceId) {
       void syncNowRef.current();
     }
-  }, [cacheReady, userId, setOwnerId]);
+  }, [accountOwnerId, cacheReady, setOwnerId, setWorkspaceId, workspaceId]);
 
   useEffect(() => {
     if (!cacheReady) return;
@@ -132,7 +145,7 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
       void syncNowRef.current();
     }, ms);
     return () => window.clearInterval(id);
-  }, [cacheReady, userId]);
+  }, [cacheReady, accountOwnerId, workspaceId]);
 
   /**
    * TV heartbeats update `last_seen` / `status` in Postgres every ~30s, but full sync runs
@@ -140,14 +153,14 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
    * offline while a screen is still playing.
    */
   useEffect(() => {
-    if (!cacheReady || !userId) return;
+    if (!cacheReady || !accountOwnerId) return;
 
     const supabase = getSupabaseBrowserClient();
     let cancelled = false;
 
     const refreshPresence = async () => {
       try {
-        const rows = await fetchDevicePresence(supabase, userId);
+        const rows = await fetchDevicePresence(supabase, accountOwnerId);
         if (!cancelled) applyDevicePresenceRows(rows);
       } catch (err) {
         console.warn("[ConsoleSyncProvider] device presence refresh failed:", err);
@@ -169,14 +182,14 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
     window.addEventListener("focus", refreshOnFocus);
 
     const channel = supabase
-      .channel(`device-presence:${userId}`)
+      .channel(`device-presence:${accountOwnerId}:${workspaceId ?? "all"}`)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
           table: "devices",
-          filter: `owner_id=eq.${userId}`,
+          filter: `owner_id=eq.${accountOwnerId}`,
         },
         (payload) => {
           const row = payload.new as { id?: string; status?: string; last_seen?: string | null };
@@ -201,7 +214,7 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
       window.removeEventListener("focus", refreshOnFocus);
       void supabase.removeChannel(channel);
     };
-  }, [cacheReady, userId]);
+  }, [accountOwnerId, cacheReady, workspaceId]);
 
   const value = useMemo<ConsoleSyncContextValue>(
     () => ({
@@ -215,7 +228,7 @@ export function ConsoleSyncProvider({ userId, children }: { userId: string; chil
   );
 
   return (
-    <ConsoleOwnerContext.Provider value={userId}>
+    <ConsoleOwnerContext.Provider value={accountOwnerId}>
       <ConsoleSyncContext.Provider value={value}>{children}</ConsoleSyncContext.Provider>
     </ConsoleOwnerContext.Provider>
   );

@@ -5,6 +5,7 @@ import { inferMediaFileType, isAcceptedSignageMime, readVideoFileDurationSeconds
 import { deleteMediaObject, putMediaObject } from "@/lib/object-storage/server";
 import { getRouteHandlerStaffAuth } from "@/lib/auth/route-handler-staff";
 import { resolveDataOwnerId } from "@/lib/auth/resolve-data-owner";
+import { fetchAccountOwnerId } from "@/lib/workspace/account-context";
 import { isTrialExpired } from "@/lib/trial";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { durationSecondsForStorage } from "@/lib/video-duration-probe";
@@ -46,10 +47,13 @@ export async function POST(request: NextRequest) {
 
   const isStaff = ctx.staff != null;
   const requestedOwnerId = formData.get("ownerId")?.toString();
+  const requestedWorkspaceId = formData.get("workspaceId")?.toString() || null;
+  const accountOwnerId = isStaff ? null : await fetchAccountOwnerId(ctx.supabase);
   const resolved = resolveDataOwnerId(
     ctx.user.id,
     ctx.staff,
     isStaff ? requestedOwnerId : ctx.user.id,
+    accountOwnerId,
   );
   if ("error" in resolved) {
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
@@ -104,6 +108,7 @@ export async function POST(request: NextRequest) {
     .from("media")
     .insert({
       owner_id: effectiveOwnerId,
+      workspace_id: requestedWorkspaceId,
       storage_path: storagePath,
       file_type: fileType,
       original_filename: file.name,

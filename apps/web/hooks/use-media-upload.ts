@@ -10,6 +10,7 @@ import { MEDIA_UPLOAD_ACCEPT, uploadMediaFiles } from "@/lib/upload-media";
 export function useMediaUpload(
   ownerId: string,
   options?: {
+    workspaceId?: string | null;
     onComplete?: (media: Media[]) => void | Promise<void>;
     /** When false, caller owns react-dropzone (e.g. full-page Media library). */
     withDropzone?: boolean;
@@ -28,7 +29,7 @@ export function useMediaUpload(
       }
       setUploading(true);
       try {
-        const { uploaded, errors } = await uploadMediaFiles(files, ownerId);
+        const { uploaded, errors } = await uploadMediaFiles(files, ownerId, options?.workspaceId);
         for (const message of errors) {
           toast.error(message);
         }
@@ -48,7 +49,7 @@ export function useMediaUpload(
         setUploading(false);
       }
     },
-    [onComplete, ownerId, syncNow],
+    [onComplete, options?.workspaceId, ownerId, syncNow],
   );
 
   const withDropzone = options?.withDropzone !== false;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { Bell, ChevronDown, Download, LogOut, Menu, UserRound } from "lucide-react";
+import { Bell, ChevronDown, Download, LogOut, Menu, Settings, UserRound } from "lucide-react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -251,6 +251,8 @@ export interface TopBarProps {
   portalSwitch?: ProfilePortalSwitch;
   centerSlot?: React.ReactNode;
   rightSlot?: React.ReactNode;
+  /** Placed immediately to the left of the profile button (e.g. workspace switcher). */
+  profileLeadingSlot?: React.ReactNode;
   /** Placed before notifications / profile (e.g. Sync). */
   syncControl?: React.ReactNode;
   languageLabel?: string;
@@ -463,8 +465,19 @@ function ProfileDropdown({
             role="menuitem"
             onClick={() => setOpen(false)}
           >
+            <Settings size={14} color="#6B7280" strokeWidth={2} />
+            Account settings
+          </Link>
+          <Link
+            prefetch
+            href="/profile"
+            className="topbar-dropdown-item"
+            style={linkItemStyle}
+            role="menuitem"
+            onClick={() => setOpen(false)}
+          >
             <UserRound size={14} color="#6B7280" strokeWidth={2} />
-            Account
+            My profile
           </Link>
           <Link
             prefetch
@@ -535,6 +548,7 @@ export function TopBar({
   portalSwitch,
   centerSlot,
   rightSlot,
+  profileLeadingSlot,
   syncControl,
   languageLabel,
   onLanguageClick,
@@ -634,6 +648,7 @@ export function TopBar({
             <TrialTopBarPill />
             {syncControl}
             <NotificationBellDropdown />
+            {profileLeadingSlot}
             <ProfileDropdown
               userName={userName}
               profileSubtext={profileSubtext}
@@ -725,6 +740,7 @@ export function TopBar({
             <TrialTopBarPill />
             {syncControl}
             <NotificationBellDropdown />
+            {profileLeadingSlot}
             <ProfileDropdown
               userName={userName}
               profileSubtext={profileSubtext}
