@@ -23,8 +23,7 @@ Console supports **Google (Auth.js)** and **email/password (Supabase)** during t
 2. [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials → **OAuth client ID** (Web application).
 3. Authorized redirect URIs (add every console domain):
    - `http://localhost:3000/api/auth/callback/google`
-   - `https://onesign.inventivelab.bd/api/auth/callback/google`
-   - `https://onesign.inventivelab.co.uk/api/auth/callback/google`
+   - `https://app.onesigntv.com/api/auth/callback/google`
 4. Supabase → Authentication → URL Configuration → Redirect URLs — same domains under `/auth/confirm`.
 5. Set in `.env.local` / Vercel:
    - `AUTH_SECRET` — `openssl rand -base64 32`

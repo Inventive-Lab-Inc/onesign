@@ -4,12 +4,12 @@
 #   scp scripts/vps-setup-minio.sh root@194.164.91.252:/root/
 #   ssh root@194.164.91.252 'bash /root/vps-setup-minio.sh'
 #
-# After DNS A record s3.storage.inventivelab.bd → this VPS IP:
-#   curl -sI https://s3.storage.inventivelab.bd/onesign-media/ | head -5
+# After DNS A record storage.onesigntv.com → this VPS IP:
+#   curl -sI https://storage.onesigntv.com/onesign-media/ | head -5
 
 set -euo pipefail
 
-S3_HOST="${S3_HOST:-s3.storage.inventivelab.bd}"
+S3_HOST="${S3_HOST:-storage.onesigntv.com}"
 MINIO_USER="${MINIO_ROOT_USER:-krunch}"
 MINIO_PASS="${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD}"
 MEDIA_BUCKET="${S3_MEDIA_BUCKET:-onesign-media}"

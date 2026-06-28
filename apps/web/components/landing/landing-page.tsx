@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { layoutConfig } from "@/lib/config/layout";
+import { appUrl } from "@/lib/site-hosts";
 import { plans } from "@/components/plans/plan-data";
 import { LandingDownloadButton } from "./landing-download-button";
 import "./landing.css";
@@ -116,7 +117,7 @@ function LandingNav({ name }: { name: string }) {
 
         <div className="flex items-center gap-2.5">
           <Link
-            href="/login"
+            href={appUrl("/login")}
             className="hidden h-9 items-center rounded-lg px-3.5 text-sm font-medium text-foreground transition-colors hover:text-brand sm:flex"
           >
             Sign in
@@ -149,7 +150,7 @@ function Hero({ name }: { name: string }) {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
             <LandingDownloadButton className="landing-btn-primary flex h-12 items-center gap-2 rounded-xl px-7 text-sm font-semibold" />
             <Link
-              href="/signup"
+              href={appUrl("/signup")}
               className="landing-btn-ghost flex h-12 items-center gap-2 rounded-xl px-6 text-sm font-semibold"
             >
               Start free trial
@@ -375,7 +376,7 @@ function PricingTeaser() {
                   ))}
                 </ul>
                 <Link
-                  href="/signup"
+                  href={appUrl("/signup")}
                   className={`mt-6 flex h-10 w-full items-center justify-center rounded-lg text-sm font-semibold transition-colors ${
                     popular
                       ? "landing-btn-on-dark"
@@ -411,7 +412,7 @@ function FinalCta() {
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <LandingDownloadButton className="landing-btn-on-dark flex h-11 items-center gap-2 rounded-xl px-6 text-sm font-semibold" />
             <Link
-              href="/signup"
+              href={appUrl("/signup")}
               className="flex h-11 items-center gap-2 rounded-xl border border-white/25 px-6 text-sm font-semibold text-white transition-colors hover:bg-white/10"
             >
               Start free trial
@@ -439,10 +440,10 @@ function Footer({ name }: { name: string }) {
           <a href="#pricing" className="landing-footer-link">
             Pricing
           </a>
-          <Link href="/login" className="landing-footer-link">
+          <Link href={appUrl("/login")} className="landing-footer-link">
             Sign in
           </Link>
-          <Link href="/signup" className="landing-footer-link">
+          <Link href={appUrl("/signup")} className="landing-footer-link">
             Get started
           </Link>
         </nav>

@@ -12,16 +12,16 @@ describe("getAppUrl", () => {
   });
 
   it("prefers the browser origin on the client", () => {
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://onesign.inventivelab.bd");
-    vi.stubGlobal("window", { location: { origin: "https://onesign.inventivelab.co.uk" } });
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.onesigntv.com");
+    vi.stubGlobal("window", { location: { origin: "https://onesigntv.com" } });
 
-    expect(getAppUrl()).toBe("https://onesign.inventivelab.co.uk");
+    expect(getAppUrl()).toBe("https://onesigntv.com");
   });
 
   it("uses NEXT_PUBLIC_APP_URL on the server", () => {
-    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://onesign.inventivelab.bd");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.onesigntv.com");
 
-    expect(getAppUrl()).toBe("https://onesign.inventivelab.bd");
+    expect(getAppUrl()).toBe("https://app.onesigntv.com");
   });
 });
 
@@ -37,10 +37,10 @@ describe("getOAuthConfirmRedirectUrl", () => {
   });
 
   it("builds confirm URLs from the active browser origin", () => {
-    vi.stubGlobal("window", { location: { origin: "https://onesign.inventivelab.co.uk" } });
+    vi.stubGlobal("window", { location: { origin: "https://app.onesigntv.com" } });
 
     expect(getOAuthConfirmRedirectUrl("/dashboard")).toBe(
-      "https://onesign.inventivelab.co.uk/auth/confirm?next=%2Fdashboard",
+      "https://app.onesigntv.com/auth/confirm?next=%2Fdashboard",
     );
   });
 });

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Add s3.storage.inventivelab.bd to Caddy (MinIO reverse proxy on this VPS).
+# Add storage.onesigntv.com to Caddy (MinIO reverse proxy on this VPS).
 # Run on the VPS as root after DNS A record points here:
-#   s3.storage.inventivelab.bd → 194.164.91.252
+#   storage.onesigntv.com → 194.164.91.252
 #
 # Usage:
 #   scp scripts/vps-add-s3-storage-host.sh root@194.164.91.252:/root/
@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-NEW_HOST="s3.storage.inventivelab.bd"
+NEW_HOST="storage.onesigntv.com"
 MINIO_UPSTREAM="${MINIO_UPSTREAM:-127.0.0.1:9000}"
 
 CADDYFILE=""

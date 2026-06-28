@@ -8,8 +8,8 @@
 | Vercel project | `onesign-tv` |
 | Supabase project ref | `nlkjbfwhzzpebsunmzrw` |
 | Supabase project name | `tv-sign` |
-| MinIO public base (releases) | `https://s3.storage.inventivelab.bd/onesign-releases` |
-| MinIO public base (media) | `https://s3.storage.inventivelab.bd/onesign-media` |
+| MinIO public base (releases) | `https://storage.onesigntv.com/onesign-releases` |
+| MinIO public base (media) | `https://storage.onesigntv.com/onesign-media` |
 | Android package | `dev.signage.tv` |
 | VPS host (default) | `194.164.91.252` — override via `ONESIGN_VPS_HOST` in env |
 

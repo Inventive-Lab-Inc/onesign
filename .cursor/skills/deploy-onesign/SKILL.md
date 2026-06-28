@@ -12,7 +12,7 @@ Production stack for this monorepo:
 | **GitHub** | Source of truth; push `main` triggers Vercel |
 | **Vercel** | Web dashboard (`apps/web`, project **onesign-tv**) |
 | **Supabase** | Postgres, RLS, TV RPCs, `app_releases` OTA metadata |
-| **VPS MinIO** | Public APK + media at `https://s3.storage.inventivelab.bd` |
+| **VPS MinIO** | Public APK + media at `https://storage.onesigntv.com` |
 
 Repo: `https://github.com/Inventive-Lab-Technologies/onesign.git`
 
@@ -165,8 +165,8 @@ fi
 Verify public URL:
 
 ```bash
-curl -I "https://s3.storage.inventivelab.bd/onesign-releases/android/{versionCode}-onesign-tv-release.apk"
-curl -s "https://s3.storage.inventivelab.bd/onesign-releases/android/{versionCode}-onesign-tv-release.apk" | shasum -a 256
+curl -I "https://storage.onesigntv.com/onesign-releases/android/{versionCode}-onesign-tv-release.apk"
+curl -s "https://storage.onesigntv.com/onesign-releases/android/{versionCode}-onesign-tv-release.apk" | shasum -a 256
 ```
 
 ### 4d. Supabase — insert and activate release

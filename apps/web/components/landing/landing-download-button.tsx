@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { appUrl } from "@/lib/site-hosts";
 import { getReleasesPublicBaseUrl, releasePublicUrl } from "@/lib/object-storage/urls";
 
 interface AppUpdateInfo {
@@ -60,7 +61,7 @@ export function LandingDownloadButton({ className }: { className?: string }) {
   }
 
   return (
-    <a href="/download-app" className={className}>
+    <a href={appUrl("/download-app")} className={className}>
       <Download size={16} strokeWidth={2.5} />
       Download app
     </a>
