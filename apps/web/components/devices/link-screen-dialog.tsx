@@ -48,6 +48,10 @@ export function LinkScreenDialog({
     if (!open) return;
     setPairingCode("");
     setFriendlyName("");
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
