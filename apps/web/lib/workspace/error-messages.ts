@@ -26,6 +26,26 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
 
 const DEFAULT_FALLBACK = "Something went wrong. Please try again.";
 
+const RLS_MESSAGE =
+  "You don't have permission to change this playlist. Ask a workspace admin to grant playlist or content access.";
+
+/** Returns a friendly message for a raw Supabase/PostgREST error. */
+export function friendlySupabaseError(
+  message: string | null | undefined,
+  fallback: string = DEFAULT_FALLBACK,
+): string {
+  if (!message) return fallback;
+
+  const normalized = message.trim();
+  const lower = normalized.toLowerCase();
+
+  if (lower.includes("row-level security") || lower.includes("permission denied")) {
+    return RLS_MESSAGE;
+  }
+
+  return friendlyWorkspaceError(normalized, fallback);
+}
+
 /** Returns a friendly message for a raw RPC/API error. */
 export function friendlyWorkspaceError(
   message: string | null | undefined,

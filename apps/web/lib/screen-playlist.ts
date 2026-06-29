@@ -3,6 +3,41 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DeviceWithAssignments } from "@/lib/console-sync";
 import { ensureMediaVideoDuration } from "@/lib/media";
 import { buildPlaylistItemInsertRow } from "@/lib/playlist-timing";
+import { scopedContentRow } from "@/lib/workspace/content-scope";
+import { friendlySupabaseError } from "@/lib/workspace/error-messages";
+
+export async function ensureScreenPlaylistWorkspace(
+  supabase: SupabaseClient,
+  playlistId: string,
+  workspaceId: string | null | undefined,
+): Promise<{ error: string | null }> {
+  if (!workspaceId) return { error: null };
+
+  const { data, error: fetchError } = await supabase
+    .from("playlists")
+    .select("workspace_id")
+    .eq("id", playlistId)
+    .maybeSingle();
+
+  if (fetchError) {
+    return { error: friendlySupabaseError(fetchError.message, "Unable to load playlist.") };
+  }
+  if (!data || data.workspace_id) {
+    return { error: null };
+  }
+
+  const { error } = await supabase
+    .from("playlists")
+    .update({ workspace_id: workspaceId })
+    .eq("id", playlistId)
+    .is("workspace_id", null);
+
+  if (error) {
+    return { error: friendlySupabaseError(error.message, "Unable to update playlist workspace.") };
+  }
+
+  return { error: null };
+}
 
 export async function assignPlaylistToDevice(
   supabase: SupabaseClient,
@@ -37,22 +72,33 @@ export async function ensureActivePlaylistForDevice(
 ): Promise<{ playlistId: string | null; error: string | null }> {
   const existing = device.device_playlists?.find((row) => row.is_active)?.playlist_id;
   if (existing) {
+    const workspaceError = await ensureScreenPlaylistWorkspace(supabase, existing, device.workspace_id);
+    if (workspaceError.error) {
+      return { playlistId: null, error: workspaceError.error };
+    }
     return { playlistId: existing, error: null };
   }
 
   const { data, error } = await supabase
     .from("playlists")
-    .insert({ owner_id: ownerId, name: `${device.name} — screen` })
+    .insert(
+      scopedContentRow(ownerId, device.workspace_id, {
+        name: `${device.name} — screen`,
+      }),
+    )
     .select("id")
     .single();
 
   if (error || !data?.id) {
-    return { playlistId: null, error: error?.message ?? "Unable to create playlist" };
+    return {
+      playlistId: null,
+      error: friendlySupabaseError(error?.message, "Unable to create playlist"),
+    };
   }
 
   const assignError = await assignPlaylistToDevice(supabase, device.id, data.id);
   if (assignError) {
-    return { playlistId: null, error: assignError };
+    return { playlistId: null, error: friendlySupabaseError(assignError) };
   }
 
   return { playlistId: data.id, error: null };
@@ -71,7 +117,7 @@ export async function normalizePlaylistSortOrder(
     .order("created_at", { ascending: true });
 
   if (error) {
-    return { error: error.message };
+    return { error: friendlySupabaseError(error.message) };
   }
   if (!data?.length) {
     return { error: null };
@@ -82,7 +128,7 @@ export async function normalizePlaylistSortOrder(
   );
   const results = await Promise.all(updates);
   const failed = results.find((r) => r.error);
-  return failed?.error ? { error: failed.error.message } : { error: null };
+  return failed?.error ? { error: friendlySupabaseError(failed.error.message) } : { error: null };
 }
 
 export async function appendMediaToPlaylist(
@@ -107,7 +153,7 @@ export async function appendMediaToPlaylist(
   );
 
   if (error) {
-    return { error: error.message };
+    return { error: friendlySupabaseError(error.message) };
   }
 
   return { error: null };

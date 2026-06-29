@@ -53,6 +53,7 @@ interface PlaylistAssetsPanelProps {
   onAddMedia: (mediaId: string) => void;
   onAddWebsite: (websiteId: string) => void;
   ownerId?: string;
+  workspaceId?: string | null;
   readOnly?: boolean;
   storageFull?: boolean;
   addDisabled?: boolean;
@@ -69,6 +70,7 @@ export function PlaylistAssetsPanel({
   onAddMedia,
   onAddWebsite,
   ownerId,
+  workspaceId,
   readOnly = false,
   storageFull = false,
   addDisabled = false,
@@ -76,7 +78,7 @@ export function PlaylistAssetsPanel({
 }: PlaylistAssetsPanelProps) {
   const [libraryTab, setLibraryTab] = useState<LibraryTab>("content");
   const canUpload = Boolean(ownerId) && !readOnly && !storageFull && libraryTab === "content";
-  const { uploading, open, getInputProps } = useMediaUpload(ownerId ?? "");
+  const { uploading, open, getInputProps } = useMediaUpload(ownerId ?? "", { workspaceId });
   const activeDroppableId = libraryTab === "content" ? droppableId : `${droppableId}-websites`;
 
   return (

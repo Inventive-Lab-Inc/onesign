@@ -351,6 +351,7 @@ export function DeviceScreenEditor({
           playlistName={device.name}
           screenTimezone={screenTimezone}
           ownerId={ownerId}
+          workspaceId={device.workspace_id}
           playlistId={playlistId}
           canManage={canEditScreenPlaylist}
           storageFull={storageFull}

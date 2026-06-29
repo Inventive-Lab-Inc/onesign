@@ -80,6 +80,8 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 
 Fix failures **before** pushing. Local `pnpm run build` catches most Vercel TypeScript errors.
 
+> Local builds write to `apps/web/.next-local` (set by `next.config.mjs` based on build phase), so the preflight build is safe to run while a `next dev` server is up — it will **not** wipe the dev server's `.next`. On Vercel (`VERCEL` is set) the build still uses `.next` as the platform expects. Never `rm -rf apps/web/.next` while a dev server is running.
+
 ---
 
 ## Step 2 — GitHub

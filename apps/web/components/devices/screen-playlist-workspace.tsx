@@ -20,6 +20,8 @@ import { ensureMediaVideoDuration } from "@/lib/media";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { clearDevicePlaylist } from "@/lib/copy-device-playlist";
+import { ensureScreenPlaylistWorkspace } from "@/lib/screen-playlist";
+import { friendlySupabaseError } from "@/lib/workspace/error-messages";
 
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
 
@@ -36,6 +38,7 @@ export function ScreenPlaylistWorkspace({
   screenTimezone,
   ownerId,
   playlistId,
+  workspaceId,
   canManage = true,
   storageFull = false,
   previewFrame,
@@ -48,6 +51,7 @@ export function ScreenPlaylistWorkspace({
   screenTimezone?: string | null;
   ownerId: string;
   playlistId: string;
+  workspaceId?: string | null;
   canManage?: boolean;
   storageFull?: boolean;
   previewFrame: PlaylistPreviewFrameContext;
@@ -96,6 +100,13 @@ export function ScreenPlaylistWorkspace({
     setBaselineItems(fresh);
     setDraftItems(toDraftItems(fresh));
   }, [playlistId, cachedSnapshot, hasLocalEdits]);
+
+  useEffect(() => {
+    if (!playlistId || !workspaceId) return;
+    void ensureScreenPlaylistWorkspace(supabase, playlistId, workspaceId).then(({ error }) => {
+      if (error) toast.error(error);
+    });
+  }, [playlistId, supabase, workspaceId]);
 
   const filteredLibrary = useMemo(() => {
     const q = librarySearch.trim().toLowerCase();
@@ -151,7 +162,7 @@ export function ScreenPlaylistWorkspace({
         .update({ duration_seconds: seconds })
         .eq("id", mediaId);
       if (error) {
-        toast.error(error.message);
+        toast.error(friendlySupabaseError(error.message));
         return;
       }
 
@@ -185,7 +196,7 @@ export function ScreenPlaylistWorkspace({
       const results = await Promise.all(updates);
       const failed = results.find((result) => result.error);
       if (failed?.error) {
-        toast.error(failed.error.message);
+        toast.error(friendlySupabaseError(failed.error.message));
         await reloadFromServer();
         return;
       }
@@ -203,7 +214,7 @@ export function ScreenPlaylistWorkspace({
 
       const { error } = await supabase.from("playlist_items").delete().eq("id", item.id);
       if (error) {
-        toast.error(error.message);
+        toast.error(friendlySupabaseError(error.message));
         await reloadFromServer();
         return;
       }
@@ -233,7 +244,7 @@ export function ScreenPlaylistWorkspace({
           daily_schedule: source.daily_schedule_enabled ? source.daily_schedule : null,
         });
         if (error) {
-          toast.error(error.message);
+          toast.error(friendlySupabaseError(error.message));
           return;
         }
       } else if (source.media_id) {
@@ -251,7 +262,7 @@ export function ScreenPlaylistWorkspace({
           }),
         );
         if (error) {
-          toast.error(error.message);
+          toast.error(friendlySupabaseError(error.message));
           return;
         }
       } else {
@@ -282,6 +293,12 @@ export function ScreenPlaylistWorkspace({
 
   const addMediaAtIndex = useCallback(
     async (mediaId: string, destIndex: number) => {
+      const workspaceResult = await ensureScreenPlaylistWorkspace(supabase, playlistId, workspaceId);
+      if (workspaceResult.error) {
+        toast.error(workspaceResult.error);
+        return;
+      }
+
       const sortLen = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
       const mediaRow =
         allMedia.find((m) => m.id === mediaId) ??
@@ -303,7 +320,7 @@ export function ScreenPlaylistWorkspace({
         .select("id")
         .single();
       if (error) {
-        toast.error(error.message);
+        toast.error(friendlySupabaseError(error.message));
         return;
       }
       await reloadFromServer();
@@ -316,11 +333,17 @@ export function ScreenPlaylistWorkspace({
         await persistOrder(reordered);
       }
     },
-    [allMedia, playlistId, reloadFromServer, supabase],
+    [allMedia, playlistId, reloadFromServer, supabase, workspaceId],
   );
 
   const addWebsiteAtIndex = useCallback(
     async (websiteId: string, destIndex: number) => {
+      const workspaceResult = await ensureScreenPlaylistWorkspace(supabase, playlistId, workspaceId);
+      if (workspaceResult.error) {
+        toast.error(workspaceResult.error);
+        return;
+      }
+
       const sortLen = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
       const { data: row, error } = await supabase
         .from("playlist_items")
@@ -333,7 +356,7 @@ export function ScreenPlaylistWorkspace({
         .select("id")
         .single();
       if (error) {
-        toast.error(error.message);
+        toast.error(friendlySupabaseError(error.message));
         return;
       }
       await reloadFromServer();
@@ -346,7 +369,7 @@ export function ScreenPlaylistWorkspace({
         await persistOrder(reordered);
       }
     },
-    [playlistId, reloadFromServer, supabase],
+    [playlistId, reloadFromServer, supabase, workspaceId],
   );
 
   const handleDurationChange = useCallback(
@@ -359,7 +382,7 @@ export function ScreenPlaylistWorkspace({
         .update({ duration_seconds: seconds })
         .eq("id", item.id);
       if (error) {
-        toast.error(error.message);
+        toast.error(friendlySupabaseError(error.message));
         await reloadFromServer();
         return;
       }
@@ -595,6 +618,7 @@ export function ScreenPlaylistWorkspace({
             onAddMedia={(mediaId) => void addMediaAtIndex(mediaId, draftItems.length)}
             onAddWebsite={(websiteId) => void addWebsiteAtIndex(websiteId, draftItems.length)}
             ownerId={ownerId}
+            workspaceId={workspaceId}
             storageFull={storageFull}
           />
         </div>

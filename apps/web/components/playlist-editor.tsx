@@ -44,6 +44,7 @@ import { useEnsurePlaylistVideoDurations } from "@/hooks/use-ensure-playlist-vid
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { isStorageFull } from "@/lib/plan-quota";
 import { useConsoleDataStore } from "@/stores/console-data-store";
+import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
 
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
 
@@ -95,6 +96,7 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
   const adminStaff = useOptionalAdminStaff();
   const readOnly = adminStaff != null && !adminStaff.canWrite;
   const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const workspace = useWorkspaceOptional();
   const plan = usePlanQuota();
   const storageFull = plan != null && isStorageFull(plan);
   const { syncNow } = useConsoleSync();
@@ -618,6 +620,7 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
           onAddMedia={(mediaId) => void addMediaAtIndex(mediaId, items.length)}
           onAddWebsite={(websiteId) => void addWebsiteAtIndex(websiteId, items.length)}
           ownerId={ownerId}
+          workspaceId={workspace?.activeWorkspaceId}
           readOnly={readOnly}
           storageFull={storageFull}
         />
