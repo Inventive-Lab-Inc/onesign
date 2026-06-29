@@ -95,7 +95,8 @@ optgroup,
 }
 
 /* Scroll-safe auth layout: margin auto centers when content fits, scrolls when it doesn't */
-.auth-card--login {
+.auth-card--login,
+.auth-card--signup {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   overscroll-behavior: contain;
@@ -133,15 +134,18 @@ optgroup,
 }
 
 @media (max-height: 42rem) {
-  .auth-card--login .auth-content {
+  .auth-card--login .auth-content,
+  .auth-card--signup .auth-content {
     gap: 1.25rem !important;
   }
 
-  .auth-card--login .auth-right-panel {
+  .auth-card--login .auth-right-panel,
+  .auth-card--signup .auth-right-panel {
     padding-block: 1rem !important;
   }
 
-  .auth-card--login h2 {
+  .auth-card--login h2,
+  .auth-card--signup h2 {
     margin-bottom: 0.625rem !important;
     font-size: 1.5rem !important;
   }
@@ -149,13 +153,17 @@ optgroup,
 
 .auth-card--login input,
 .auth-card--login select,
-.auth-card--login textarea {
+.auth-card--login textarea,
+.auth-card--signup input,
+.auth-card--signup select,
+.auth-card--signup textarea {
   font-size: max(1rem, 16px);
 }
 
-/* Login compact / mobile — stack earlier so browser zoom keeps the form usable */
+/* Login/signup compact / mobile — stack earlier so browser zoom keeps the form usable */
 @media (max-width: 56rem) {
-  .auth-card--login {
+  .auth-card--login,
+  .auth-card--signup {
     flex-direction: column !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
@@ -167,11 +175,13 @@ optgroup,
     background: #fff !important;
   }
 
-  .auth-card--login .auth-left-panel {
+  .auth-card--login .auth-left-panel,
+  .auth-card--signup .auth-left-panel {
     display: none !important;
   }
 
-  .auth-card--login .auth-right-panel {
+  .auth-card--login .auth-right-panel,
+  .auth-card--signup .auth-right-panel {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     width: 100% !important;
@@ -182,18 +192,21 @@ optgroup,
     align-items: center;
   }
 
-  .auth-card--login .auth-content {
+  .auth-card--login .auth-content,
+  .auth-card--signup .auth-content {
     max-width: 22rem;
     gap: 1.25rem !important;
     align-items: center !important;
   }
 
-  .auth-card--login .auth-brand-offset {
+  .auth-card--login .auth-brand-offset,
+  .auth-card--signup .auth-brand-offset {
     transform: none !important;
     align-self: center;
   }
 
-  .auth-card--login button[type="submit"] {
+  .auth-card--login button[type="submit"],
+  .auth-card--signup button[type="submit"] {
     min-height: 2.75rem;
   }
 }

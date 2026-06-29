@@ -118,11 +118,16 @@ function LandingNav({ name }: { name: string }) {
         <div className="flex items-center gap-2.5">
           <Link
             href={appUrl("/login")}
-            className="hidden h-9 items-center rounded-lg px-3.5 text-sm font-medium text-foreground transition-colors hover:text-brand sm:flex"
+            className="flex h-9 items-center rounded-lg px-3 text-sm font-medium text-foreground transition-colors hover:text-brand sm:px-3.5"
           >
             Sign in
           </Link>
-          <LandingDownloadButton className="landing-btn-primary flex h-9 items-center gap-1.5 rounded-lg px-4 text-sm font-semibold" />
+          <Link
+            href={appUrl("/signup")}
+            className="landing-btn-primary flex h-9 items-center gap-1.5 rounded-lg px-4 text-sm font-semibold"
+          >
+            Start free trial
+          </Link>
         </div>
       </div>
     </header>
