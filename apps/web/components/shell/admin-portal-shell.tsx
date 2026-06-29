@@ -1,14 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { usePathname } from "next/navigation";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { LayoutDashboard, ScrollText, Settings, Shield, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { PlatformStaff } from "@signage/types";
 import { AdminPortalSyncProvider } from "@/components/console/admin-portal-sync-provider";
 import { AdminStaffProvider } from "@/components/admin/admin-staff-context";
-import { ConsoleSyncButton } from "@/components/console/console-sync-button";
 import { AppLayout } from "@/components/shell/app-layout";
 import { DashboardRoutePrefetch } from "@/components/shell/dashboard-route-prefetch";
 import { NotificationsProvider } from "@/components/shell/notifications-context";
@@ -90,7 +88,6 @@ export function AdminPortalShell({
               icon: LayoutDashboard,
               choice: "user",
             }}
-            topBarSyncControl={<AdminPortalSyncControl />}
             contentCardBg="#F4F7FB"
           >
             <DashboardRoutePrefetch paths={prefetchPaths} />
@@ -103,9 +100,3 @@ export function AdminPortalShell({
   );
 }
 
-function AdminPortalSyncControl() {
-  const pathname = usePathname();
-  const onClientRoute = /^\/admin\/clients\/[0-9a-f-]{36}/i.test(pathname);
-  if (!onClientRoute) return null;
-  return <ConsoleSyncButton />;
-}

@@ -576,7 +576,7 @@ function DeviceListRow({
 }) {
   const adminRoutes = useAdminClientRoutes();
   const disabledState = deviceDisabledPresentation(device, accountDisabled);
-  const detailHref = deviceDetailPath(device.id, adminRoutes, returnGroupId);
+  const detailHref = deviceDetailPath(device.public_code, adminRoutes, returnGroupId);
   const status = effectiveDeviceStatus(device);
 
   return (

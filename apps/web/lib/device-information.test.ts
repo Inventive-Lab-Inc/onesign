@@ -5,6 +5,7 @@ import { buildDeviceHistoryEvents, buildDeviceInformationRows } from "./device-i
 function makeDevice(overrides: Partial<Device> = {}): Device {
   return {
     id: "d1",
+    public_code: "abc12345",
     owner_id: "u1",
     registered_session_id: null,
     pairing_code: "123456",

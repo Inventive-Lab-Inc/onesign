@@ -16,7 +16,8 @@ function DeviceDetailPageContent() {
   const devices = useConsoleDataStore((s) => s.devices);
 
   const device = useMemo(
-    () => (devices as DeviceWithAssignments[]).find((d) => d.id === id),
+    () =>
+      (devices as DeviceWithAssignments[]).find((d) => d.public_code === id),
     [devices, id],
   );
 

@@ -108,14 +108,14 @@ export function DeviceOperatingHoursDialog({
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-medium text-foreground">This screen</span>
           <select
             value={hoursMode}
             disabled={!canEdit || saving}
             onChange={(event) => setHoursMode(event.target.value as "during" | "outside")}
-            className="h-9 max-w-full rounded-md border border-input bg-background px-2 text-sm text-foreground"
+            className="h-8 max-w-full rounded-md border border-input bg-background px-2 text-sm text-foreground"
             aria-label="When this screen is in use"
           >
             <option value="during">is in use during these times:</option>

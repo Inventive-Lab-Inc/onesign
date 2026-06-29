@@ -1,13 +1,13 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { subscribeConsoleDataRealtime } from "@/lib/console-data-realtime";
 import { pullConsoleData } from "@/lib/console-sync";
 import {
   applyDevicePresenceRows,
   fetchDevicePresence,
   patchDevicePresenceFromRow,
   PRESENCE_POLL_INTERVAL_MS,
-  type DevicePresenceRow,
 } from "@/lib/device-presence";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { clearConsoleCachePersist, useConsoleDataStore } from "@/stores/console-data-store";
@@ -148,9 +148,8 @@ export function ConsoleSyncProvider({
   }, [cacheReady, accountOwnerId, workspaceId]);
 
   /**
-   * TV heartbeats update `last_seen` / `status` in Postgres every ~30s, but full sync runs
-   * much less often. Poll + Realtime keep the console cache aligned so badges do not flip
-   * offline while a screen is still playing.
+   * Realtime on all console tables keeps cross-session edits in sync; TV heartbeats only
+   * patch presence fields. Poll + tab-focus refresh are fallbacks when Realtime is quiet.
    */
   useEffect(() => {
     if (!cacheReady || !accountOwnerId) return;
@@ -176,45 +175,27 @@ export function ConsoleSyncProvider({
     const refreshOnFocus = () => {
       if (document.visibilityState === "visible") {
         void refreshPresence();
+        void syncNowRef.current();
       }
     };
     document.addEventListener("visibilitychange", refreshOnFocus);
     window.addEventListener("focus", refreshOnFocus);
 
-    const channel = supabase
-      .channel(`device-presence:${accountOwnerId}:${workspaceId ?? "all"}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "devices",
-          filter: `owner_id=eq.${accountOwnerId}`,
-        },
-        (payload) => {
-          const row = payload.new as { id?: string; status?: string; last_seen?: string | null };
-          if (!row.id || !row.status) return;
-          patchDevicePresenceFromRow({
-            id: row.id,
-            status: row.status as DevicePresenceRow["status"],
-            last_seen: row.last_seen ?? null,
-          });
-        },
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          void refreshPresence();
-        }
-      });
+    const { dispose: disposeRealtime } = subscribeConsoleDataRealtime(supabase, accountOwnerId, {
+      onDataChange: () => {
+        void syncNowRef.current();
+      },
+      onDevicePresencePatch: patchDevicePresenceFromRow,
+    });
 
     return () => {
       cancelled = true;
       window.clearInterval(pollId);
       document.removeEventListener("visibilitychange", refreshOnFocus);
       window.removeEventListener("focus", refreshOnFocus);
-      void supabase.removeChannel(channel);
+      disposeRealtime();
     };
-  }, [accountOwnerId, cacheReady, workspaceId]);
+  }, [accountOwnerId, cacheReady]);
 
   const value = useMemo<ConsoleSyncContextValue>(
     () => ({

@@ -199,6 +199,8 @@ export type DeviceTelemetry = Record<string, unknown>;
 
 export interface Device {
   id: string;
+  /** Short opaque base62 code used in dashboard URLs (/screens/{public_code}). */
+  public_code: string;
   owner_id: string | null;
   /** Workspace this screen belongs to (null only for unclaimed devices). */
   workspace_id?: string | null;

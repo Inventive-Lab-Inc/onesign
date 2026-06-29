@@ -22,8 +22,6 @@ interface AppLayoutProps extends AppLayoutConfig {
   topBarRightSlot?: ReactNode;
   /** Shown immediately to the left of the profile button (e.g. workspace switcher). */
   topBarProfileLeadingSlot?: ReactNode;
-  /** Shown before notifications (e.g. Sync). */
-  topBarSyncControl?: ReactNode;
   userName?: string;
   languageLabel?: string;
   onLanguageClick?: () => void;
@@ -46,7 +44,6 @@ export function AppLayout({
   topBarCenterSlot,
   topBarRightSlot,
   topBarProfileLeadingSlot,
-  topBarSyncControl,
   userName,
   languageLabel,
   onLanguageClick,
@@ -161,7 +158,6 @@ export function AppLayout({
             centerSlot={topBarCenterSlot}
             rightSlot={topBarRightSlot}
             profileLeadingSlot={topBarProfileLeadingSlot}
-            syncControl={topBarSyncControl}
             languageLabel={languageLabel}
             onLanguageClick={onLanguageClick}
             onMobileMenuOpen={() => setIsMobileNavOpen(true)}

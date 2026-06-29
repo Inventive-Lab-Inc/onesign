@@ -76,7 +76,7 @@ export function DeviceScreenCard({
   const adminRoutes = useAdminClientRoutes();
   const status = effectiveDeviceStatus(device);
   const disabledState = deviceDisabledPresentation(device, accountDisabled);
-  const detailHref = deviceDetailPath(device.id, adminRoutes, returnGroupId);
+  const detailHref = deviceDetailPath(device.public_code, adminRoutes, returnGroupId);
   const groupNames = groups.map((group) => group.name).join(", ");
   const thumbnailUrl = device.thumbnail_storage_path
     ? mediaPublicUrl(device.thumbnail_storage_path)

@@ -253,8 +253,6 @@ export interface TopBarProps {
   rightSlot?: React.ReactNode;
   /** Placed immediately to the left of the profile button (e.g. workspace switcher). */
   profileLeadingSlot?: React.ReactNode;
-  /** Placed before notifications / profile (e.g. Sync). */
-  syncControl?: React.ReactNode;
   languageLabel?: string;
   onLanguageClick?: () => void;
   onMobileMenuOpen: () => void;
@@ -549,7 +547,6 @@ export function TopBar({
   centerSlot,
   rightSlot,
   profileLeadingSlot,
-  syncControl,
   languageLabel,
   onLanguageClick,
   onMobileMenuOpen,
@@ -646,7 +643,6 @@ export function TopBar({
         {rightSlot ?? (
           <>
             <TrialTopBarPill />
-            {syncControl}
             <NotificationBellDropdown />
             {profileLeadingSlot}
             <ProfileDropdown
@@ -738,7 +734,6 @@ export function TopBar({
         {rightSlot ?? (
           <>
             <TrialTopBarPill />
-            {syncControl}
             <NotificationBellDropdown />
             {profileLeadingSlot}
             <ProfileDropdown

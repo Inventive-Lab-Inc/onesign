@@ -5,7 +5,6 @@ import { Shield } from "lucide-react";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { toast } from "sonner";
 import { ClientConsoleSyncProvider } from "@/components/console/client-console-sync-provider";
-import { ConsoleSyncButton } from "@/components/console/console-sync-button";
 import { TrialStrip } from "@/components/console/trial-status";
 import { WorkspaceSelector } from "@/components/workspace/workspace-selector";
 import { AppLayout } from "./app-layout";
@@ -72,9 +71,8 @@ function DashboardShellInner({
             }
           : undefined
       }
-      topBarSyncControl={<ConsoleSyncButton />}
-      topBarProfileLeadingSlot={<WorkspaceSelector />}
       banner={<TrialStrip />}
+      topBarProfileLeadingSlot={<WorkspaceSelector />}
     >
       <DashboardRoutePrefetch paths={prefetchPaths} />
       {children}

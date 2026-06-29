@@ -286,11 +286,11 @@ function DeviceFleetRow({
     <tr
       role="link"
       tabIndex={0}
-      onClick={() => onOpen(row.device.id)}
+      onClick={() => onOpen(row.device.public_code)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          onOpen(row.device.id);
+          onOpen(row.device.public_code);
         }
       }}
       className="group cursor-pointer border-b border-border/80 transition-colors last:border-b-0 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-faint30"

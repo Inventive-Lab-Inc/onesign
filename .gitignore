@@ -2,6 +2,7 @@
 .pnpm-store
 node_modules
 .next
+.next-local
 .turbo
 dist
 build
