@@ -3,12 +3,13 @@
 import { notFound, useParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
 import { MediaDetailWorkspace } from "@/components/media/media-detail-workspace";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 
 function ContentDetailPageContent() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
   const lastSyncedAt = useConsoleDataStore((s) => s.lastSyncedAt);
   const media = useConsoleDataStore((s) => s.media);
 

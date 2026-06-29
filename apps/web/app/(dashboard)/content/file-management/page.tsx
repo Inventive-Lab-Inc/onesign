@@ -2,10 +2,10 @@
 
 import { Suspense } from "react";
 import { FileManagementWorkspace } from "@/components/media/file-management-workspace";
-import { useConsoleDataStore } from "@/stores/console-data-store";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 
 function FileManagementPageContent() {
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
 
   if (!ownerId) {
     return (

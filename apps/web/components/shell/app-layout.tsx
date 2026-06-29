@@ -50,7 +50,8 @@ export function AppLayout({
   children,
 }: AppLayoutProps) {
   const pathname = usePathname();
-  const { pendingPath } = useRouteNavigationPending();
+  const { optimisticPath } = useRouteNavigationPending();
+  const displayPath = optimisticPath ?? pathname;
   const { isMobile } = useBreakpoint();
   const { settings, setSidebarCollapsed } = useSettings();
   const useSidebar = !isMobile;
@@ -64,11 +65,11 @@ export function AppLayout({
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 
-  const title = getPageTitle(pathname) || pathname || "App";
+  const title = getPageTitle(displayPath) || displayPath || "App";
   const currentNavItem = navItems
     .filter((item) => {
       const end = item.end ?? item.path === "/";
-      return end ? pathname === item.path : pathname === item.path || pathname.startsWith(`${item.path}/`);
+      return end ? displayPath === item.path : displayPath === item.path || displayPath.startsWith(`${item.path}/`);
     })
     .sort((a, b) => b.path.length - a.path.length)[0];
   const titleIcon = currentNavItem?.icon;
@@ -127,7 +128,7 @@ export function AppLayout({
             brand={brand}
             navItems={navItems}
             bottomNavItem={bottomNavItem}
-            pendingPath={pendingPath}
+            optimisticPath={optimisticPath}
             collapsed={settings.sidebarCollapsed}
             onToggleCollapse={() => setSidebarCollapsed(!settings.sidebarCollapsed)}
           />
@@ -145,7 +146,7 @@ export function AppLayout({
           <TopBar
             title={title}
             titleIcon={titleIcon}
-            pendingPath={pendingPath}
+            optimisticPath={optimisticPath}
             brand={brand}
             navItems={navItems}
             bottomNavItem={bottomNavItem}

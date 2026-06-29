@@ -2,10 +2,10 @@
 
 import { Suspense } from "react";
 import { DeviceGroupsManager } from "@/components/device-groups/device-groups-manager";
-import { useConsoleDataStore } from "@/stores/console-data-store";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 
 function GroupsPageContent() {
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
 
   if (!ownerId) {
     return (

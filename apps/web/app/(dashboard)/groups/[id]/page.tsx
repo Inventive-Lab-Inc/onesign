@@ -4,13 +4,14 @@ import { notFound, useParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
 import { DeviceGroupScreenEditor } from "@/components/device-groups/device-group-screen-editor";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 
 function GroupDetailPageContent() {
   const params = useParams();
   const adminStaff = useOptionalAdminStaff();
   const id = typeof params?.id === "string" ? params.id : "";
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
   const lastSyncedAt = useConsoleDataStore((s) => s.lastSyncedAt);
   const deviceGroups = useConsoleDataStore((s) => s.deviceGroups);
 

@@ -4,12 +4,13 @@ import { notFound, useParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
 import { WebsiteDetailWorkspace } from "@/components/websites/website-detail-workspace";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 
 function WebsiteDetailPageContent() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
   const lastSyncedAt = useConsoleDataStore((s) => s.lastSyncedAt);
   const websites = useConsoleDataStore((s) => s.websites);
   const adminStaff = useOptionalAdminStaff();

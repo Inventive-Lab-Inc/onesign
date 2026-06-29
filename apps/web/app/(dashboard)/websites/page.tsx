@@ -3,10 +3,10 @@
 import { Suspense } from "react";
 import { WebsitesWorkspace } from "@/components/websites/websites-workspace";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
-import { useConsoleDataStore } from "@/stores/console-data-store";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 
 function WebsitesPageContent() {
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
   const adminStaff = useOptionalAdminStaff();
   const readOnly = adminStaff != null && !adminStaff.canWrite;
 

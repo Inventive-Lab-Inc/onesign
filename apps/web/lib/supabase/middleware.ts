@@ -22,6 +22,51 @@ function hasSupabaseAuthCookie(request: NextRequest): boolean {
  */
 const AUTH_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth/accept-invite"];
 
+/** Skip live profile DB read when a recent gate check cookie matches this user. */
+const PROFILE_GATE_COOKIE = "profile-gate";
+const PROFILE_GATE_TTL_MS = 120_000;
+
+type ProfileGateCache = {
+  uid: string;
+  ts: number;
+  disabled: boolean;
+  trialExpired: boolean;
+};
+
+function readProfileGateCache(request: NextRequest, userId: string): ProfileGateCache | null {
+  const raw = request.cookies.get(PROFILE_GATE_COOKIE)?.value;
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as ProfileGateCache;
+    if (parsed.uid !== userId) return null;
+    if (Date.now() - parsed.ts > PROFILE_GATE_TTL_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeProfileGateCookie(
+  response: NextResponse,
+  userId: string,
+  disabled: boolean,
+  trialExpired: boolean,
+): void {
+  const payload: ProfileGateCache = {
+    uid: userId,
+    ts: Date.now(),
+    disabled,
+    trialExpired,
+  };
+  response.cookies.set(PROFILE_GATE_COOKIE, JSON.stringify(payload), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: Math.ceil(PROFILE_GATE_TTL_MS / 1000),
+    path: "/",
+  });
+}
+
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname;
   const needsAuthCheck =
@@ -104,20 +149,33 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
         }
       }
     } else if (isProtectedPath(pathname) && pathname !== "/account-suspended" && pathname !== "/trial-expired") {
-      // Always read live profile state — JWT flags are only synced on signup/admin
-      // actions and can say "trial ok" long after trial_ends_at has passed.
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_disabled, trial_ends_at")
-        .eq("id", userId)
-        .maybeSingle();
+      const cached = readProfileGateCache(request, userId);
+      if (cached) {
+        if (cached.disabled) {
+          return NextResponse.redirect(new URL("/account-suspended", request.url));
+        }
+        if (cached.trialExpired) {
+          return NextResponse.redirect(new URL("/trial-expired", request.url));
+        }
+      } else {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_disabled, trial_ends_at")
+          .eq("id", userId)
+          .maybeSingle();
 
-      if (profile?.is_disabled) {
-        return NextResponse.redirect(new URL("/account-suspended", request.url));
-      }
+        const disabled = Boolean(profile?.is_disabled);
+        const trialExpired = isTrialExpired(profile?.trial_ends_at);
 
-      if (isTrialExpired(profile?.trial_ends_at)) {
-        return NextResponse.redirect(new URL("/trial-expired", request.url));
+        if (disabled) {
+          return NextResponse.redirect(new URL("/account-suspended", request.url));
+        }
+
+        if (trialExpired) {
+          return NextResponse.redirect(new URL("/trial-expired", request.url));
+        }
+
+        writeProfileGateCookie(response, userId, disabled, trialExpired);
       }
     }
   }

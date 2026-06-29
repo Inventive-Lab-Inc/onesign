@@ -8,6 +8,7 @@ import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { useActiveAppRelease } from "@/hooks/use-active-app-release";
 import type { DeviceWithAssignments } from "@/lib/console-sync";
 import { effectiveDeviceStatus } from "@/lib/device-status";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { TrialHomeCard } from "@/components/console/trial-status";
@@ -18,7 +19,7 @@ export default function DashboardHomePage() {
   const plan = usePlanQuota();
   const activeAppRelease = useActiveAppRelease();
   const storeDeviceCount = useConsoleDataStore((s) => s.devices.length);
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
   const mediaCount = useConsoleDataStore((s) => s.media.length);
   const devices = useConsoleDataStore((s) => s.devices) as DeviceWithAssignments[];
   const deviceGroups = useConsoleDataStore((s) => s.deviceGroups);

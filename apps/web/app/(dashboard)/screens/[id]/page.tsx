@@ -4,6 +4,7 @@ import { notFound, useParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
 import { DeviceScreenEditor } from "@/components/device-screen-editor";
 import { useDevicePageAutoSync } from "@/hooks/use-device-page-auto-sync";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 import type { DeviceWithAssignments } from "@/lib/console-sync";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 
@@ -11,7 +12,7 @@ function DeviceDetailPageContent() {
   useDevicePageAutoSync();
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
   const lastSyncedAt = useConsoleDataStore((s) => s.lastSyncedAt);
   const devices = useConsoleDataStore((s) => s.devices);
 

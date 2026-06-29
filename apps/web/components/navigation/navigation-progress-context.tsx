@@ -6,12 +6,19 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { usePathname } from "next/navigation";
 
+/** Only show loading UI if navigation takes longer than this — fast clicks feel instant. */
+const NAV_SPINNER_DELAY_MS = 300;
+
 type NavigationProgressContextValue = {
+  /** Set immediately on click — use for optimistic active nav styling. */
+  optimisticPath: string | null;
+  /** Set after delay — use for spinners / progress bar only. */
   pendingPath: string | null;
   beginNavigation: (href: string) => void;
 };
@@ -30,7 +37,20 @@ function navigationTarget(href: string, origin: string): string | null {
 
 export function NavigationProgressProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [optimisticPath, setOptimisticPath] = useState<string | null>(null);
   const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const activeTargetRef = useRef<string | null>(null);
+  const delayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearNavigation = useCallback(() => {
+    activeTargetRef.current = null;
+    if (delayTimerRef.current) {
+      clearTimeout(delayTimerRef.current);
+      delayTimerRef.current = null;
+    }
+    setOptimisticPath(null);
+    setPendingPath(null);
+  }, []);
 
   const beginNavigation = useCallback(
     (href: string) => {
@@ -41,25 +61,37 @@ export function NavigationProgressProvider({ children }: { children: ReactNode }
       if (targetPath === pathname) return;
       const current = pathname + window.location.search;
       if (target === current) return;
-      setPendingPath(targetPath);
+
+      if (delayTimerRef.current) {
+        clearTimeout(delayTimerRef.current);
+        delayTimerRef.current = null;
+      }
+
+      activeTargetRef.current = targetPath;
+      setOptimisticPath(targetPath);
+      setPendingPath(null);
+
+      delayTimerRef.current = setTimeout(() => {
+        if (activeTargetRef.current === targetPath) {
+          setPendingPath(targetPath);
+        }
+      }, NAV_SPINNER_DELAY_MS);
     },
     [pathname],
   );
 
   useEffect(() => {
-    if (!pendingPath) return;
-    const target = pendingPath.split("?")[0] ?? pendingPath;
+    const target = activeTargetRef.current;
+    if (!target) return;
     if (pathname !== target) return;
-
-    const timeout = window.setTimeout(() => setPendingPath(null), 80);
-    return () => window.clearTimeout(timeout);
-  }, [pathname, pendingPath]);
+    clearNavigation();
+  }, [pathname, clearNavigation]);
 
   useEffect(() => {
     if (!pendingPath) return;
-    const timeout = window.setTimeout(() => setPendingPath(null), 12000);
+    const timeout = window.setTimeout(() => clearNavigation(), 12000);
     return () => window.clearTimeout(timeout);
-  }, [pendingPath]);
+  }, [pendingPath, clearNavigation]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -75,7 +107,7 @@ export function NavigationProgressProvider({ children }: { children: ReactNode }
     };
 
     const onPopState = () => {
-      setPendingPath(window.location.pathname);
+      beginNavigation(window.location.href);
     };
 
     document.addEventListener("click", onClick, true);
@@ -86,12 +118,19 @@ export function NavigationProgressProvider({ children }: { children: ReactNode }
     };
   }, [beginNavigation]);
 
+  useEffect(() => {
+    return () => {
+      if (delayTimerRef.current) clearTimeout(delayTimerRef.current);
+    };
+  }, []);
+
   const value = useMemo(
     () => ({
+      optimisticPath,
       pendingPath,
       beginNavigation,
     }),
-    [pendingPath, beginNavigation],
+    [optimisticPath, pendingPath, beginNavigation],
   );
 
   return (

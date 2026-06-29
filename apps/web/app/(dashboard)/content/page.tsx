@@ -2,10 +2,10 @@
 
 import { Suspense } from "react";
 import { MediaLibrary } from "@/components/media-library";
-import { useConsoleDataStore } from "@/stores/console-data-store";
+import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 
 function ContentPageContent() {
-  const ownerId = useConsoleDataStore((s) => s.ownerId);
+  const ownerId = useConsoleOwnerId();
 
   if (!ownerId) {
     return (

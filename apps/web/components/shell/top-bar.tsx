@@ -10,7 +10,6 @@ import { useNotifications } from "./notifications-context";
 import { useSettings } from "./settings-context";
 import { MobileNavDrawer } from "./top-nav";
 import type { BrandConfig, NavItem } from "./types";
-import { NavRadialSpinner } from "@/components/ui/nav-radial-spinner";
 import { assets } from "@/lib/config/assets";
 import { ConfirmModal } from "./confirm-modal";
 import { shellChrome } from "./shell-chrome";
@@ -238,8 +237,7 @@ function NotificationBellDropdown() {
 export interface TopBarProps {
   title: string | ((pathname: string) => string);
   titleIcon?: LucideIcon;
-  /** Destination pathname while a client navigation is in flight (shows loaders on matching nav icons). */
-  pendingPath?: string | null;
+  optimisticPath?: string | null;
   brand: BrandConfig;
   navItems: NavItem[];
   bottomNavItem?: NavItem;
@@ -534,7 +532,7 @@ function ProfileDropdown({
 export function TopBar({
   title,
   titleIcon: TitleIcon,
-  pendingPath = null,
+  optimisticPath = null,
   brand,
   navItems,
   bottomNavItem,
@@ -564,7 +562,7 @@ export function TopBar({
           bottomNavItem={bottomNavItem}
           open={mobileNavOpen}
           onClose={onMobileNavClose}
-          pendingPath={pendingPath}
+          optimisticPath={optimisticPath}
         />
       <header
         style={{
@@ -608,16 +606,7 @@ export function TopBar({
             minWidth: 0,
           }}
         >
-          {pendingPath != null ? (
-            <NavRadialSpinner
-              size={18}
-              style={{ color: "rgba(255,255,255,0.85)" }}
-              aria-label="Loading page"
-              aria-hidden={false}
-            />
-          ) : (
-            TitleIcon && <TitleIcon size={18} strokeWidth={1.75} style={{ flexShrink: 0, color: "rgba(255,255,255,0.85)" }} />
-          )}
+          {TitleIcon && <TitleIcon size={18} strokeWidth={1.75} style={{ flexShrink: 0, color: "rgba(255,255,255,0.85)" }} />}
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleText}</span>
         </span>
         {languageLabel != null && onLanguageClick && (
@@ -685,17 +674,8 @@ export function TopBar({
           minWidth: 0,
         }}
       >
-        {pendingPath != null ? (
-          <NavRadialSpinner
-            size={18}
-            style={{ color: "rgba(255,255,255,0.85)" }}
-            aria-label="Loading page"
-            aria-hidden={false}
-          />
-        ) : (
-          TitleIcon && (
-            <TitleIcon size={18} strokeWidth={1.75} style={{ flexShrink: 0, color: "rgba(255,255,255,0.85)" }} />
-          )
+        {TitleIcon && (
+          <TitleIcon size={18} strokeWidth={1.75} style={{ flexShrink: 0, color: "rgba(255,255,255,0.85)" }} />
         )}
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{titleText}</span>
       </span>

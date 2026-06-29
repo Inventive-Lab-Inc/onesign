@@ -5,7 +5,6 @@ import { useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
-import { NavRadialSpinner } from "@/components/ui/nav-radial-spinner";
 import { BrandMark } from "@/components/brand-mark";
 import type { BrandConfig, NavItem } from "./types";
 
@@ -18,17 +17,6 @@ function navMatches(path: string, pathname: string, end?: boolean): boolean {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-/** True if `destinationPath` is the route for this nav item (e.g. /playlists/foo → Playlists tab). */
-export function navItemMatchesDestination(
-  item: { path: string; end?: boolean },
-  destinationPath: string | null | undefined,
-): boolean {
-  if (!destinationPath) return false;
-  const useEnd = item.end ?? item.path === "/";
-  if (useEnd) return destinationPath === item.path;
-  return destinationPath === item.path || destinationPath.startsWith(`${item.path}/`);
-}
-
 export const SIDEBAR_WIDTH = "15rem";
 export const SIDEBAR_COLLAPSED_WIDTH = "4rem";
 
@@ -36,7 +24,7 @@ interface SidebarNavProps {
   brand: BrandConfig;
   navItems: NavItem[];
   bottomNavItem?: NavItem;
-  pendingPath?: string | null;
+  optimisticPath?: string | null;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -46,11 +34,12 @@ export function SidebarNav({
   brand,
   navItems,
   bottomNavItem,
-  pendingPath,
+  optimisticPath,
   collapsed = false,
   onToggleCollapse,
 }: SidebarNavProps) {
   const pathname = usePathname();
+  const displayPath = optimisticPath ?? pathname;
   const { name, subtitle, icon: BrandIcon, logoColor = "var(--theme)" } = brand;
   const items = useMemo(
     () => (bottomNavItem ? [...navItems, bottomNavItem] : navItems),
@@ -165,8 +154,7 @@ export function SidebarNav({
       >
         {items.map((item) => {
           const { icon: Icon, label, path, end } = item;
-          const active = navMatches(path, pathname, end ?? path === "/");
-          const showLoader = navItemMatchesDestination(item, pendingPath);
+          const active = navMatches(path, displayPath, end ?? path === "/");
           return (
             <Link prefetch key={path} href={path} style={rowStyle(active)} title={label}>
               <span
@@ -179,13 +167,8 @@ export function SidebarNav({
                   justifyContent: "center",
                   flexShrink: 0,
                 }}
-                aria-hidden={showLoader}
               >
-                {showLoader ? (
-                  <NavRadialSpinner size={18} style={{ color: "rgba(255,255,255,0.95)" }} aria-hidden />
-                ) : (
-                  <Icon size={18} strokeWidth={NAV_ICON_STROKE} />
-                )}
+                <Icon size={18} strokeWidth={NAV_ICON_STROKE} />
               </span>
               {collapsed ? (
                 <span
@@ -263,11 +246,12 @@ interface MobileNavDrawerProps {
   bottomNavItem?: NavItem;
   open: boolean;
   onClose: () => void;
-  pendingPath?: string | null;
+  optimisticPath?: string | null;
 }
 
-export function MobileNavDrawer({ brand, navItems, bottomNavItem, open, onClose, pendingPath }: MobileNavDrawerProps) {
+export function MobileNavDrawer({ brand, navItems, bottomNavItem, open, onClose, optimisticPath }: MobileNavDrawerProps) {
   const pathname = usePathname();
+  const displayPath = optimisticPath ?? pathname;
   const router = useAppRouter();
   const { name, subtitle, icon: BrandIcon, logoColor = "var(--theme)" } = brand;
 
@@ -405,19 +389,10 @@ export function MobileNavDrawer({ brand, navItems, bottomNavItem, open, onClose,
         >
           {navItems.map((item) => {
             const { icon: Icon, label, path, end } = item;
-            const active = navMatches(path, pathname, end ?? path === "/");
-            const showLoader = navItemMatchesDestination(item, pendingPath);
+            const active = navMatches(path, displayPath, end ?? path === "/");
             return (
               <Link prefetch key={path} href={path} style={rowStyle(active)} onClick={onClose}>
-                {showLoader ? (
-                  <NavRadialSpinner
-                    size={18}
-                    style={{ color: "rgba(255,255,255,0.95)" }}
-                    aria-hidden
-                  />
-                ) : (
-                  <Icon size={18} strokeWidth={NAV_ICON_STROKE} style={{ flexShrink: 0 }} />
-                )}
+                <Icon size={18} strokeWidth={NAV_ICON_STROKE} style={{ flexShrink: 0 }} />
                 {label}
               </Link>
             );
@@ -427,15 +402,11 @@ export function MobileNavDrawer({ brand, navItems, bottomNavItem, open, onClose,
               prefetch
               href={bottomNavItem.path}
               style={rowStyle(
-                navMatches(bottomNavItem.path, pathname, bottomNavItem.end ?? bottomNavItem.path === "/"),
+                navMatches(bottomNavItem.path, displayPath, bottomNavItem.end ?? bottomNavItem.path === "/"),
               )}
               onClick={onClose}
             >
-              {navItemMatchesDestination(bottomNavItem, pendingPath) ? (
-                <NavRadialSpinner size={18} style={{ color: "rgba(255,255,255,0.95)" }} aria-hidden />
-              ) : (
-                <bottomNavItem.icon size={18} strokeWidth={NAV_ICON_STROKE} style={{ flexShrink: 0 }} />
-              )}
+              <bottomNavItem.icon size={18} strokeWidth={NAV_ICON_STROKE} style={{ flexShrink: 0 }} />
               {bottomNavItem.label}
             </Link>
           )}
