@@ -17,7 +17,11 @@ import {
 import { BrandMark } from "@/components/brand-mark";
 import { layoutConfig } from "@/lib/config/layout";
 import { appUrl } from "@/lib/site-hosts";
-import { plans } from "@/components/plans/plan-data";
+import {
+  STATIC_PLAN_VIEW_MODELS,
+  planIconForIndex,
+  type PlanViewModel,
+} from "@/components/plans/plan-data";
 import { LandingDownloadButton } from "./landing-download-button";
 import "./landing.css";
 
@@ -76,8 +80,9 @@ const stats = [
   { value: "24/7", label: "Always-on displays" },
 ];
 
-export function LandingPage() {
+export function LandingPage({ plans }: { plans?: PlanViewModel[] }) {
   const { name } = layoutConfig.brand;
+  const pricingPlans = plans && plans.length > 0 ? plans : STATIC_PLAN_VIEW_MODELS;
 
   return (
     <div className="landing">
@@ -87,7 +92,7 @@ export function LandingPage() {
       <Features />
       <HowItWorks />
       <StatsBand />
-      <PricingTeaser />
+      <PricingTeaser plans={pricingPlans} />
       <FinalCta />
       <Footer name={name} />
     </div>
@@ -321,7 +326,7 @@ function StatsBand() {
   );
 }
 
-function PricingTeaser() {
+function PricingTeaser({ plans }: { plans: PlanViewModel[] }) {
   return (
     <section id="pricing" className="px-5 py-20">
       <div className="mx-auto w-full max-w-6xl">
@@ -331,9 +336,9 @@ function PricingTeaser() {
           subtitle="Start free, then pick the plan that matches your screen count. No setup fees, cancel anytime."
         />
         <div className="mt-12 grid gap-5 md:grid-cols-3 md:items-center">
-          {plans.map((plan) => {
-            const popular = plan.highlighted ?? false;
-            const Icon = plan.icon;
+          {plans.map((plan, index) => {
+            const popular = plan.highlighted;
+            const Icon = planIconForIndex(index);
             return (
               <div
                 key={plan.id}
@@ -368,7 +373,7 @@ function PricingTeaser() {
                 <ul className="mt-5 space-y-2">
                   {plan.features.slice(0, 4).map((feature) => (
                     <li
-                      key={feature.label}
+                      key={feature}
                       className={`flex items-center gap-2 text-sm ${popular ? "text-white/85" : "text-foreground"}`}
                     >
                       <Check
@@ -376,7 +381,7 @@ function PricingTeaser() {
                         strokeWidth={2.5}
                         className={popular ? "landing-price-check--dark" : "landing-price-check"}
                       />
-                      {feature.label}
+                      {feature}
                     </li>
                   ))}
                 </ul>
