@@ -33,7 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const accountContext = await fetchAccountContext(supabase, user.id);
   const cookieStore = await cookies();
   const preferredWorkspaceId = cookieStore.get(ACTIVE_WORKSPACE_COOKIE)?.value ?? null;
-  pickActiveWorkspaceId(accountContext.workspaces, preferredWorkspaceId);
+  const initialActiveWorkspaceId = pickActiveWorkspaceId(accountContext.workspaces, preferredWorkspaceId);
 
   const plan = await getAccountPlanSnapshot(supabase, accountContext.accountOwnerId);
 
@@ -48,6 +48,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <DashboardShell
         authUserId={user.id}
         initialAccountContext={accountContext}
+        initialActiveWorkspaceId={initialActiveWorkspaceId}
         userEmail={user.email ?? ""}
         displayName={displayName}
         isStaff={!!staff}

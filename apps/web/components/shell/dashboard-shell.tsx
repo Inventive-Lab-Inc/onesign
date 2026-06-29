@@ -84,6 +84,7 @@ export function DashboardShell({
   children,
   authUserId,
   initialAccountContext,
+  initialActiveWorkspaceId,
   userEmail,
   displayName,
   isStaff = false,
@@ -91,6 +92,7 @@ export function DashboardShell({
   children: React.ReactNode;
   authUserId: string;
   initialAccountContext?: AccountContext;
+  initialActiveWorkspaceId?: string | null;
   userEmail: string;
   displayName: string;
   isStaff?: boolean;
@@ -98,7 +100,11 @@ export function DashboardShell({
   return (
     <SettingsProvider>
       <NotificationsProvider>
-        <ClientConsoleSyncProvider authUserId={authUserId} initialAccountContext={initialAccountContext}>
+        <ClientConsoleSyncProvider
+          authUserId={authUserId}
+          initialAccountContext={initialAccountContext}
+          initialActiveWorkspaceId={initialActiveWorkspaceId}
+        >
           <DashboardShellInner userEmail={userEmail} displayName={displayName} isStaff={isStaff}>
             {children}
           </DashboardShellInner>

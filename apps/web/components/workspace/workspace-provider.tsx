@@ -49,15 +49,19 @@ function writeWorkspaceCookie(workspaceId: string) {
 export function WorkspaceProvider({
   authUserId,
   initialContext,
+  initialActiveWorkspaceId,
   children,
 }: {
   authUserId: string;
   initialContext?: AccountContext | null;
+  initialActiveWorkspaceId?: string | null;
   children: ReactNode;
 }) {
   const [context, setContext] = useState<AccountContext | null>(initialContext ?? null);
-  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(() =>
-    pickActiveWorkspaceId(initialContext?.workspaces ?? [], readWorkspaceCookie()),
+  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(
+    () =>
+      initialActiveWorkspaceId ??
+      pickActiveWorkspaceId(initialContext?.workspaces ?? [], null),
   );
   const [ready, setReady] = useState(!!initialContext);
 
