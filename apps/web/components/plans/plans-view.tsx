@@ -2,7 +2,11 @@
 
 import { Check, Monitor, RefreshCw, ShieldCheck, Sparkles, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { plans, type Plan } from "./plan-data";
+import {
+  STATIC_PLAN_VIEW_MODELS,
+  planIconForIndex,
+  type PlanViewModel,
+} from "./plan-data";
 import "./plans.css";
 
 const trustBadges = [
@@ -11,12 +15,15 @@ const trustBadges = [
   { icon: RefreshCw, label: "Cancel anytime" },
 ];
 
-export function PlansView() {
+export function PlansView({ plans }: { plans?: PlanViewModel[] }) {
+  const items = plans && plans.length > 0 ? plans : STATIC_PLAN_VIEW_MODELS;
+  const columns = items.length === 3 ? "md:grid-cols-3" : items.length === 2 ? "md:grid-cols-2" : "";
+
   return (
     <div className="plans-page py-2">
       <PlansHeader />
-      <div className="mx-auto mt-12 grid w-full max-w-5xl gap-5 md:grid-cols-3 md:items-center">
-        {plans.map((plan, index) => (
+      <div className={cn("mx-auto mt-12 grid w-full max-w-5xl gap-5 md:items-center", columns)}>
+        {items.map((plan, index) => (
           <PlanCard key={plan.id} plan={plan} index={index} />
         ))}
       </div>
@@ -58,9 +65,9 @@ function PlansHeader() {
   );
 }
 
-function PlanCard({ plan, index }: { plan: Plan; index: number }) {
-  const popular = plan.highlighted ?? false;
-  const Icon = plan.icon;
+function PlanCard({ plan, index }: { plan: PlanViewModel; index: number }) {
+  const popular = plan.highlighted;
+  const Icon = planIconForIndex(index);
 
   return (
     <div
@@ -98,14 +105,16 @@ function PlanCard({ plan, index }: { plan: Plan; index: number }) {
         <span className={cn("text-4xl font-bold tracking-tight", popular ? "text-white" : "text-foreground")}>
           ${plan.monthlyPrice}
         </span>
-        <span
-          className={cn(
-            "mb-1 text-lg font-semibold line-through",
-            popular ? "plan-price-strike--dark" : "plan-price-strike",
-          )}
-        >
-          ${plan.originalPrice}
-        </span>
+        {plan.originalPrice != null && plan.originalPrice > plan.monthlyPrice ? (
+          <span
+            className={cn(
+              "mb-1 text-lg font-semibold line-through",
+              popular ? "plan-price-strike--dark" : "plan-price-strike",
+            )}
+          >
+            ${plan.originalPrice}
+          </span>
+        ) : null}
         <span className={cn("mb-1.5 text-xs font-medium", popular ? "text-white/55" : "text-muted-foreground")}>
           /mo
         </span>
@@ -143,11 +152,11 @@ function PlanCard({ plan, index }: { plan: Plan; index: number }) {
       <ul className="space-y-2.5">
         {plan.features.map((feature) => (
           <li
-            key={feature.label}
+            key={feature}
             className={cn("flex items-center gap-2.5 text-sm", popular ? "text-white/85" : "text-foreground")}
           >
             <Check size={15} className={popular ? "plan-check--dark" : "plan-check"} strokeWidth={2.5} />
-            {feature.label}
+            {feature}
           </li>
         ))}
       </ul>

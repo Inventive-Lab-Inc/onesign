@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useAppRouter } from "@/hooks/use-app-router";
-import { LayoutDashboard, ScrollText, Settings, Shield, Users } from "lucide-react";
+import { CreditCard, LayoutDashboard, ScrollText, Settings, Shield, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { PlatformStaff } from "@signage/types";
 import { AdminPortalSyncProvider } from "@/components/console/admin-portal-sync-provider";
@@ -18,6 +18,7 @@ import { getAdminPageTitle } from "@/lib/config/admin-layout";
 
 const adminNavItems: NavItem[] = [
   { path: "/admin", label: "Clients", icon: Users, end: true },
+  { path: "/admin/plans", label: "Plans", icon: CreditCard, end: true },
   { path: "/admin/audit", label: "Audit log", icon: ScrollText, end: true },
   { path: "/admin/admins", label: "Admins", icon: Settings, end: true },
 ];

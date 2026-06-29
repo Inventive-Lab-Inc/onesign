@@ -9,6 +9,8 @@ export const AUDIT_ACTION_FILTERS = [
   { id: "client_invite", label: "Invitations" },
   { id: "trial_extend", label: "Trial extensions" },
   { id: "trial_convert", label: "Trial conversions" },
+  { id: "plan_template_save", label: "Plan catalog edits" },
+  { id: "plan_template_delete", label: "Plan catalog deletions" },
 ] as const;
 
 export type AuditActionFilter = (typeof AUDIT_ACTION_FILTERS)[number]["id"];
@@ -28,6 +30,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   client_invite: "Client invited",
   trial_extend: "Trial extended",
   trial_convert: "Trial converted",
+  plan_template_save: "Plan saved",
+  plan_template_delete: "Plan deleted",
   "staff.remove": "Admin removed",
 };
 
@@ -133,6 +137,18 @@ export function formatAuditMetadata(action: string, metadata: Record<string, unk
 
   if (action === "trial_convert") {
     return "Trial removed · account converted to paid";
+  }
+
+  if (action === "plan_template_save") {
+    const name = typeof metadata.name === "string" ? metadata.name : null;
+    const created = metadata.created === true;
+    if (name) return created ? `Created plan ${name}` : `Updated plan ${name}`;
+    return created ? "Plan created" : "Plan updated";
+  }
+
+  if (action === "plan_template_delete") {
+    const name = typeof metadata.name === "string" ? metadata.name : null;
+    return name ? `Deleted plan ${name}` : "Plan deleted";
   }
 
   if (action === "waitlist_status") {

@@ -112,6 +112,27 @@ export interface Profile {
   plan_kind?: "trial" | "standard" | "custom";
 }
 
+/** A subscription plan in the admin-managed catalog (public.plan_templates). */
+export interface PlanTemplate {
+  id: string;
+  name: string;
+  tagline: string;
+  device_limit: number;
+  storage_limit_bytes: number;
+  /** Price in cents to avoid float drift; divide by 100 to display. */
+  monthly_price_cents: number;
+  /** Optional strikethrough/anchor price in cents. */
+  original_price_cents: number | null;
+  cta_label: string;
+  features: string[];
+  badge: string | null;
+  is_highlighted: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Row returned by admin_directory_stats() RPC. */
 export interface AdminDirectoryStats {
   client_count: number;

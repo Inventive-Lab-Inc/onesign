@@ -1,3 +1,4 @@
+import type { PlanTemplate } from "@signage/types";
 import { Building2, Rocket, Store, type LucideIcon } from "lucide-react";
 
 export interface PlanFeature {
@@ -77,3 +78,62 @@ export const plans: Plan[] = [
     ],
   },
 ];
+
+/**
+ * Serializable plan shape safe to pass from a Server Component to the client
+ * pricing view. Icons can't cross that boundary, so consumers resolve them by
+ * position via {@link planIconForIndex}.
+ */
+export interface PlanViewModel {
+  id: string;
+  name: string;
+  tagline: string;
+  monthlyPrice: number;
+  originalPrice: number | null;
+  screens: string;
+  features: string[];
+  ctaLabel: string;
+  highlighted: boolean;
+  badge: string | null;
+}
+
+const PLAN_ICONS: LucideIcon[] = [Store, Rocket, Building2];
+
+export function planIconForIndex(index: number): LucideIcon {
+  return PLAN_ICONS[index % PLAN_ICONS.length] ?? Store;
+}
+
+function formatScreensLabel(deviceLimit: number): string {
+  return `${deviceLimit} screen${deviceLimit === 1 ? "" : "s"}`;
+}
+
+/** Maps an admin-managed plan template into the serializable pricing view shape. */
+export function mapTemplateToViewModel(template: PlanTemplate): PlanViewModel {
+  return {
+    id: template.id,
+    name: template.name,
+    tagline: template.tagline,
+    monthlyPrice: Math.round(template.monthly_price_cents) / 100,
+    originalPrice:
+      template.original_price_cents == null ? null : Math.round(template.original_price_cents) / 100,
+    screens: formatScreensLabel(template.device_limit),
+    features: template.features,
+    ctaLabel: template.cta_label,
+    highlighted: template.is_highlighted,
+    badge: template.badge,
+  };
+}
+
+/** Fallback used when the catalog is empty or unreachable. */
+export const STATIC_PLAN_VIEW_MODELS: PlanViewModel[] = plans.map((plan) => ({
+  id: plan.id,
+  name: plan.name,
+  tagline: plan.tagline,
+  monthlyPrice: plan.monthlyPrice,
+  originalPrice: plan.originalPrice,
+  screens: plan.screens,
+  features: plan.features.map((feature) => feature.label),
+  ctaLabel: plan.ctaLabel,
+  highlighted: plan.highlighted ?? false,
+  badge: plan.badge ?? null,
+}));
