@@ -9,9 +9,9 @@ export const metadata: Metadata = {
   title: "OneSign Console",
   description: "OneSign admin dashboard — manage screens, playlists, and media.",
   icons: {
-    icon: [{ url: "/images/onesign-brand-mark.svg", type: "image/svg+xml" }],
-    shortcut: "/images/onesign-brand-mark.svg",
-    apple: "/images/onesign-brand-mark.svg",
+    icon: [{ url: "/images/OneSignTV.svg", type: "image/svg+xml" }],
+    shortcut: "/images/OneSignTV.svg",
+    apple: "/images/OneSignTV.svg",
   },
 };
 

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
+import { Logo } from "@/components/logo";
 import type { BrandConfig, NavItem } from "./types";
 
 const HOME_PATH = "/dashboard";
@@ -40,7 +41,7 @@ export function SidebarNav({
 }: SidebarNavProps) {
   const pathname = usePathname();
   const displayPath = optimisticPath ?? pathname;
-  const { name, subtitle, icon: BrandIcon, logoColor = "var(--theme)" } = brand;
+  const { name, icon: BrandIcon, logoColor = "var(--theme)" } = brand;
   const items = useMemo(
     () => (bottomNavItem ? [...navItems, bottomNavItem] : navItems),
     [navItems, bottomNavItem],
@@ -96,36 +97,10 @@ export function SidebarNav({
           flexShrink: 0,
         }}
       >
-        <BrandMark icon={BrandIcon} logoColor={logoColor} iconSize={18} />
-        {!collapsed && (
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                color: "#fff",
-                fontSize: "0.9375rem",
-                fontWeight: 700,
-                lineHeight: 1.15,
-                letterSpacing: "-0.01em",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {name}
-            </div>
-            {subtitle && (
-              <div
-                style={{
-                  color: "rgba(255,255,255,0.45)",
-                  fontSize: "0.5625rem",
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  marginTop: "0.0625rem",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {subtitle}
-              </div>
-            )}
-          </div>
+        {collapsed ? (
+          <BrandMark icon={BrandIcon} logoColor={logoColor} iconSize={18} />
+        ) : (
+          <Logo height={26} tone="light" />
         )}
       </Link>
       <div
@@ -253,7 +228,7 @@ export function MobileNavDrawer({ brand, navItems, bottomNavItem, open, onClose,
   const pathname = usePathname();
   const displayPath = optimisticPath ?? pathname;
   const router = useAppRouter();
-  const { name, subtitle, icon: BrandIcon, logoColor = "var(--theme)" } = brand;
+  const { name, logoColor = "var(--theme)" } = brand;
 
   useEffect(() => {
     if (!open) return;
@@ -326,10 +301,10 @@ export function MobileNavDrawer({ brand, navItems, bottomNavItem, open, onClose,
               router.push(HOME_PATH);
               onClose();
             }}
+            aria-label={name}
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "0.5rem",
               border: "none",
               background: "none",
               cursor: "pointer",
@@ -337,23 +312,7 @@ export function MobileNavDrawer({ brand, navItems, bottomNavItem, open, onClose,
               textAlign: "left",
             }}
           >
-            <BrandMark icon={BrandIcon} logoColor={logoColor} iconSize={18} />
-            <div>
-              <div style={{ color: "#fff", fontSize: "0.9375rem", fontWeight: 700 }}>{name}</div>
-              {subtitle && (
-                <div
-                  style={{
-                    color: "rgba(255,255,255,0.45)",
-                    fontSize: "0.5625rem",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    marginTop: "0.125rem",
-                  }}
-                >
-                  {subtitle}
-                </div>
-              )}
-            </div>
+            <Logo height={26} tone="light" />
           </button>
           <button
             type="button"

@@ -5,13 +5,17 @@ import { LandingPage } from "@/components/landing/landing-page";
 import { STATIC_PLAN_VIEW_MODELS, mapTemplateToViewModel } from "@/components/plans/plan-data";
 import { getServerAuth } from "@/lib/supabase/auth";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { appUrl, isMarketingHost } from "@/lib/site-hosts";
+import { appUrl, isMarketingHost, normalizeHost } from "@/lib/site-hosts";
 
 export default async function HomePage() {
   const host = headers().get("host");
   const { user } = await getServerAuth();
 
-  if (isMarketingHost(host)) {
+  const showLanding =
+    isMarketingHost(host) ||
+    (process.env.NODE_ENV === "development" && normalizeHost(host) === "localhost");
+
+  if (showLanding) {
     if (user) redirect(appUrl("/dashboard"));
 
     const supabase = getSupabaseServerClient();
