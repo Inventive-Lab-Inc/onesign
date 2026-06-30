@@ -14,7 +14,7 @@ import {
   Wifi,
   Zap,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand-mark";
+import { Logo } from "@/components/logo";
 import { layoutConfig } from "@/lib/config/layout";
 import { appUrl } from "@/lib/site-hosts";
 import {
@@ -103,9 +103,8 @@ function LandingNav({ name }: { name: string }) {
   return (
     <header className="landing-nav">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5">
-        <Link href="/" className="flex items-center gap-2.5">
-          <BrandMark icon={layoutConfig.brand.icon} iconSize={18} />
-          <span className="text-lg font-bold tracking-tight text-foreground">{name}</span>
+        <Link href="/" className="flex items-center" aria-label={name}>
+          <Logo height={30} />
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm md:flex">
@@ -366,6 +365,13 @@ function PricingTeaser({ plans }: { plans: PlanViewModel[] }) {
                   <span className={`text-3xl font-bold tracking-tight ${popular ? "text-white" : "text-foreground"}`}>
                     ${plan.monthlyPrice}
                   </span>
+                  {plan.originalPrice != null && plan.originalPrice > plan.monthlyPrice && (
+                    <span
+                      className={`mb-1 text-sm font-semibold line-through ${popular ? "text-white/45" : "text-muted-foreground/70"}`}
+                    >
+                      ${plan.originalPrice}
+                    </span>
+                  )}
                   <span className={`mb-1 text-xs font-medium ${popular ? "text-white/55" : "text-muted-foreground"}`}>
                     /mo · {plan.screens}
                   </span>
@@ -439,9 +445,8 @@ function Footer({ name }: { name: string }) {
   return (
     <footer className="border-t border-border px-5 py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
-        <Link href="/" className="flex items-center gap-2.5">
-          <BrandMark icon={layoutConfig.brand.icon} iconSize={16} boxWidth="1.875rem" boxHeight="1.75rem" />
-          <span className="text-base font-bold tracking-tight text-foreground">{name}</span>
+        <Link href="/" className="flex items-center" aria-label={name}>
+          <Logo height={26} />
         </Link>
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
           <a href="#features" className="landing-footer-link">
