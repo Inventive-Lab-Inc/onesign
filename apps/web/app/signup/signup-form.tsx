@@ -128,8 +128,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   success: {
     padding: "0.75rem 0.875rem",
-    background: "#ecfdf5",
-    color: "#047857",
+    background: "#eff6ff",
+    color: "var(--theme)",
     borderRadius: "0.5rem",
     fontSize: "0.8125rem",
     lineHeight: 1.45,

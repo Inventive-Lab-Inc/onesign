@@ -278,7 +278,7 @@ const RESTAURANT_ADS: AdContent[] = [
   },
   {
     id: "happy",
-    background: "linear-gradient(135deg, var(--theme) 0%, #065f46 100%)",
+    background: "linear-gradient(135deg, var(--theme) 0%, #1e40af 100%)",
     children: <><AdTitle>Happy Hour</AdTitle><AdSub>50% off drinks · 3–6 PM</AdSub></>,
   },
 ];

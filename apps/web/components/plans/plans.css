@@ -1,8 +1,8 @@
 .plans-page {
   /* Dark surface for the highlighted card — derived from the app theme, not a
      hand-picked hex, so it retints automatically with --theme. */
-  --plan-dark: color-mix(in srgb, var(--theme) 30%, #050b09);
-  --plan-dark-2: color-mix(in srgb, var(--theme) 16%, #02110c);
+  --plan-dark: color-mix(in srgb, var(--theme) 30%, #050a14);
+  --plan-dark-2: color-mix(in srgb, var(--theme) 16%, #02091a);
 }
 
 .plans-title-accent {
