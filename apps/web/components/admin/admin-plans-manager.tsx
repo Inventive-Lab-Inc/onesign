@@ -20,6 +20,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  PLAN_CURRENCIES,
+  formatPlanMinorUnits,
+  type PlanCurrency,
+} from "@/lib/plan-currency";
+import {
   type StorageUnit,
   bytesToStorageUnit,
   formatStorageBytes,
@@ -27,12 +32,16 @@ import {
 } from "@/lib/plan-quota";
 import { cn } from "@/lib/utils";
 
+type CurrencyPriceFields = {
+  monthly: string;
+  original: string;
+};
+
 type PlanFormState = {
   id: string | null;
   name: string;
   tagline: string;
-  monthlyPrice: string;
-  originalPrice: string;
+  prices: Record<PlanCurrency, CurrencyPriceFields>;
   ctaLabel: string;
   deviceLimit: string;
   storageValue: string;
@@ -44,13 +53,21 @@ type PlanFormState = {
   sortOrder: number;
 };
 
+function emptyPrices(): Record<PlanCurrency, CurrencyPriceFields> {
+  return {
+    USD: { monthly: "", original: "" },
+    GBP: { monthly: "", original: "" },
+    EUR: { monthly: "", original: "" },
+    BDT: { monthly: "", original: "" },
+  };
+}
+
 function emptyForm(): PlanFormState {
   return {
     id: null,
     name: "",
     tagline: "",
-    monthlyPrice: "",
-    originalPrice: "",
+    prices: emptyPrices(),
     ctaLabel: "Choose plan",
     deviceLimit: "1",
     storageValue: "1",
@@ -63,6 +80,11 @@ function emptyForm(): PlanFormState {
   };
 }
 
+function minorToInput(minor: number, currency: PlanCurrency): string {
+  const amount = minor / 100;
+  return Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
+}
+
 function planToForm(plan: PlanTemplate): PlanFormState {
   const useGb = plan.storage_limit_bytes >= 1024 ** 3;
   const unit: StorageUnit = useGb ? "GB" : "MB";
@@ -71,8 +93,27 @@ function planToForm(plan: PlanTemplate): PlanFormState {
     id: plan.id,
     name: plan.name,
     tagline: plan.tagline,
-    monthlyPrice: centsToInput(plan.monthly_price_cents),
-    originalPrice: plan.original_price_cents == null ? "" : centsToInput(plan.original_price_cents),
+    prices: {
+      USD: {
+        monthly: minorToInput(plan.monthly_price_cents, "USD"),
+        original: plan.original_price_cents == null ? "" : minorToInput(plan.original_price_cents, "USD"),
+      },
+      GBP: {
+        monthly: minorToInput(plan.monthly_price_gbp_cents, "GBP"),
+        original:
+          plan.original_price_gbp_cents == null ? "" : minorToInput(plan.original_price_gbp_cents, "GBP"),
+      },
+      EUR: {
+        monthly: minorToInput(plan.monthly_price_eur_cents, "EUR"),
+        original:
+          plan.original_price_eur_cents == null ? "" : minorToInput(plan.original_price_eur_cents, "EUR"),
+      },
+      BDT: {
+        monthly: minorToInput(plan.monthly_price_bdt_paisa, "BDT"),
+        original:
+          plan.original_price_bdt_paisa == null ? "" : minorToInput(plan.original_price_bdt_paisa, "BDT"),
+      },
+    },
     ctaLabel: plan.cta_label,
     deviceLimit: String(plan.device_limit),
     storageValue: useGb ? storageValue.toFixed(storageValue % 1 === 0 ? 0 : 1) : String(Math.round(storageValue)),
@@ -85,18 +126,16 @@ function planToForm(plan: PlanTemplate): PlanFormState {
   };
 }
 
-function centsToInput(cents: number): string {
-  const dollars = cents / 100;
-  return Number.isInteger(dollars) ? String(dollars) : dollars.toFixed(2);
-}
-
-function formatPriceCents(cents: number): string {
-  const dollars = cents / 100;
-  return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
-}
-
 function formatScreens(limit: number): string {
   return `${limit} screen${limit === 1 ? "" : "s"}`;
+}
+
+function parsePriceInput(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  const parsed = Number.parseFloat(trimmed);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
 }
 
 async function savePlan(payload: Record<string, unknown>): Promise<void> {
@@ -121,6 +160,12 @@ function planToPayload(plan: PlanTemplate): Record<string, unknown> {
     storageLimitBytes: plan.storage_limit_bytes,
     monthlyPriceCents: plan.monthly_price_cents,
     originalPriceCents: plan.original_price_cents,
+    monthlyPriceGbpCents: plan.monthly_price_gbp_cents,
+    originalPriceGbpCents: plan.original_price_gbp_cents,
+    monthlyPriceEurCents: plan.monthly_price_eur_cents,
+    originalPriceEurCents: plan.original_price_eur_cents,
+    monthlyPriceBdtPaisa: plan.monthly_price_bdt_paisa,
+    originalPriceBdtPaisa: plan.original_price_bdt_paisa,
     ctaLabel: plan.cta_label,
     features: plan.features,
     badge: plan.badge,
@@ -128,6 +173,15 @@ function planToPayload(plan: PlanTemplate): Record<string, unknown> {
     isActive: plan.is_active,
     sortOrder: plan.sort_order,
   };
+}
+
+function planPriceSummary(plan: PlanTemplate): { currency: PlanCurrency; label: string }[] {
+  return [
+    { currency: "USD", label: formatPlanMinorUnits(plan.monthly_price_cents, "USD") },
+    { currency: "GBP", label: formatPlanMinorUnits(plan.monthly_price_gbp_cents, "GBP") },
+    { currency: "EUR", label: formatPlanMinorUnits(plan.monthly_price_eur_cents, "EUR") },
+    { currency: "BDT", label: formatPlanMinorUnits(plan.monthly_price_bdt_paisa, "BDT") },
+  ];
 }
 
 export function AdminPlansManager({ plans }: { plans: PlanTemplate[] }) {
@@ -243,17 +297,17 @@ export function AdminPlansManager({ plans }: { plans: PlanTemplate[] }) {
                 </span>
               </div>
 
-              <div className="mt-3 flex items-end gap-1.5">
-                <span className="text-2xl font-bold tracking-tight text-foreground">
-                  {formatPriceCents(plan.monthly_price_cents)}
-                </span>
-                {plan.original_price_cents != null && plan.original_price_cents > plan.monthly_price_cents ? (
-                  <span className="mb-0.5 text-sm font-medium text-muted-foreground line-through">
-                    {formatPriceCents(plan.original_price_cents)}
-                  </span>
-                ) : null}
-                <span className="mb-1 text-xs text-muted-foreground">/mo</span>
-              </div>
+              <dl className="mt-3 space-y-1">
+                {planPriceSummary(plan).map(({ currency, label }) => (
+                  <div key={currency} className="flex items-baseline justify-between gap-2 text-sm">
+                    <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{currency}</dt>
+                    <dd className="font-semibold text-foreground">
+                      {label}
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">/mo</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
 
               <dl className="mt-3 space-y-1.5 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
@@ -385,6 +439,19 @@ function PlanEditorModal({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function updatePrice(currency: PlanCurrency, field: keyof CurrencyPriceFields, value: string) {
+    setForm((current) => ({
+      ...current,
+      prices: {
+        ...current.prices,
+        [currency]: {
+          ...current.prices[currency],
+          [field]: value.replace(/[^\d.]/g, ""),
+        },
+      },
+    }));
+  }
+
   function changeStorageUnit(next: StorageUnit) {
     if (next === form.storageUnit) return;
     const bytes = parseStorageInput(form.storageValue, form.storageUnit);
@@ -411,15 +478,39 @@ function PlanEditorModal({
       toast.error("Storage limit must be at least 1 MB");
       return;
     }
-    const monthly = Number.parseFloat(form.monthlyPrice);
-    if (!Number.isFinite(monthly) || monthly < 0) {
-      toast.error("Enter a valid monthly price");
-      return;
-    }
-    const original = form.originalPrice.trim() === "" ? null : Number.parseFloat(form.originalPrice);
-    if (original != null && (!Number.isFinite(original) || original < 0)) {
-      toast.error("Enter a valid original price or leave it blank");
-      return;
+
+    const monthlyPriceCents: Record<PlanCurrency, number> = {
+      USD: 0,
+      GBP: 0,
+      EUR: 0,
+      BDT: 0,
+    };
+    const originalPriceMinor: Record<PlanCurrency, number | null> = {
+      USD: null,
+      GBP: null,
+      EUR: null,
+      BDT: null,
+    };
+
+    for (const currency of PLAN_CURRENCIES) {
+      const monthly = parsePriceInput(form.prices[currency].monthly);
+      if (monthly == null) {
+        toast.error(`Enter a valid ${currency} monthly price`);
+        return;
+      }
+      monthlyPriceCents[currency] = Math.round(monthly * 100);
+
+      const originalRaw = form.prices[currency].original.trim();
+      if (originalRaw === "") {
+        originalPriceMinor[currency] = null;
+        continue;
+      }
+      const original = parsePriceInput(originalRaw);
+      if (original == null) {
+        toast.error(`Enter a valid ${currency} original price or leave it blank`);
+        return;
+      }
+      originalPriceMinor[currency] = Math.round(original * 100);
     }
 
     const features = form.features
@@ -435,8 +526,14 @@ function PlanEditorModal({
         tagline: form.tagline.trim(),
         deviceLimit,
         storageLimitBytes: storageBytes,
-        monthlyPriceCents: Math.round(monthly * 100),
-        originalPriceCents: original == null ? null : Math.round(original * 100),
+        monthlyPriceCents: monthlyPriceCents.USD,
+        originalPriceCents: originalPriceMinor.USD,
+        monthlyPriceGbpCents: monthlyPriceCents.GBP,
+        originalPriceGbpCents: originalPriceMinor.GBP,
+        monthlyPriceEurCents: monthlyPriceCents.EUR,
+        originalPriceEurCents: originalPriceMinor.EUR,
+        monthlyPriceBdtPaisa: monthlyPriceCents.BDT,
+        originalPriceBdtPaisa: originalPriceMinor.BDT,
         ctaLabel: form.ctaLabel.trim() || "Choose plan",
         features,
         badge: form.badge.trim() || null,
@@ -497,27 +594,34 @@ function PlanEditorModal({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="plan-price">Monthly price (USD)</Label>
-              <Input
-                id="plan-price"
-                inputMode="decimal"
-                value={form.monthlyPrice}
-                onChange={(event) => update("monthlyPrice", event.target.value.replace(/[^\d.]/g, ""))}
-                placeholder="59"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="plan-original">Original price (optional)</Label>
-              <Input
-                id="plan-original"
-                inputMode="decimal"
-                value={form.originalPrice}
-                onChange={(event) => update("originalPrice", event.target.value.replace(/[^\d.]/g, ""))}
-                placeholder="79"
-              />
-            </div>
+          <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              Monthly prices by currency (all required). Visitors see the amount for their region.
+            </p>
+            {PLAN_CURRENCIES.map((currency) => (
+              <div key={currency} className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor={`plan-price-${currency}`}>Monthly ({currency})</Label>
+                  <Input
+                    id={`plan-price-${currency}`}
+                    inputMode="decimal"
+                    value={form.prices[currency].monthly}
+                    onChange={(event) => updatePrice(currency, "monthly", event.target.value)}
+                    placeholder={currency === "BDT" ? "1900" : "59"}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`plan-original-${currency}`}>Original ({currency}, optional)</Label>
+                  <Input
+                    id={`plan-original-${currency}`}
+                    inputMode="decimal"
+                    value={form.prices[currency].original}
+                    onChange={(event) => updatePrice(currency, "original", event.target.value)}
+                    placeholder={currency === "BDT" ? "2900" : "79"}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

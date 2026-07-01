@@ -19,11 +19,13 @@ import {
 import { Logo } from "@/components/logo";
 import { layoutConfig } from "@/lib/config/layout";
 import { appUrl } from "@/lib/site-hosts";
+import { type PlanCurrency } from "@/lib/plan-currency";
 import {
   STATIC_PLAN_VIEW_MODELS,
   planIconForIndex,
   type PlanViewModel,
 } from "@/components/plans/plan-data";
+import { LandingLiveChat } from "./landing-live-chat";
 import { LandingDownloadButton } from "./landing-download-button";
 import { LandingMockupSlideshow, type MockupSlide } from "./landing-mockup-slideshow";
 import "./landing.css";
@@ -122,7 +124,13 @@ const stats = [
   { value: "24/7", label: "Always-on displays" },
 ];
 
-export function LandingPage({ plans }: { plans?: PlanViewModel[] }) {
+export function LandingPage({
+  plans,
+  currency: _currency = "USD",
+}: {
+  plans?: PlanViewModel[];
+  currency?: PlanCurrency;
+}) {
   const { name } = layoutConfig.brand;
   const pricingPlans = plans && plans.length > 0 ? plans : STATIC_PLAN_VIEW_MODELS;
 
@@ -138,6 +146,7 @@ export function LandingPage({ plans }: { plans?: PlanViewModel[] }) {
       <PricingTeaser plans={pricingPlans} />
       <FinalCta />
       <Footer name={name} />
+      <LandingLiveChat />
     </div>
   );
 }
@@ -419,11 +428,13 @@ function HowItWorks() {
         <div className="mt-12 grid gap-6 md:grid-cols-3">
           {steps.map((step, i) => (
             <div key={step.title} className="relative">
-              <span className="landing-step-num flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold">
-                {i + 1}
-              </span>
-              <h3 className="mt-4 text-lg font-bold text-foreground">{step.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
+              <div className="flex items-center gap-3">
+                <span className="landing-step-num flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold">
+                  {i + 1}
+                </span>
+                <h3 className="text-lg font-bold text-foreground">{step.title}</h3>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
             </div>
           ))}
         </div>
@@ -487,13 +498,13 @@ function PricingTeaser({ plans }: { plans: PlanViewModel[] }) {
                 </p>
                 <div className="mt-4 flex items-end gap-1.5">
                   <span className={`text-3xl font-bold tracking-tight ${popular ? "text-white" : "text-foreground"}`}>
-                    ${plan.monthlyPrice}
+                    {plan.monthlyPriceLabel}
                   </span>
                   {plan.originalPrice != null && plan.originalPrice > plan.monthlyPrice && (
                     <span
                       className={`mb-1 text-sm font-semibold line-through ${popular ? "text-white/45" : "text-muted-foreground/70"}`}
                     >
-                      ${plan.originalPrice}
+                      {plan.originalPriceLabel}
                     </span>
                   )}
                   <span className={`mb-1 text-xs font-medium ${popular ? "text-white/55" : "text-muted-foreground"}`}>

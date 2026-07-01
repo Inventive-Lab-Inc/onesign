@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { Pause, Play } from "lucide-react";
 
 export interface MockupSlide {
   src: string;
@@ -10,10 +11,10 @@ export interface MockupSlide {
   title: string;
 }
 
-const SLIDE_DURATION_MS = 2800;
+const SLIDE_DURATION_MS = 1800;
 
-/** Auto-rotating showcase of real-world signage mockups — pauses on hover/focus
- *  and respects reduced-motion by disabling autoplay (dots still work). */
+/** Auto-rotating showcase of real-world signage mockups — click to pause/play;
+ *  respects reduced-motion by disabling autoplay (dots still work). */
 export function LandingMockupSlideshow({ slides }: { slides: MockupSlide[] }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -38,15 +39,18 @@ export function LandingMockupSlideshow({ slides }: { slides: MockupSlide[] }) {
   const active = slides[index];
   if (!active) return null;
 
+  const isPlaying = autoplayEnabled && !paused;
+  const togglePaused = () => setPaused((current) => !current);
+
   return (
-    <div
-      className="landing-slideshow"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
-    >
-      <div className="landing-showcase-stage landing-slideshow-frame">
+    <div className="landing-slideshow">
+      <button
+        type="button"
+        className={`landing-showcase-stage landing-slideshow-frame landing-slideshow-toggle${autoplayEnabled ? "" : " landing-slideshow-toggle--static"}`}
+        onClick={autoplayEnabled ? togglePaused : undefined}
+        aria-label={autoplayEnabled ? (isPlaying ? "Pause slideshow" : "Play slideshow") : undefined}
+        aria-pressed={autoplayEnabled ? !isPlaying : undefined}
+      >
         {slides.map((slide, i) => (
           <div key={slide.src} className="landing-slideshow-slide" aria-hidden={i !== index} style={{ opacity: i === index ? 1 : 0 }}>
             <Image
@@ -59,11 +63,16 @@ export function LandingMockupSlideshow({ slides }: { slides: MockupSlide[] }) {
             />
           </div>
         ))}
+        <span className="landing-slideshow-playback" aria-hidden="true">
+          {autoplayEnabled ? (
+            isPlaying ? <Pause size={14} strokeWidth={2.5} /> : <Play size={14} strokeWidth={2.5} />
+          ) : null}
+        </span>
         <div className="landing-slideshow-caption">
           <span className="landing-slideshow-tag">{active.tag}</span>
           <p className="landing-slideshow-title">{active.title}</p>
         </div>
-      </div>
+      </button>
 
       <div className="landing-slideshow-dots" role="tablist" aria-label="Signage showcase slides">
         {slides.map((slide, i) => (

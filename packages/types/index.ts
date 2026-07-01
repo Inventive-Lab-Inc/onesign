@@ -119,10 +119,22 @@ export interface PlanTemplate {
   tagline: string;
   device_limit: number;
   storage_limit_bytes: number;
-  /** Price in cents to avoid float drift; divide by 100 to display. */
+  /** Price in USD cents to avoid float drift; divide by 100 to display. */
   monthly_price_cents: number;
-  /** Optional strikethrough/anchor price in cents. */
+  /** Optional strikethrough/anchor price in USD cents. */
   original_price_cents: number | null;
+  /** Monthly price in GBP pence. */
+  monthly_price_gbp_cents: number;
+  /** Optional strikethrough/anchor price in GBP pence. */
+  original_price_gbp_cents: number | null;
+  /** Monthly price in EUR cents. */
+  monthly_price_eur_cents: number;
+  /** Optional strikethrough/anchor price in EUR cents. */
+  original_price_eur_cents: number | null;
+  /** Monthly price in BDT paisa (1 taka = 100 paisa). */
+  monthly_price_bdt_paisa: number;
+  /** Optional strikethrough/anchor price in BDT paisa. */
+  original_price_bdt_paisa: number | null;
   cta_label: string;
   features: string[];
   badge: string | null;

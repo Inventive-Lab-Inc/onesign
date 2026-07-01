@@ -1,5 +1,11 @@
 import type { PlanTemplate } from "@signage/types";
 import { Building2, Rocket, Store, type LucideIcon } from "lucide-react";
+import {
+  formatPlanCurrencyAmount,
+  getPlanPricesForCurrency,
+  minorToDisplayAmount,
+  type PlanCurrency,
+} from "@/lib/plan-currency";
 
 export interface PlanFeature {
   label: string;
@@ -88,8 +94,11 @@ export interface PlanViewModel {
   id: string;
   name: string;
   tagline: string;
+  currency: PlanCurrency;
   monthlyPrice: number;
   originalPrice: number | null;
+  monthlyPriceLabel: string;
+  originalPriceLabel: string | null;
   screens: string;
   features: string[];
   ctaLabel: string;
@@ -108,14 +117,21 @@ function formatScreensLabel(deviceLimit: number): string {
 }
 
 /** Maps an admin-managed plan template into the serializable pricing view shape. */
-export function mapTemplateToViewModel(template: PlanTemplate): PlanViewModel {
+export function mapTemplateToViewModel(template: PlanTemplate, currency: PlanCurrency = "USD"): PlanViewModel {
+  const { monthlyMinor, originalMinor } = getPlanPricesForCurrency(template, currency);
+  const monthlyPrice = minorToDisplayAmount(monthlyMinor, currency);
+  const originalPrice = originalMinor == null ? null : minorToDisplayAmount(originalMinor, currency);
+
   return {
     id: template.id,
     name: template.name,
     tagline: template.tagline,
-    monthlyPrice: Math.round(template.monthly_price_cents) / 100,
-    originalPrice:
-      template.original_price_cents == null ? null : Math.round(template.original_price_cents) / 100,
+    currency,
+    monthlyPrice,
+    originalPrice,
+    monthlyPriceLabel: formatPlanCurrencyAmount(monthlyPrice, currency),
+    originalPriceLabel:
+      originalPrice == null ? null : formatPlanCurrencyAmount(originalPrice, currency),
     screens: formatScreensLabel(template.device_limit),
     features: template.features,
     ctaLabel: template.cta_label,
@@ -125,15 +141,22 @@ export function mapTemplateToViewModel(template: PlanTemplate): PlanViewModel {
 }
 
 /** Fallback used when the catalog is empty or unreachable. */
-export const STATIC_PLAN_VIEW_MODELS: PlanViewModel[] = plans.map((plan) => ({
-  id: plan.id,
-  name: plan.name,
-  tagline: plan.tagline,
-  monthlyPrice: plan.monthlyPrice,
-  originalPrice: plan.originalPrice,
-  screens: plan.screens,
-  features: plan.features.map((feature) => feature.label),
-  ctaLabel: plan.ctaLabel,
-  highlighted: plan.highlighted ?? false,
-  badge: plan.badge ?? null,
-}));
+export function buildStaticPlanViewModels(currency: PlanCurrency = "USD"): PlanViewModel[] {
+  return plans.map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    tagline: plan.tagline,
+    currency,
+    monthlyPrice: plan.monthlyPrice,
+    originalPrice: plan.originalPrice,
+    monthlyPriceLabel: formatPlanCurrencyAmount(plan.monthlyPrice, currency),
+    originalPriceLabel: formatPlanCurrencyAmount(plan.originalPrice, currency),
+    screens: plan.screens,
+    features: plan.features.map((feature) => feature.label),
+    ctaLabel: plan.ctaLabel,
+    highlighted: plan.highlighted ?? false,
+    badge: plan.badge ?? null,
+  }));
+}
+
+export const STATIC_PLAN_VIEW_MODELS: PlanViewModel[] = buildStaticPlanViewModels();

@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Monitor, RefreshCw, ShieldCheck, Sparkles, Star } from "lucide-react";
+import { planCurrencyFooter, type PlanCurrency } from "@/lib/plan-currency";
 import { cn } from "@/lib/utils";
 import {
   STATIC_PLAN_VIEW_MODELS,
@@ -15,7 +16,7 @@ const trustBadges = [
   { icon: RefreshCw, label: "Cancel anytime" },
 ];
 
-export function PlansView({ plans }: { plans?: PlanViewModel[] }) {
+export function PlansView({ plans, currency = "USD" }: { plans?: PlanViewModel[]; currency?: PlanCurrency }) {
   const items = plans && plans.length > 0 ? plans : STATIC_PLAN_VIEW_MODELS;
   const columns = items.length === 3 ? "md:grid-cols-3" : items.length === 2 ? "md:grid-cols-2" : "";
 
@@ -27,7 +28,7 @@ export function PlansView({ plans }: { plans?: PlanViewModel[] }) {
           <PlanCard key={plan.id} plan={plan} index={index} />
         ))}
       </div>
-      <PlansFooter />
+      <PlansFooter currency={currency} />
     </div>
   );
 }
@@ -103,7 +104,7 @@ function PlanCard({ plan, index }: { plan: PlanViewModel; index: number }) {
 
       <div className="mt-5 flex items-end gap-2">
         <span className={cn("text-4xl font-bold tracking-tight", popular ? "text-white" : "text-foreground")}>
-          ${plan.monthlyPrice}
+          {plan.monthlyPriceLabel}
         </span>
         {plan.originalPrice != null && plan.originalPrice > plan.monthlyPrice ? (
           <span
@@ -112,7 +113,7 @@ function PlanCard({ plan, index }: { plan: PlanViewModel; index: number }) {
               popular ? "plan-price-strike--dark" : "plan-price-strike",
             )}
           >
-            ${plan.originalPrice}
+            {plan.originalPriceLabel}
           </span>
         ) : null}
         <span className={cn("mb-1.5 text-xs font-medium", popular ? "text-white/55" : "text-muted-foreground")}>
@@ -164,12 +165,12 @@ function PlanCard({ plan, index }: { plan: PlanViewModel; index: number }) {
   );
 }
 
-function PlansFooter() {
+function PlansFooter({ currency }: { currency: PlanCurrency }) {
   return (
     <footer className="plans-enter mx-auto mt-12 max-w-xl space-y-2 text-center text-xs leading-relaxed text-muted-foreground">
       <p className="flex items-center justify-center gap-1.5">
         <ShieldCheck size={13} className="text-brand" strokeWidth={2} />
-        Prices in USD. Taxes may apply. 14-day money-back guarantee.
+        {planCurrencyFooter(currency)}
       </p>
       <p>
         Not sure which plan fits? Email us at{" "}

@@ -13,6 +13,12 @@ type UpsertBody = {
   storageLimitBytes?: number;
   monthlyPriceCents?: number;
   originalPriceCents?: number | null;
+  monthlyPriceGbpCents?: number;
+  originalPriceGbpCents?: number | null;
+  monthlyPriceEurCents?: number;
+  originalPriceEurCents?: number | null;
+  monthlyPriceBdtPaisa?: number;
+  originalPriceBdtPaisa?: number | null;
   ctaLabel?: string;
   features?: string[];
   badge?: string | null;
@@ -23,6 +29,11 @@ type UpsertBody = {
 
 function isPositiveInt(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function optionalPositiveInt(value: unknown): number | null {
+  if (value == null) return null;
+  return isPositiveInt(value) ? value : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -59,11 +70,20 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isPositiveInt(body.monthlyPriceCents)) {
-    return NextResponse.json({ error: "Monthly price must be a whole number of cents" }, { status: 400 });
+    return NextResponse.json({ error: "USD monthly price must be a whole number of cents" }, { status: 400 });
   }
 
-  const originalPriceCents =
-    body.originalPriceCents == null ? null : isPositiveInt(body.originalPriceCents) ? body.originalPriceCents : null;
+  if (!isPositiveInt(body.monthlyPriceGbpCents)) {
+    return NextResponse.json({ error: "GBP monthly price must be a whole number of pence" }, { status: 400 });
+  }
+
+  if (!isPositiveInt(body.monthlyPriceEurCents)) {
+    return NextResponse.json({ error: "EUR monthly price must be a whole number of cents" }, { status: 400 });
+  }
+
+  if (!isPositiveInt(body.monthlyPriceBdtPaisa)) {
+    return NextResponse.json({ error: "BDT monthly price must be a whole number of paisa" }, { status: 400 });
+  }
 
   const features = Array.isArray(body.features)
     ? body.features.map((feature) => feature.trim()).filter((feature) => feature.length > 0)
@@ -76,7 +96,13 @@ export async function POST(request: NextRequest) {
     p_device_limit: body.deviceLimit,
     p_storage_limit_bytes: body.storageLimitBytes,
     p_monthly_price_cents: body.monthlyPriceCents,
-    p_original_price_cents: originalPriceCents,
+    p_original_price_cents: optionalPositiveInt(body.originalPriceCents),
+    p_monthly_price_gbp_cents: body.monthlyPriceGbpCents,
+    p_original_price_gbp_cents: optionalPositiveInt(body.originalPriceGbpCents),
+    p_monthly_price_eur_cents: body.monthlyPriceEurCents,
+    p_original_price_eur_cents: optionalPositiveInt(body.originalPriceEurCents),
+    p_monthly_price_bdt_paisa: body.monthlyPriceBdtPaisa,
+    p_original_price_bdt_paisa: optionalPositiveInt(body.originalPriceBdtPaisa),
     p_cta_label: body.ctaLabel?.trim() || "Choose plan",
     p_features: features,
     p_badge: body.badge?.trim() || null,
