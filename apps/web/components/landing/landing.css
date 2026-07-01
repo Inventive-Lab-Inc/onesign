@@ -281,3 +281,541 @@
 .landing-footer-link:hover {
   color: var(--theme);
 }
+
+/* ===========================================================================
+   Device mockups — hero composition + multi-screen showcase
+   Built to mirror the real OneSign console so the marketing art reads as the
+   actual product (authentic fleet table, stat tiles, health chips, signage).
+   =========================================================================== */
+
+/* ---- 3D stage + tilt ------------------------------------------------------ */
+
+.landing-stage {
+  perspective: 2200px;
+  perspective-origin: 60% 40%;
+}
+
+.landing-tilt {
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (min-width: 64rem) {
+  .landing-tilt {
+    transform: rotateY(-15deg) rotateX(6deg) rotate(1deg);
+  }
+  /* Ease toward flat on hover so the console becomes readable / inviting. */
+  .landing-stage:hover .landing-tilt {
+    transform: rotateY(-7deg) rotateX(3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-tilt {
+    transition: none;
+  }
+}
+
+/* ---- Browser / console window -------------------------------------------- */
+
+.landing-window {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow:
+    0 60px 110px -50px color-mix(in srgb, var(--theme) 55%, transparent),
+    0 24px 50px -28px rgba(2, 17, 12, 0.38),
+    0 2px 6px -2px rgba(2, 17, 12, 0.12);
+}
+
+.landing-window-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--theme) 7%, #fff) 0%,
+    hsl(var(--muted) / 0.65) 100%
+  );
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.landing-window-dot {
+  height: 0.55rem;
+  width: 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme) 22%, hsl(var(--border)));
+}
+
+.landing-url {
+  margin-left: 0.45rem;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  padding: 0.22rem 0.65rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  max-width: 14rem;
+}
+
+/* ---- Physical screens: TV, tablet, phone --------------------------------- */
+
+.landing-bezel {
+  background: linear-gradient(155deg, #0c1c17 0%, #03100b 100%);
+  box-shadow:
+    0 50px 90px -42px rgba(2, 17, 12, 0.62),
+    0 14px 34px -16px rgba(2, 17, 12, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.landing-tv {
+  border-radius: 0.95rem;
+  padding: 0.5rem;
+}
+.landing-tv-screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.55rem;
+  aspect-ratio: 16 / 9;
+  container-type: inline-size;
+}
+/* Slim wall-mount foot under the showcase TV. */
+.landing-tv-foot {
+  position: relative;
+  margin: 0 auto;
+  width: 9%;
+  height: 0.85rem;
+  background: linear-gradient(180deg, #0c1c17, #050f0b);
+  border-radius: 0 0 0.2rem 0.2rem;
+}
+.landing-tv-foot::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -0.32rem;
+  translate: -50% 0;
+  width: 360%;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #0c1c17, #060f0b);
+  box-shadow: 0 16px 26px -12px rgba(2, 17, 12, 0.5);
+}
+
+.landing-tablet {
+  border-radius: 1rem;
+  padding: 0.5rem;
+}
+.landing-tablet-screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.6rem;
+  aspect-ratio: 4 / 3;
+  container-type: inline-size;
+}
+
+.landing-phone {
+  border-radius: 1.85rem;
+  padding: 0.38rem;
+}
+.landing-phone-screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  aspect-ratio: 9 / 19;
+  background: hsl(var(--card));
+  container-type: inline-size;
+}
+/* Pill camera notch. */
+.landing-phone-screen::before {
+  content: "";
+  position: absolute;
+  top: 0.4rem;
+  left: 50%;
+  translate: -50% 0;
+  width: 2.6rem;
+  height: 0.34rem;
+  border-radius: 999px;
+  background: rgba(2, 17, 12, 0.55);
+  z-index: 5;
+}
+
+/* ---- Frosted telemetry cards --------------------------------------------- */
+
+.landing-glass {
+  background: color-mix(in srgb, hsl(var(--card)) 80%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(165%);
+  backdrop-filter: blur(12px) saturate(165%);
+  border: 1px solid color-mix(in srgb, #fff 55%, hsl(var(--border)));
+  box-shadow:
+    0 26px 52px -28px rgba(2, 17, 12, 0.45),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+}
+
+/* ---- Signage "creatives" (what actually plays on the screens) ------------ */
+
+.landing-creative {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
+.landing-creative::after {
+  /* Subtle vignette so overlaid white text stays legible. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse 120% 90% at 50% 120%, rgba(0, 0, 0, 0.28), transparent 70%);
+}
+.landing-creative--welcome {
+  background:
+    radial-gradient(ellipse 90% 70% at 15% 0%, rgba(255, 255, 255, 0.22) 0%, transparent 55%),
+    linear-gradient(150deg, #0c7a5a 0%, #045140 55%, #02312a 100%);
+}
+.landing-creative--promo {
+  background:
+    radial-gradient(ellipse 80% 70% at 85% 10%, rgba(255, 255, 255, 0.28) 0%, transparent 55%),
+    linear-gradient(150deg, #f97316 0%, #ea580c 55%, #b3400a 100%);
+}
+.landing-creative--menu {
+  background:
+    radial-gradient(ellipse 90% 60% at 80% 0%, rgba(16, 185, 129, 0.3) 0%, transparent 55%),
+    linear-gradient(160deg, #0f201b 0%, #07120f 100%);
+}
+.landing-creative--fresh {
+  background:
+    radial-gradient(ellipse 90% 70% at 20% 100%, rgba(255, 255, 255, 0.2) 0%, transparent 55%),
+    linear-gradient(150deg, #0ea5a3 0%, #047857 60%, #02403a 100%);
+}
+
+/* Creative typography scales with the screen via container-query units so a
+   single component renders crisp on a phone preview and a wall-mounted TV. */
+.lc {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 7cqw;
+  color: #fff;
+}
+.lc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2cqw;
+}
+.lc-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.6cqw;
+  font-size: 3.8cqw;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.lc-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 6.4cqw;
+  height: 6.4cqw;
+  border-radius: 1.6cqw;
+  background: rgba(255, 255, 255, 0.92);
+  color: #047857;
+  font-size: 3.6cqw;
+  font-weight: 900;
+}
+.lc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.3cqw;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  padding: 1.1cqw 2.6cqw;
+  font-size: 2.9cqw;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+.lc-tag-dot {
+  width: 2.2cqw;
+  height: 2.2cqw;
+  border-radius: 999px;
+  background: #4ade80;
+}
+.lc-eyebrow {
+  font-size: 3.5cqw;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.lc-title {
+  font-size: 9cqw;
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+}
+/* Centred layout for welcome/announcement screens — keeps the message in the
+   optical centre so cluster devices overlap only the corners. */
+.lc--center {
+  align-items: center;
+  text-align: center;
+}
+.lc--center .lc-top {
+  width: 100%;
+}
+.lc--center .lc-sub {
+  max-width: 88%;
+}
+.lc-huge {
+  font-size: 29cqw;
+  font-weight: 800;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+}
+.lc-sub {
+  font-size: 3.8cqw;
+  font-weight: 500;
+  line-height: 1.25;
+  opacity: 0.92;
+  max-width: 80%;
+}
+.lc-spacer {
+  flex: 1;
+}
+/* Headline block sits in the optical centre so overlapping devices in a
+   cluster cover only the corners, never the message. */
+.lc-body > * + * {
+  margin-top: 1.6cqw;
+}
+.lc-menu-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 3cqw;
+  padding: 2.4cqw 0;
+  font-size: 5cqw;
+  font-weight: 600;
+  border-bottom: 0.4cqw dashed rgba(255, 255, 255, 0.18);
+}
+.lc-menu-row:last-child {
+  border-bottom: 0;
+}
+.lc-menu-price {
+  font-weight: 800;
+  color: #6ee7b7;
+}
+.lc-dots {
+  display: flex;
+  gap: 1.6cqw;
+}
+.lc-dots > span {
+  width: 4cqw;
+  height: 1.4cqw;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+}
+.lc-dots > span:first-child {
+  width: 9cqw;
+  background: #fff;
+}
+.lc-brand-mark svg {
+  width: 58%;
+  height: 58%;
+}
+
+/* Deep-emerald "Online · Live" stat fill, matching the real dashboard tile. */
+.landing-stat-live {
+  background: linear-gradient(150deg, #0a6b50 0%, #044536 100%);
+  color: #fff;
+}
+
+/* ---- Showcase stage panel ------------------------------------------------ */
+
+.landing-showcase-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted));
+}
+.landing-showcase-stage::before {
+  display: none;
+}
+
+/* ---- Mockup slideshow: real-world signage scenes in the showcase --------- */
+
+.landing-slideshow {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 0.85rem;
+}
+
+.landing-slideshow-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+}
+
+.landing-slideshow-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 55%, rgba(2, 17, 12, 0.68) 100%);
+}
+
+.landing-slideshow-slide {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.55s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-slideshow-slide {
+    transition: none;
+  }
+}
+
+.landing-slideshow-caption {
+  position: absolute;
+  z-index: 2;
+  left: 1.25rem;
+  right: 1.25rem;
+  bottom: 1.1rem;
+  color: #fff;
+}
+
+.landing-slideshow-tag {
+  display: inline-flex;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+  padding: 0.25rem 0.7rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.landing-slideshow-title {
+  margin-top: 0.45rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+@media (min-width: 640px) {
+  .landing-slideshow-caption {
+    left: 1.75rem;
+    right: 1.75rem;
+    bottom: 1.25rem;
+  }
+
+  .landing-slideshow-title {
+    font-size: 1.25rem;
+  }
+}
+
+.landing-slideshow-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.landing-slideshow-dot {
+  height: 0.35rem;
+  width: 1.4rem;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: hsl(var(--border));
+  transition:
+    width 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.landing-slideshow-dot[data-active="true"] {
+  width: 2.1rem;
+  background: var(--theme);
+}
+
+.landing-dot-live {
+  position: relative;
+  display: inline-flex;
+  height: 0.5rem;
+  width: 0.5rem;
+}
+.landing-dot-live::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: currentColor;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .landing-dot-live::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: currentColor;
+    animation: landing-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+}
+@keyframes landing-ping {
+  75%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* ---- Float variants (reuse .landing-float bob) --------------------------- */
+
+.landing-float--fast {
+  animation-duration: 4.2s;
+}
+
+/* ---- Scroll-reveal: progressive enhancement only -------------------------
+   Content is fully visible by default; supporting browsers (Chrome/Edge 115+,
+   Safari 26+) get a scroll-linked rise. Firefox simply shows the final state.
+   Decorative, so no JS fallback per modern-web-guidance. */
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    .landing-rise {
+      animation: landing-rise both linear;
+      animation-timeline: view();
+      animation-range: entry 5% cover 26%;
+    }
+    .landing-rise--lazy {
+      animation-range: entry 0% cover 34%;
+    }
+  }
+}
+
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(46px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

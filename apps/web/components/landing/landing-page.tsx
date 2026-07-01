@@ -4,12 +4,14 @@ import {
   CalendarClock,
   Check,
   Globe,
+  Image as ImageIcon,
   Layers,
   LayoutGrid,
+  Lock,
   Monitor,
-  MonitorPlay,
   Rocket,
   ShieldCheck,
+  Smartphone,
   Star,
   Wifi,
   Zap,
@@ -23,7 +25,47 @@ import {
   type PlanViewModel,
 } from "@/components/plans/plan-data";
 import { LandingDownloadButton } from "./landing-download-button";
+import { LandingMockupSlideshow, type MockupSlide } from "./landing-mockup-slideshow";
 import "./landing.css";
+
+const showcaseSlides: MockupSlide[] = [
+  {
+    src: "/images/landing/mockup-v2-restaurant-menu.webp",
+    alt: "Digital menu board above the counter in a fast-casual burger restaurant",
+    tag: "Restaurants",
+    title: "Menus that sell — updated in seconds",
+  },
+  {
+    src: "/images/landing/mockup-v2-cafe-menu.webp",
+    alt: "Digital drinks menu above the counter in a minimalist specialty coffee shop",
+    tag: "Cafés",
+    title: "Menu boards that update themselves",
+  },
+  {
+    src: "/images/landing/mockup-v2-retail-window.webp",
+    alt: "Storefront window display showing a storewide discount at golden hour",
+    tag: "Retail",
+    title: "Window displays that sell for you",
+  },
+  {
+    src: "/images/landing/mockup-v2-wellness-lobby.webp",
+    alt: "Welcome screen in a wellness studio lobby with natural light and plants",
+    tag: "Wellness & lobbies",
+    title: "Brand every arrival",
+  },
+  {
+    src: "/images/landing/mockup-v2-grocery-store.webp",
+    alt: "Grocery store end-cap screen showing weekly specials across produce, meat and dairy",
+    tag: "Grocery",
+    title: "Complex promos, one publish",
+  },
+  {
+    src: "/images/landing/mockup-v2-multiscreen-venue.webp",
+    alt: "Hotel lobby with welcome, menu and promo screens across the venue",
+    tag: "Multi-location",
+    title: "One console, every screen",
+  },
+];
 
 const features = [
   {
@@ -89,6 +131,7 @@ export function LandingPage({ plans }: { plans?: PlanViewModel[] }) {
       <LandingNav name={name} />
       <Hero name={name} />
       <TrustStrip />
+      <ProductShowcase />
       <Features />
       <HowItWorks />
       <StatsBand />
@@ -178,70 +221,130 @@ function Hero({ name }: { name: string }) {
   );
 }
 
+/** Hero showpiece: the OneSign console dashboard in a browser window. */
 function HeroMockup() {
   return (
-    <div className="landing-reveal relative mx-auto w-full max-w-md lg:max-w-none">
-      <div className="landing-screen">
-        <div className="landing-screen-bar flex items-center gap-2 px-4 py-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-white/25" />
-          <span className="h-2.5 w-2.5 rounded-full bg-white/25" />
-          <span className="h-2.5 w-2.5 rounded-full bg-white/25" />
-          <span className="ml-3 flex items-center gap-1.5 text-xs font-medium text-white/70">
-            <MonitorPlay size={13} /> Lobby Display · Live
-          </span>
-        </div>
-        <div className="landing-screen-canvas relative aspect-[4/3] p-5">
-          <div className="flex h-full flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-[0.625rem] font-semibold text-brand-strong shadow-sm">
-                <span className="landing-live-dot h-1.5 w-1.5 rounded-full" />
-                NOW PLAYING
+    <div className="landing-reveal relative mx-auto w-full max-w-sm sm:max-w-md lg:max-w-none">
+      <div className="landing-stage relative">
+        <div className="landing-tilt relative">
+          <div className="landing-window">
+            <div className="landing-window-bar">
+              <span className="landing-window-dot" />
+              <span className="landing-window-dot" />
+              <span className="landing-window-dot" />
+              <span className="landing-url">
+                <Lock size={9} strokeWidth={2.5} />
+                app.onesigntv.com/dashboard
               </span>
-              <span className="text-[0.625rem] font-medium text-muted-foreground">Playlist · 6 items</span>
             </div>
-            <div>
-              <div className="h-3 w-2/3 rounded-full bg-brand-soft" />
-              <div className="mt-2 h-3 w-1/2 rounded-full bg-brand-softer" />
-            </div>
-            <div className="grid grid-cols-3 gap-2.5">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="aspect-video rounded-lg border border-border bg-card/70"
-                  style={{ opacity: 1 - i * 0.18 }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="landing-float landing-float-card absolute -left-4 top-1/3 hidden rounded-xl px-3.5 py-2.5 sm:block">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-soft text-brand-strong">
-            <Monitor size={14} strokeWidth={2.5} />
-          </span>
-          <div>
-            <p className="text-xs font-bold text-foreground">12 screens</p>
-            <p className="text-[0.625rem] text-muted-foreground">all online</p>
-          </div>
-        </div>
-      </div>
+            <div className="bg-muted/20 p-3 sm:p-3.5">
+              <div className="grid grid-cols-3 gap-2">
+                <StatTile variant="live" label="Online" value="12" />
+                <StatTile variant="soft" label="Screens" value="18" icon={Monitor} />
+                <StatTile variant="soft" label="Content" value="240" icon={ImageIcon} />
+              </div>
 
-      <div className="landing-float landing-float--slow landing-float-card absolute -right-3 bottom-8 hidden rounded-xl px-3.5 py-2.5 sm:block">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-soft text-brand-strong">
-            <Zap size={14} strokeWidth={2.5} />
-          </span>
-          <div>
-            <p className="text-xs font-bold text-foreground">Published</p>
-            <p className="text-[0.625rem] text-muted-foreground">in 3 seconds</p>
+              <div className="mt-2.5 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-2">
+                  <span className="text-[0.5rem] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                    Fleet monitor
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[0.5625rem] font-bold tabular-nums text-brand-strong">
+                    <span className="landing-dot-live text-brand" />
+                    12 online
+                  </span>
+                </div>
+                <FleetRow name="Lobby Display" detail="HQ · Reception" creative="welcome" health="playing" />
+                <FleetRow name="Drive-Thru Menu" detail="Store 04" creative="menu" health="playing" />
+                <FleetRow name="Window Promo" detail="Flagship" creative="promo" health="idle" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+function StatTile({
+  variant,
+  label,
+  value,
+  icon: Icon,
+}: {
+  variant: "live" | "soft";
+  label: string;
+  value: string;
+  icon?: typeof Monitor;
+}) {
+  if (variant === "live") {
+    return (
+      <div className="landing-stat-live rounded-lg p-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[0.5rem] font-bold uppercase tracking-[0.12em] text-white/70">{label}</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400 px-1.5 py-0.5 text-[0.4375rem] font-extrabold uppercase tracking-wide text-emerald-950">
+            <span className="landing-dot-live text-emerald-900" style={{ height: "0.3rem", width: "0.3rem" }} />
+            Live
+          </span>
+        </div>
+        <p className="mt-1.5 text-xl font-bold leading-none tabular-nums sm:text-2xl">{value}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-border bg-card p-2.5">
+      <div className="flex items-center justify-between text-muted-foreground">
+        <span className="text-[0.5rem] font-bold uppercase tracking-[0.12em]">{label}</span>
+        {Icon ? <Icon size={11} strokeWidth={2.25} /> : null}
+      </div>
+      <p className="mt-1.5 text-xl font-bold leading-none tabular-nums text-foreground sm:text-2xl">{value}</p>
+    </div>
+  );
+}
+
+const fleetHealth = {
+  playing: { label: "Playing", chip: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700", dot: "text-emerald-500" },
+  idle: { label: "Idle", chip: "border-sky-500/25 bg-sky-500/10 text-sky-700", dot: "text-sky-500" },
+  offline: { label: "Offline", chip: "border-red-500/30 bg-red-500/10 text-red-600", dot: "text-red-500" },
+} as const;
+
+function FleetRow({
+  name,
+  detail,
+  creative,
+  health,
+}: {
+  name: string;
+  detail: string;
+  creative: CreativeVariant;
+  health: keyof typeof fleetHealth;
+}) {
+  const h = fleetHealth[health];
+  return (
+    <div className="flex items-center gap-2.5 border-b border-border px-3 py-2 last:border-b-0">
+      <div className="relative h-7 w-11 shrink-0 overflow-hidden rounded-md border border-border">
+        <span className={`absolute inset-0 landing-creative--${creative}`} />
+        <span className="absolute left-1 top-1 rounded-sm bg-black/55 px-1 text-[0.4375rem] font-bold uppercase tracking-wide text-white">
+          Live
+        </span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[0.6875rem] font-bold leading-tight text-foreground">{name}</p>
+        <p className="truncate text-[0.5625rem] leading-tight text-muted-foreground">{detail}</p>
+      </div>
+      <span
+        className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[0.5625rem] font-semibold ${h.chip}`}
+      >
+        <span className={`landing-dot-live ${h.dot}`} style={{ height: "0.3rem", width: "0.3rem" }} />
+        {h.label}
+      </span>
+    </div>
+  );
+}
+
+type CreativeVariant = "welcome" | "promo" | "menu" | "fresh";
+
 
 function TrustStrip() {
   return (
@@ -253,6 +356,27 @@ function TrustStrip() {
           ))}
         </span>
         <span className="font-medium">Loved by retailers, cafés, gyms and agencies — trusted on 1,000+ screens worldwide.</span>
+      </div>
+    </section>
+  );
+}
+
+/** "Every venue" showcase: a rotating set of real-world signage scenes —
+ *  café menus, retail windows, lobbies and more — the multi-use story of
+ *  digital signage, told through the screens themselves rather than UI chrome. */
+function ProductShowcase() {
+  return (
+    <section className="px-5 py-16 sm:py-20">
+      <div className="mx-auto w-full max-w-6xl">
+        <SectionHeading
+          eyebrow="See it in action"
+          title="Built for cafés, retail, grocery and more"
+          subtitle="The same console powers menu boards, window promos, lobby welcomes and weekly specials — swap the scene, keep the workflow."
+        />
+
+        <div className="landing-rise mt-12">
+          <LandingMockupSlideshow slides={showcaseSlides} />
+        </div>
       </div>
     </section>
   );
