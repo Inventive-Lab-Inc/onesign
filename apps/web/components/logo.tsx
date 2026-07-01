@@ -1,4 +1,4 @@
-const ACCENT = "var(--theme)";
+const ACCENT = "#087958";
 const WORDMARK_DARK = "#111827";
 const WORDMARK_LIGHT = "#ffffff";
 
