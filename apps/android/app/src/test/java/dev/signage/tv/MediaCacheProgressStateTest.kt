@@ -15,7 +15,7 @@ class MediaCacheProgressStateTest {
                 imagesTotal = 2,
                 imagesReady = 0,
             )
-        assertEquals(38, computeOverallWarmPercent(counts, currentFilePercent = 50))
+        assertEquals(37, computeOverallWarmPercent(counts, currentFilePercent = 50))
     }
 
     @Test

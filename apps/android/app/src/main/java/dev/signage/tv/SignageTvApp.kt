@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.media3.common.util.UnstableApi
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.decode.SvgDecoder
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import okio.Path.Companion.toOkioPath
@@ -23,6 +24,7 @@ class SignageTvApp : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
+            .components { add(SvgDecoder.Factory()) }
             .okHttpClient(SignageOkHttpClient.instance)
             .memoryCache {
                 MemoryCache.Builder(this)
