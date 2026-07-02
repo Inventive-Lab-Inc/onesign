@@ -236,3 +236,11 @@ export function buildStaticPlanViewModels(currency: PlanCurrency = "USD"): PlanV
 }
 
 export const STATIC_PLAN_VIEW_MODELS: PlanViewModel[] = buildStaticPlanViewModels();
+
+/** Tailwind grid column classes for a plan card row (matches card count). */
+export function planGridClassName(count: number): string {
+  if (count >= 4) return "md:grid-cols-2 xl:grid-cols-4";
+  if (count === 3) return "md:grid-cols-3";
+  if (count === 2) return "md:grid-cols-2";
+  return "";
+}

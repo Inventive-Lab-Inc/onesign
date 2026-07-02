@@ -23,6 +23,7 @@ import { type PlanCurrency } from "@/lib/plan-currency";
 import { buildSignupHref } from "@/lib/plan/signup-link";
 import {
   STATIC_PLAN_VIEW_MODELS,
+  planGridClassName,
   planIconForIndex,
   type PlanViewModel,
 } from "@/components/plans/plan-data";
@@ -471,7 +472,7 @@ function PricingTeaser({ plans }: { plans: PlanViewModel[] }) {
           title="Simple plans that scale with you"
           subtitle="Start with a 14-day Solo trial, then pick the plan that matches your screen count. No setup fees, cancel anytime."
         />
-        <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-4 xl:items-center">
+        <div className={`mt-12 grid gap-5 md:items-center ${planGridClassName(plans.length)}`}>
           {plans.map((plan, index) => {
             const popular = plan.highlighted;
             const Icon = planIconForIndex(index);

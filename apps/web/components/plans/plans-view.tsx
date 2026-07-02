@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   CUSTOM_PLAN,
   STATIC_PLAN_VIEW_MODELS,
+  planGridClassName,
   planIconForIndex,
   type PlanViewModel,
 } from "./plan-data";
@@ -19,20 +20,13 @@ const trustBadges = [
   { icon: RefreshCw, label: "Cancel anytime" },
 ];
 
-function planGridColumns(count: number): string {
-  if (count >= 4) return "md:grid-cols-2 xl:grid-cols-4";
-  if (count === 3) return "md:grid-cols-3";
-  if (count === 2) return "md:grid-cols-2";
-  return "";
-}
-
 export function PlansView({ plans, currency = "USD" }: { plans?: PlanViewModel[]; currency?: PlanCurrency }) {
   const items = plans && plans.length > 0 ? plans : STATIC_PLAN_VIEW_MODELS;
 
   return (
     <div className="plans-page py-2">
       <PlansHeader />
-      <div className={cn("mx-auto mt-12 grid w-full max-w-6xl gap-5 md:items-center", planGridColumns(items.length))}>
+      <div className={cn("mx-auto mt-12 grid w-full max-w-6xl gap-5 md:items-center", planGridClassName(items.length))}>
         {items.map((plan, index) => (
           <PlanCard key={plan.id} plan={plan} index={index} />
         ))}
