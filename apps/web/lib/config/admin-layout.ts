@@ -1,5 +1,6 @@
 export function getAdminPageTitle(pathname: string): string {
   if (pathname === "/admin") return "Clients";
+  if (pathname === "/admin/device-view") return "Device View";
   if (pathname === "/admin/plans") return "Plans";
   if (pathname === "/admin/audit") return "Audit log";
   if (pathname === "/admin/admins") return "Admins";

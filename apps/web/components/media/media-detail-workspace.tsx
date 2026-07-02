@@ -26,6 +26,7 @@ import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { AddMediaToScreensDialog } from "@/components/media/add-media-to-screens-dialog";
 import { MediaDeleteDialog } from "@/components/media/media-delete-dialog";
 import { MoveMediaToFolderDialog } from "@/components/media/move-media-to-folder-dialog";
+import { MediaUploadProgressBar } from "@/components/media/media-upload-progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,7 +52,7 @@ import {
 } from "@/lib/media-playlist-ops";
 import { isStorageFull } from "@/lib/plan-quota";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
-import { MEDIA_UPLOAD_ACCEPT, replaceMediaFile } from "@/lib/upload-media";
+import { MEDIA_UPLOAD_ACCEPT, replaceMediaFile, type MediaUploadProgress } from "@/lib/upload-media";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useConsoleDataStore } from "@/stores/console-data-store";
@@ -119,6 +120,7 @@ export function MediaDetailWorkspace({
   const [deleteInProgress, setDeleteInProgress] = useState(false);
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const replaceTargetIdRef = useRef<string | null>(null);
+  const [replaceProgress, setReplaceProgress] = useState<MediaUploadProgress | null>(null);
 
   const effectiveReadOnly = readOnly || adminStaff?.canWrite === false;
   const canManageContent = useWorkspacePermission("manage_content");
@@ -297,14 +299,19 @@ export function MediaDetailWorkspace({
     const targetId = replaceTargetIdRef.current;
     if (!file || !targetId) return;
 
-    const result = await replaceMediaFile(file, targetId, ownerId);
-    if (result.error) {
-      toast.error(result.error);
-      return;
+    setReplaceProgress(null);
+    try {
+      const result = await replaceMediaFile(file, targetId, ownerId, setReplaceProgress);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("File replaced");
+      await syncNow();
+      setDimensions(null);
+    } finally {
+      setReplaceProgress(null);
     }
-    toast.success("File replaced");
-    await syncNow();
-    setDimensions(null);
   }
 
   const actionItems = useMemo((): ActionMenuItem[] => {
@@ -347,7 +354,7 @@ export function MediaDetailWorkspace({
           replaceTargetIdRef.current = media.id;
           replaceInputRef.current?.click();
         },
-        disabled: !canManageContent || storageFull,
+        disabled: !canManageContent || storageFull || replaceProgress != null,
         disabledReason: canManageContent ? undefined : contentHint,
       },
       {
@@ -377,6 +384,7 @@ export function MediaDetailWorkspace({
     handleRemoveFromPlaylists,
     storageFull,
     fileManagementHref,
+    replaceProgress,
   ]);
 
   if (!media) {
@@ -402,6 +410,12 @@ export function MediaDetailWorkspace({
           </div>
         </div>
       </div>
+
+      {replaceProgress ? (
+        <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 sm:px-5">
+          <MediaUploadProgressBar progress={replaceProgress} />
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">

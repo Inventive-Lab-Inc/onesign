@@ -57,8 +57,36 @@ export function getDeviceMediaCache(device: Device): DeviceMediaCacheTelemetry |
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (bytes < 1024 * 1024 * 1024) {
+    const mb = bytes / (1024 * 1024);
+    return mb >= 10 ? `${mb.toFixed(0)} MB` : `${mb.toFixed(1)} MB`;
+  }
+  const gb = bytes / (1024 * 1024 * 1024);
+  return gb >= 10 ? `${gb.toFixed(0)} GB` : `${gb.toFixed(2).replace(/\.?0+$/, "")} GB`;
+}
+
+function formatStorageUsage(used: number, max?: number): string | null {
+  if (max != null && max > 0) {
+    if (used <= 0) return `${formatBytes(max)} available`;
+    return `${formatBytes(used)} of ${formatBytes(max)} used`;
+  }
+  if (used > 0) return `${formatBytes(used)} used`;
+  return null;
+}
+
+function formatMediaBreakdown(cache: DeviceMediaCacheTelemetry): string | null {
+  const videos = cache.videos_total ?? 0;
+  const images = cache.images_total ?? 0;
+  if (videos > 0 && images > 0) {
+    const videoLabel = videos === 1 ? "1 video" : `${videos} videos`;
+    const imageLabel = images === 1 ? "1 image" : `${images} images`;
+    return `${videoLabel}, ${imageLabel}`;
+  }
+  return null;
+}
+
+function formatItemCount(count: number): string {
+  return count === 1 ? "1 item" : `${count} items`;
 }
 
 export type DeviceMediaCacheSummary = {
@@ -78,42 +106,37 @@ export function deviceMediaCacheSummary(device: Device): DeviceMediaCacheSummary
   const warming = cache.warming === true;
 
   let tone: DeviceMediaCacheSummary["tone"];
+  let label: string;
   if (warming) {
     tone = "warming";
+    label = ready > 0 ? `Downloading (${ready} of ${total})` : "Downloading content";
   } else if (ready >= total) {
     tone = "ready";
+    label = total === 1 ? "Content saved on screen" : "All content saved on screen";
   } else if (ready <= 0) {
     tone = "empty";
+    label = "Content not on screen yet";
   } else {
     tone = "partial";
+    label = `${ready} of ${total} items saved`;
   }
-
-  const label =
-    warming && ready < total
-      ? `Cache ${ready}/${total} · preparing`
-      : ready >= total
-        ? `Cache ready ${ready}/${total}`
-        : `Cache ${ready}/${total}`;
 
   const parts: string[] = [];
-  if (cache.videos_total != null && cache.videos_total > 0) {
-    parts.push(`Video ${cache.videos_ready ?? 0}/${cache.videos_total}`);
+  const breakdown = formatMediaBreakdown(cache);
+  if (breakdown) {
+    parts.push(breakdown);
+  } else if (ready >= total) {
+    parts.push(formatItemCount(total));
   }
-  if (cache.images_total != null && cache.images_total > 0) {
-    parts.push(`Images ${cache.images_ready ?? 0}/${cache.images_total}`);
-  }
-  if (cache.cache_bytes_used != null) {
-    const used = formatBytes(cache.cache_bytes_used);
-    if (cache.cache_bytes_max != null) {
-      parts.push(`${used} / ${formatBytes(cache.cache_bytes_max)}`);
-    } else {
-      parts.push(used);
-    }
-  }
+
+  const storage = formatStorageUsage(cache.cache_bytes_used ?? 0, cache.cache_bytes_max);
+  if (storage) parts.push(storage);
+
+  const detail = parts.length > 0 ? parts.join(" · ") : null;
 
   return {
     label,
-    detail: parts.length > 0 ? parts.join(" · ") : null,
+    detail,
     tone,
   };
 }

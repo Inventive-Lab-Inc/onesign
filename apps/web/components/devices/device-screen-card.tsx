@@ -1,31 +1,21 @@
 "use client";
 
-import type { Device, DeviceStatus, PlaylistItemWithMedia } from "@signage/types";
-import { ArrowRightLeft, FolderOutput, Settings, Trash2, Tv } from "lucide-react";
+import type { Device, DeviceStatus } from "@signage/types";
+import { ArrowRightLeft, FolderOutput, Settings, Trash2 } from "lucide-react";
+import { DeviceScreenCardTvFrame } from "@/components/devices/device-screen-card-tv-frame";
 import Image from "next/image";
 import Link from "next/link";
 import { deviceDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { ItemActionMenu } from "@/components/console/item-action-menu";
 import { DeviceDisabledBadge, deviceDisabledPresentation } from "@/components/device-disabled-notice";
-import { PlaylistItemPreviewStill } from "@/components/playlist-item-preview-still";
 import type { ActiveAppRelease } from "@/hooks/use-active-app-release";
 import type { DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
+import { normalizeDeviceScreenOrientation } from "@/lib/device-screen-orientation";
 import { resolveGroupColor } from "@/lib/device-group-colors";
-import { firstPreviewablePlaylistItem } from "@/lib/playlist-preview-items";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
-import { useConsoleDataStore } from "@/stores/console-data-store";
 import { cn } from "@/lib/utils";
 import "./device-screen-card.css";
-
-/** Stable fallback — inline `[]` in a Zustand selector creates a new reference every render → #185. */
-const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
-
-/**
- * When true, screen cards show a generic TV icon thumbnail instead of the live
- * content preview. Flip back to `false` to restore the original content preview.
- */
-const SHOW_TV_ICON_THUMBNAIL = true;
 
 function statusLabel(status: DeviceStatus): string {
   switch (status) {
@@ -81,16 +71,7 @@ export function DeviceScreenCard({
   const thumbnailUrl = device.thumbnail_storage_path
     ? mediaPublicUrl(device.thumbnail_storage_path)
     : null;
-  const activePlaylistId =
-    "device_playlists" in device
-      ? (device.device_playlists?.find((row) => row.is_active)?.playlist_id ?? null)
-      : null;
-  const playlistItems = useConsoleDataStore((s) =>
-    activePlaylistId
-      ? (s.playlistItemsByPlaylistId[activePlaylistId] ?? EMPTY_PLAYLIST_ITEMS)
-      : EMPTY_PLAYLIST_ITEMS,
-  );
-  const fallbackPreviewItem = thumbnailUrl ? null : firstPreviewablePlaylistItem(playlistItems);
+  const screenOrientation = normalizeDeviceScreenOrientation(device.screen_orientation);
 
   const groupMenuItems =
     onAddToFolder && folders.length > 0
@@ -115,11 +96,7 @@ export function DeviceScreenCard({
         aria-label={`Open screen: ${device.name}`}
       >
         <div className="device-screen-card__preview relative aspect-[16/10] bg-muted/60">
-          {SHOW_TV_ICON_THUMBNAIL ? (
-            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/60">
-              <Tv className="h-14 w-14" strokeWidth={1.25} aria-hidden />
-            </div>
-          ) : thumbnailUrl ? (
+          {thumbnailUrl ? (
             <Image
               key={device.thumbnail_storage_path ?? device.id}
               src={thumbnailUrl}
@@ -129,11 +106,9 @@ export function DeviceScreenCard({
               sizes="(max-width: 640px) 50vw, 180px"
               unoptimized
             />
-          ) : fallbackPreviewItem ? (
-            <PlaylistItemPreviewStill item={fallbackPreviewItem} fit="cover" />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/50">
-              <Tv className="h-7 w-7" strokeWidth={1.25} aria-hidden />
+            <div className="device-tv-frame-wrap device-tv-frame-wrap--relaxed">
+              <DeviceScreenCardTvFrame orientation={screenOrientation} />
             </div>
           )}
           <div className="absolute bottom-1.5 right-1.5 flex flex-wrap items-center justify-end gap-1">
@@ -174,7 +149,6 @@ export function DeviceScreenCard({
       <div className="absolute bottom-2 right-2 z-10">
         <ItemActionMenu
           ariaLabel={`Actions for ${device.name}`}
-          className="rounded-md bg-background/90 shadow-sm ring-1 ring-border/80 backdrop-blur-sm"
           items={[
             {
               label: "Open settings",

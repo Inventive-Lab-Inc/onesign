@@ -3,40 +3,33 @@
 import type { Media } from "@signage/types";
 import {
   ArrowLeft,
-  ArrowRightLeft,
   FileImage,
   FileVideo,
-  FolderInput,
   FolderPlus,
   Image as ImageIcon,
-  ListChecks,
-  ListPlus,
-  ListX,
-  RefreshCw,
-  Trash2,
   Upload,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useDropzone } from "react-dropzone";
-import { toast } from "sonner";
 import { ListPageHeader } from "@/components/console/list-page-header";
 import { Button } from "@/components/ui/button";
 import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
-import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { isStorageFull } from "@/lib/plan-quota";
 import { useOptionalAdminStaff } from "@/components/admin/admin-staff-context";
-import { contentFileManagementPath, contentLibraryPath, mediaDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { contentLibraryPath, mediaDetailPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { DeviceGroupFolderCard } from "@/components/device-groups/device-group-folder-card";
 import { MediaGroupEditorDialog } from "@/components/media-groups/media-group-editor-dialog";
-import { AddMediaToScreensDialog } from "@/components/media/add-media-to-screens-dialog";
-import { MoveMediaToFolderDialog } from "@/components/media/move-media-to-folder-dialog";
-import { MediaDeleteDialog } from "@/components/media/media-delete-dialog";
 import { MediaFiltersPopover, type MediaFiltersState } from "@/components/media/media-filters-popover";
+import {
+  formatMediaUploadLabel,
+  MediaUploadProgressBar,
+} from "@/components/media/media-upload-progress";
 import { useMediaUpload } from "@/hooks/use-media-upload";
+import { useMediaItemActions } from "@/hooks/use-media-item-actions";
 import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
 import {
   GatedHeaderButton,
@@ -44,19 +37,10 @@ import {
   permissionHint,
   useWorkspacePermission,
 } from "@/components/workspace/permission-guard";
-import { MoveToWorkspaceDialog } from "@/components/workspace/move-to-workspace-dialog";
 import { useAppRouter } from "@/hooks/use-app-router";
-import { MEDIA_UPLOAD_ACCEPT, replaceMediaFile } from "@/lib/upload-media";
+import { MEDIA_UPLOAD_ACCEPT, type MediaUploadProgress } from "@/lib/upload-media";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
-import {
-  addMediaToDevicePlaylists,
-  countPlaylistReferences,
-  type AddMediaToPlaylistsOptions,
-  moveMediaBatchToFolder,
-  removeMediaFromAllPlaylists,
-} from "@/lib/media-playlist-ops";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import {
@@ -71,7 +55,6 @@ import {
 import type { MediaGroupWithMembers } from "@/lib/console-sync";
 import {
   buildMediaFolderEntries,
-  findMediaFolderContainingFile,
   searchMediaFolderEntries,
 } from "@/lib/media-folder-navigation";
 import "@/components/device-groups/device-groups.css";
@@ -99,27 +82,23 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   const router = useAppRouter();
   const searchParams = useSearchParams();
   const adminRoutes = useAdminClientRoutes();
-  const { syncNow } = useConsoleSync();
   const plan = usePlanQuota();
   const adminStaff = useOptionalAdminStaff();
   const readOnly = adminStaff != null && !adminStaff.canWrite;
   const items = useConsoleDataStore((s) => s.media) as Media[];
   const mediaGroups = useConsoleDataStore((s) => s.mediaGroups) as MediaGroupWithMembers[];
-  const devices = useConsoleDataStore((s) => s.devices);
-  const playlistItemsByPlaylistId = useConsoleDataStore((s) => s.playlistItemsByPlaylistId);
   const storageFull = plan != null && isStorageFull(plan);
-  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const workspace = useWorkspaceOptional();
   const canManageContent = useWorkspacePermission("manage_content");
-  const canChangePlaylists = useWorkspacePermission("change_playlists");
   const contentHint = permissionHint("manage_content");
-  const canMoveBetweenWorkspaces = (workspace?.workspaces.length ?? 0) > 1;
-  const { uploading, uploadFiles } = useMediaUpload(userId, {
+  const { uploading, uploadProgress, uploadFiles } = useMediaUpload(userId, {
     withDropzone: false,
     workspaceId: workspace?.activeWorkspaceId,
   });
-  const replaceInputRef = useRef<HTMLInputElement>(null);
-  const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
+  const { buildActionItems: buildMediaActionItems, actionDialogs, replacing, replaceProgress, openDeleteDialog } =
+    useMediaItemActions({ userId, readOnly });
+  const activeUploadProgress = uploadProgress ?? replaceProgress;
+  const uploadBusy = uploading || replacing;
   const [search, setSearch] = useState("");
   const [mediaSort, setMediaSort] = useState<MediaSort>("newest");
   const [filters, setFilters] = useState<MediaFiltersState>({
@@ -132,11 +111,6 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   const [groupEditorMode, setGroupEditorMode] = useState<"create" | "edit">("create");
   const [groupBeingEdited, setGroupBeingEdited] = useState<MediaGroupWithMembers | null>(null);
   const [createParentGroupId, setCreateParentGroupId] = useState<string | null>(null);
-  const [addToScreensMedia, setAddToScreensMedia] = useState<Media | Media[] | null>(null);
-  const [moveMediaTarget, setMoveMediaTarget] = useState<Media | Media[] | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Media | Media[] | null>(null);
-  const [deleteInProgress, setDeleteInProgress] = useState(false);
-  const [mediaPendingMove, setMediaPendingMove] = useState<Media | null>(null);
 
   const groupFilter = useMemo(
     () => parseGroupFilterFromSearchParam(searchParams.get("group"), mediaGroups),
@@ -237,8 +211,6 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
     return undefined;
   }, [searchResultMedia.length, showSearchResultsGrid]);
 
-  const fileManagementHref = contentFileManagementPath(adminRoutes);
-
   const openCreateGroup = useCallback(() => {
     setGroupEditorMode("create");
     setGroupBeingEdited(null);
@@ -264,222 +236,10 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
     onDrop: (files) => void uploadFiles(files),
     accept: MEDIA_UPLOAD_ACCEPT,
     multiple: true,
-    disabled: uploading || readOnly || storageFull || !canManageContent,
+    disabled: uploadBusy || readOnly || storageFull || !canManageContent,
     noClick: true,
     noKeyboard: true,
   });
-
-  async function removeMedia(row: Media) {
-    let response: Response;
-    try {
-      response = await fetch("/api/media/delete", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: row.id, storagePath: row.storage_path, ownerId: userId }),
-      });
-    } catch {
-      toast.error("Network error while deleting media.");
-      return;
-    }
-
-    let payload: { error?: string };
-    try {
-      payload = (await response.json()) as { error?: string };
-    } catch {
-      toast.error("Invalid server response while deleting media.");
-      return;
-    }
-
-    if (!response.ok) {
-      toast.error(payload.error ?? "Delete failed");
-      return;
-    }
-
-    toast.success("Media deleted");
-    await syncNow();
-  }
-
-  const buildMediaActionItems = useCallback(
-    (item: Media): ActionMenuItem[] => {
-      if (readOnly) {
-        return [{ label: "Open file", onClick: () => window.open(mediaPublicUrl(item.storage_path), "_blank", "noopener,noreferrer") }];
-      }
-
-      return [
-        {
-          label: "Add to the playlists of multiple screens",
-          icon: <ListPlus className="h-4 w-4 shrink-0" aria-hidden />,
-          onClick: () => setAddToScreensMedia(item),
-          disabled: !canChangePlaylists || devices.length === 0,
-          disabledReason: canChangePlaylists ? undefined : permissionHint("change_playlists"),
-        },
-        {
-          label: "Remove from all playlists",
-          icon: <ListX className="h-4 w-4 shrink-0" aria-hidden />,
-          onClick: () => void handleRemoveFromPlaylists(item),
-          disabled: !canChangePlaylists || countPlaylistReferences(playlistItemsByPlaylistId, item.id) === 0,
-          disabledReason: canChangePlaylists ? undefined : permissionHint("change_playlists"),
-        },
-        {
-          label: "Move to a different folder",
-          icon: <FolderInput className="h-4 w-4 shrink-0" aria-hidden />,
-          onClick: () => setMoveMediaTarget(item),
-          disabled: !canManageContent,
-          disabledReason: contentHint,
-        },
-        ...(canMoveBetweenWorkspaces
-          ? [
-              {
-                label: "Move to a different workspace",
-                icon: <ArrowRightLeft className="h-4 w-4 shrink-0" aria-hidden />,
-                onClick: () => setMediaPendingMove(item),
-                disabled: !canManageContent,
-                disabledReason: contentHint,
-              },
-            ]
-          : []),
-        {
-          label: "Replace file",
-          icon: <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />,
-          onClick: () => {
-            setReplaceTargetId(item.id);
-            replaceInputRef.current?.click();
-          },
-          disabled: !canManageContent || storageFull,
-          disabledReason: canManageContent ? undefined : contentHint,
-        },
-        {
-          label: "Delete file",
-          icon: <Trash2 className="h-4 w-4 shrink-0" aria-hidden />,
-          onClick: () => setDeleteTarget(item),
-          destructive: true,
-          disabled: !canManageContent,
-          disabledReason: contentHint,
-        },
-        {
-          label: "File management",
-          description: "Manage multiple files at once",
-          icon: <ListChecks className="h-4 w-4 shrink-0" aria-hidden />,
-          separatorBefore: true,
-          href: fileManagementHref,
-        },
-      ];
-    },
-    [
-      canChangePlaylists,
-      canManageContent,
-      canMoveBetweenWorkspaces,
-      contentHint,
-      devices.length,
-      fileManagementHref,
-      playlistItemsByPlaylistId,
-      readOnly,
-      storageFull,
-    ],
-  );
-
-  async function handleRemoveFromPlaylists(item: Media) {
-    const { removedCount, error } = await removeMediaFromAllPlaylists(supabase, item.id);
-    if (error) {
-      toast.error(error);
-      return;
-    }
-    toast.success(
-      removedCount === 0
-        ? "This file is not in any playlists."
-        : `Removed from ${removedCount} playlist ${removedCount === 1 ? "entry" : "entries"}.`,
-    );
-    await syncNow();
-  }
-
-  async function handleAddToScreens(deviceIds: string[], options: AddMediaToPlaylistsOptions) {
-    const targets = Array.isArray(addToScreensMedia) ? addToScreensMedia : addToScreensMedia ? [addToScreensMedia] : [];
-    if (targets.length === 0 || deviceIds.length === 0) return;
-
-    const selectedDevices = devices.filter((device) => deviceIds.includes(device.id));
-    const { addedCount, error } = await addMediaToDevicePlaylists(
-      supabase,
-      userId,
-      targets,
-      selectedDevices,
-      playlistItemsByPlaylistId,
-      options,
-    );
-    if (error) {
-      toast.error(error);
-      return;
-    }
-    const first = targets[0];
-    toast.success(
-      targets.length === 1 && first
-        ? `Added “${first.original_filename ?? first.storage_path}” to ${addedCount} screen${addedCount === 1 ? "" : "s"}.`
-        : `Added ${targets.length} files to ${addedCount} screen${addedCount === 1 ? "" : "s"}.`,
-    );
-    await syncNow();
-  }
-
-  async function handleMoveToFolder(targetFolderId: string | null) {
-    const targets = Array.isArray(moveMediaTarget) ? moveMediaTarget : moveMediaTarget ? [moveMediaTarget] : [];
-    if (targets.length === 0) return;
-
-    const { error } = await moveMediaBatchToFolder(
-      supabase,
-      targets.map((item) => item.id),
-      targetFolderId,
-    );
-    if (error) {
-      toast.error(error);
-      return;
-    }
-
-    const label =
-      targets.length > 1
-        ? `${targets.length} files moved`
-        : `Moved “${targets[0]?.original_filename ?? "file"}”`;
-    toast.success(targetFolderId ? `${label} to folder` : `${label} to ungrouped`);
-    useConsoleDataStore.setState((state) => ({
-      mediaGroups: state.mediaGroups.map((group) => {
-        const without = group.member_media_ids.filter((id) => !targets.some((item) => item.id === id));
-        if (targetFolderId && group.id === targetFolderId) {
-          const merged = new Set([...without, ...targets.map((item) => item.id)]);
-          return { ...group, member_media_ids: [...merged] };
-        }
-        return { ...group, member_media_ids: without };
-      }),
-    }));
-    await syncNow();
-  }
-
-  async function handleConfirmDelete() {
-    const targets = Array.isArray(deleteTarget) ? deleteTarget : deleteTarget ? [deleteTarget] : [];
-    if (targets.length === 0) return;
-
-    setDeleteInProgress(true);
-    try {
-      for (const row of targets) {
-        await removeMedia(row);
-      }
-      setDeleteTarget(null);
-    } finally {
-      setDeleteInProgress(false);
-    }
-  }
-
-  async function handleReplaceFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    const mediaId = replaceTargetId;
-    setReplaceTargetId(null);
-    if (!file || !mediaId) return;
-
-    const { media, error } = await replaceMediaFile(file, mediaId, userId);
-    if (error || !media) {
-      toast.error(error ?? "Replace failed");
-      return;
-    }
-    toast.success(`Replaced with ${media.original_filename ?? media.storage_path}`);
-    await syncNow();
-  }
 
   const titleMenuItems = useMemo<ActionMenuItem[]>(() => {
     if (readOnly) return [];
@@ -498,7 +258,7 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
     view,
     readOnly,
     buildActionItems: buildMediaActionItems,
-    onRemove: readOnly || !canManageContent ? undefined : (item: Media) => setDeleteTarget(item),
+    onRemove: readOnly || !canManageContent ? undefined : openDeleteDialog,
     returnGroupId:
       groupFilter !== "all" && groupFilter !== "ungrouped" ? groupFilter : null,
   };
@@ -539,8 +299,14 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                   permission="manage_content"
                   type="button"
                   onClick={() => open()}
-                  disabled={uploading}
-                  label={uploading ? "Uploading…" : "Upload files"}
+                  disabled={uploadBusy}
+                  label={
+                    activeUploadProgress
+                      ? formatMediaUploadLabel(activeUploadProgress)
+                      : uploadBusy
+                        ? "Uploading…"
+                        : "Upload files"
+                  }
                   icon={<Upload className="h-4 w-4" aria-hidden />}
                 />
               ) : undefined
@@ -560,7 +326,18 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
             </div>
           ) : null}
 
-          <div className="flex-1 p-4 sm:p-5">
+          {activeUploadProgress ? (
+            <div className="border-b border-border bg-muted/20 px-4 py-3 sm:px-5">
+              <MediaUploadProgressBar progress={activeUploadProgress} />
+            </div>
+          ) : null}
+
+          <div className="relative flex-1 p-4 sm:p-5">
+            {isDragActive && !uploadBusy ? (
+              <div className="pointer-events-none absolute inset-4 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-background/90 sm:inset-5">
+                <p className="text-sm font-medium text-foreground">Drop files to upload</p>
+              </div>
+            ) : null}
             {showFolderGrid ? (
               visibleRootFolderEntries.length > 0 ? (
                 <div className="space-y-8">
@@ -600,7 +377,8 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                     <UploadFilesButton
                       allowed={canManageContent}
                       reason={contentHint}
-                      uploading={uploading}
+                      uploading={uploadBusy}
+                      uploadProgress={activeUploadProgress}
                       onUpload={() => open()}
                     />
                   ) : null}
@@ -705,7 +483,8 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
                   <UploadFilesButton
                     allowed={canManageContent}
                     reason={contentHint}
-                    uploading={uploading}
+                    uploading={uploadBusy}
+                    uploadProgress={activeUploadProgress}
                     onUpload={() => open()}
                   />
                 ) : null}
@@ -717,67 +496,7 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
         </div>
       </div>
 
-      <input
-        ref={replaceInputRef}
-        type="file"
-        accept={Object.keys(MEDIA_UPLOAD_ACCEPT).join(",")}
-        className="hidden"
-        onChange={(event) => void handleReplaceFile(event)}
-      />
-
-      <AddMediaToScreensDialog
-        open={addToScreensMedia != null}
-        onClose={() => setAddToScreensMedia(null)}
-        mediaItems={
-          Array.isArray(addToScreensMedia) ? addToScreensMedia : addToScreensMedia ? [addToScreensMedia] : []
-        }
-        devices={devices}
-        onConfirm={handleAddToScreens}
-      />
-
-      <MoveMediaToFolderDialog
-        open={moveMediaTarget != null}
-        onClose={() => setMoveMediaTarget(null)}
-        mediaName={
-          Array.isArray(moveMediaTarget)
-            ? `${moveMediaTarget.length} files`
-            : (moveMediaTarget?.original_filename ?? "file")
-        }
-        mediaCount={Array.isArray(moveMediaTarget) ? moveMediaTarget.length : 1}
-        folders={mediaGroups}
-        currentFolderId={
-          Array.isArray(moveMediaTarget) || !moveMediaTarget
-            ? null
-            : (findMediaFolderContainingFile(mediaGroups, moveMediaTarget.id)?.id ?? null)
-        }
-        onConfirm={handleMoveToFolder}
-      />
-
-      <MediaDeleteDialog
-        open={deleteTarget != null}
-        onClose={() => setDeleteTarget(null)}
-        title={
-          Array.isArray(deleteTarget) && deleteTarget.length > 1
-            ? `Delete ${deleteTarget.length} files?`
-            : "Delete file?"
-        }
-        description={
-          Array.isArray(deleteTarget) && deleteTarget.length > 1
-            ? "These files will be permanently removed from your library. Files used in playlists may fail to delete until removed from those playlists."
-            : "This file will be permanently removed from your library. If it is used in a playlist, remove it from playlists first or use “Remove from all playlists”."
-        }
-        confirmLabel={Array.isArray(deleteTarget) && deleteTarget.length > 1 ? "Delete files" : "Delete file"}
-        isConfirming={deleteInProgress}
-        onConfirm={handleConfirmDelete}
-      />
-
-      <MoveToWorkspaceDialog
-        open={mediaPendingMove != null}
-        onClose={() => setMediaPendingMove(null)}
-        entityType="media"
-        entityId={mediaPendingMove?.id ?? ""}
-        entityLabel={mediaPendingMove?.original_filename ?? "file"}
-      />
+      {actionDialogs}
 
       <MediaGroupEditorDialog
         open={groupEditorOpen}
@@ -799,11 +518,13 @@ function UploadFilesButton({
   allowed,
   reason,
   uploading,
+  uploadProgress,
   onUpload,
 }: {
   allowed: boolean;
   reason: string;
   uploading: boolean;
+  uploadProgress: MediaUploadProgress | null;
   onUpload: () => void;
 }) {
   const button = (
@@ -814,11 +535,23 @@ function UploadFilesButton({
       disabled={uploading || !allowed}
     >
       <Upload className="h-4 w-4" />
-      Upload files
+      {uploadProgress ? formatMediaUploadLabel(uploadProgress) : "Upload files"}
     </Button>
   );
-  if (allowed) return button;
-  return <PermissionTooltip reason={reason}>{button}</PermissionTooltip>;
+
+  const content = (
+    <div className="flex w-full max-w-sm flex-col items-center">
+      {button}
+      {uploadProgress ? (
+        <div className="mt-3 w-full">
+          <MediaUploadProgressBar progress={uploadProgress} compact />
+        </div>
+      ) : null}
+    </div>
+  );
+
+  if (allowed) return content;
+  return <PermissionTooltip reason={reason}>{content}</PermissionTooltip>;
 }
 
 function MediaFileGrid({

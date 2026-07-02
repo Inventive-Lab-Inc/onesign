@@ -102,6 +102,8 @@ private data class TvGetPlaybackResult(
     val deviceName: String? = null,
     @SerialName("playbackDisabled")
     val playbackDisabled: Boolean = false,
+    @SerialName("playbackBlockReason")
+    val playbackBlockReason: String? = null,
     @SerialName("playbackSecret")
     val playbackSecret: String? = null,
     val playlistName: String? = null,
@@ -295,6 +297,9 @@ class MainViewModel(
     private val _playbackUiRecoveryEpoch = MutableStateFlow(0L)
     val playbackUiRecoveryEpoch: StateFlow<Long> = _playbackUiRecoveryEpoch.asStateFlow()
 
+    private val _mediaCacheProgress = MutableStateFlow<MediaCacheProgressState?>(null)
+    val mediaCacheProgress: StateFlow<MediaCacheProgressState?> = _mediaCacheProgress.asStateFlow()
+
     private var lastPlaybackForegroundRecoveryAtElapsedMs = 0L
 
     private val lastPlaybackProgressSignalElapsedMs = AtomicLong(SystemClock.elapsedRealtime())
@@ -458,7 +463,7 @@ class MainViewModel(
         deviceId: String,
     ): Boolean {
         if (cur.deviceId != deviceId) return false
-        if (rev.playbackDisabled != cur.playbackDisabledByAdmin) return false
+        if (rev.playbackDisabled != cur.isPlaybackBlocked) return false
         if (rev.contentRevision != cur.contentRevision) return false
         if (rev.playlistId != cur.playlistId) return false
         if ((rev.deviceName ?: "") != cur.deviceName) return false
@@ -612,7 +617,7 @@ class MainViewModel(
         force: Boolean = false,
     ) {
         val s = _state.value
-        if (s !is MainUiState.Playback || s.playbackDisabledByAdmin || s.slides.isEmpty()) {
+        if (s !is MainUiState.Playback || s.isPlaybackBlocked || s.slides.isEmpty()) {
             return
         }
         val now = SystemClock.elapsedRealtime()
@@ -631,7 +636,7 @@ class MainViewModel(
         signageExo?.resetDecoderStateAfterDisplayWake()
         val deviceId = s.deviceId
         _state.update { cur ->
-            if (cur is MainUiState.Playback && cur.deviceId == deviceId && !cur.playbackDisabledByAdmin && cur.slides.isNotEmpty()) {
+            if (cur is MainUiState.Playback && cur.deviceId == deviceId && !cur.isPlaybackBlocked && cur.slides.isNotEmpty()) {
                 cur.copy(uiRefreshGeneration = cur.uiRefreshGeneration + 1)
             } else {
                 cur
@@ -662,12 +667,17 @@ class MainViewModel(
                     app = getApplication(),
                     scope = viewModelScope,
                     exoProvider = { signageExo },
+                    onProgressChanged = { progress ->
+                        _mediaCacheProgress.value = progress
+                    },
                 )
         }
+        playlistCacheCoordinator?.bindExoCallbacks()
     }
 
     private fun releaseSignageExo() {
         playlistCacheCoordinator?.cancelAll()
+        _mediaCacheProgress.value = null
         signageExo?.release()
         signageExo = null
     }
@@ -678,7 +688,7 @@ class MainViewModel(
      */
     fun requestPlaybackUiRecovery(reason: String) {
         val s = _state.value
-        if (s !is MainUiState.Playback || s.playbackDisabledByAdmin || s.slides.isEmpty()) {
+        if (s !is MainUiState.Playback || s.isPlaybackBlocked || s.slides.isEmpty()) {
             return
         }
         Log.i(LOG_TAG, "playback UI recovery ($reason)")
@@ -694,7 +704,7 @@ class MainViewModel(
             progressAgeMs < PLAYBACK_HEALTH_STALE_THRESHOLD_MS ||
                 signageExo?.isActivelyPlayingVideo() == true
         if (s is MainUiState.Playback &&
-            !s.playbackDisabledByAdmin &&
+            !s.isPlaybackBlocked &&
             s.slides.isNotEmpty() &&
             !playbackLooksHealthy &&
             now - lastPlaybackForegroundRecoveryAtElapsedMs >= FOREGROUND_RECOVERY_DEBOUNCE_MS
@@ -740,6 +750,28 @@ class MainViewModel(
         playlistCacheCoordinator?.onPlaybackActive(slides, contentRevision, currentIndex)
     }
 
+    fun isMediaCached(slide: PlaybackSlide): Boolean {
+        val app = getApplication<Application>()
+        return when (slide.fileType) {
+            "video" -> PlaylistCacheStatus.isVideoFullyCached(app, slide.url)
+            "image" -> PlaylistCacheStatus.isImageDiskCached(app, slide.url)
+            else -> true
+        }
+    }
+
+    private fun startPlaylistCacheWarm(
+        slides: List<PlaybackSlide>,
+        contentRevision: String?,
+        startIndex: Int = 0,
+    ) {
+        if (slides.isEmpty()) {
+            return
+        }
+        ensureSignageExo()
+        ensurePlaylistCacheCoordinator()
+        playlistCacheCoordinator?.onPlaybackActive(slides, contentRevision, startIndex)
+    }
+
     private suspend fun readCachedPlaybackOnly(deviceId: String): MainUiState.Playback? = withContext(Dispatchers.IO) {
         val raw = dataStore.data.first()[DeviceKeys.CACHED_PLAYBACK] ?: return@withContext null
         val cached = runCatching { cachedPlaybackJson.decodeFromString<CachedPlaybackV1>(raw) }.getOrNull()
@@ -760,7 +792,7 @@ class MainViewModel(
             contentRevision = cached.contentRevision,
             playlistId = cached.playlistId,
             screenOrientation = orient,
-            playbackDisabledByAdmin = false,
+            playbackBlockReason = null,
             transitionStyle = cached.transitionStyle,
             shuffleEnabled = cached.shuffleEnabled,
             showTrialWatermark = cached.showTrialWatermark,
@@ -947,7 +979,7 @@ class MainViewModel(
                         MainUiState.AwaitingLink(
                             pairingCode = storedPairingCode,
                             deviceId = storedDeviceId,
-                            message = "Enter this code in the web dashboard to finish linking.",
+                            showWaitingIndicator = true,
                         )
                     startDeviceTelemetryLoop(storedDeviceId)
                     pollUntilLinked(storedDeviceId)
@@ -1232,12 +1264,7 @@ class MainViewModel(
             MainUiState.AwaitingLink(
                 pairingCode = result.pairingCode,
                 deviceId = result.deviceId,
-                message =
-                    if (result.isNew) {
-                        "Waiting for an admin to link this screen…"
-                    } else {
-                        "Enter this code in the web dashboard to finish linking."
-                    },
+                showWaitingIndicator = true,
             )
 
         startDeviceTelemetryLoop(result.deviceId)
@@ -1289,7 +1316,7 @@ class MainViewModel(
                         continue
                     }
                     val cur = _state.value
-                    if (cur !is MainUiState.Playback || cur.playbackDisabledByAdmin || cur.slides.isEmpty()) {
+                    if (cur !is MainUiState.Playback || cur.isPlaybackBlocked || cur.slides.isEmpty()) {
                         continue
                     }
                     if (signageExo?.isActivelyPlayingVideo() == true) {
@@ -1322,11 +1349,13 @@ class MainViewModel(
                             else -> ""
                         }
                     if (cached != null) {
-                        _state.value =
+                        val cachedState =
                             cached.copy(
                                 deviceName = nameForPoll.ifBlank { cached.deviceName },
                                 isFromCache = true,
                             )
+                        _state.value = cachedState
+                        startPlaylistCacheWarm(cachedState.slides, cachedState.contentRevision)
                     }
                     playbackRealtime?.update(deviceId, cached?.playlistId, onStale)
                     while (isActive) {
@@ -1370,6 +1399,9 @@ class MainViewModel(
                                         nameForPoll = next.deviceName
                                         _state.value = next
                                         playbackRealtime?.update(deviceId, next.playlistId, onStale)
+                                        if (!next.isPlaybackBlocked && next.slides.isNotEmpty()) {
+                                            startPlaylistCacheWarm(next.slides, next.contentRevision)
+                                        }
                                     }
                                 }
                             }
@@ -1378,7 +1410,7 @@ class MainViewModel(
                             val now = _state.value
                             if (now is MainUiState.Playback &&
                                 now.deviceId == deviceId &&
-                                (now.slides.isNotEmpty() || now.playbackDisabledByAdmin)
+                                (now.slides.isNotEmpty() || now.isPlaybackBlocked)
                             ) {
                                 // Keep last good manifest or admin standby until the next poll succeeds.
                             } else if (cached != null) {
@@ -1395,7 +1427,7 @@ class MainViewModel(
                                         playlistName = null,
                                         slides = emptyList(),
                                         screenOrientation = (now as? MainUiState.Playback)?.screenOrientation ?: "landscape",
-                                        playbackDisabledByAdmin = false,
+                                        playbackBlockReason = null,
                                     )
                             }
                         }
@@ -1433,7 +1465,7 @@ class MainViewModel(
 
     private fun buildMediaCacheTelemetrySnapshot(): JsonObject? {
         val playback = _state.value as? MainUiState.Playback ?: return null
-        if (playback.playbackDisabledByAdmin || playback.slides.isEmpty()) {
+        if (playback.isPlaybackBlocked || playback.slides.isEmpty()) {
             return null
         }
         return runCatching {
@@ -1534,7 +1566,8 @@ class MainViewModel(
                     contentRevision = res.contentRevision,
                     playlistId = null,
                     screenOrientation = screenOrientation,
-                    playbackDisabledByAdmin = true,
+                    playbackBlockReason =
+                        parsePlaybackBlockReason(res.playbackBlockReason) ?: PlaybackBlockReason.AdminDisabled,
                     outsideOperatingHours = res.outsideOperatingHours,
                     blankWhenOffHours = res.blankWhenOffHours,
                     showTrialWatermark = res.showTrialWatermark,
@@ -1584,7 +1617,7 @@ class MainViewModel(
                 contentRevision = res.contentRevision,
                 playlistId = res.playlistId,
                 screenOrientation = screenOrientation,
-                playbackDisabledByAdmin = false,
+                playbackBlockReason = null,
                 outsideOperatingHours = res.outsideOperatingHours,
                 blankWhenOffHours = res.blankWhenOffHours,
                 uiRefreshGeneration = prevGen,

@@ -91,6 +91,25 @@ object PlaylistCacheStatus {
         return cache.getCachedBytes(key, 0, contentLength) >= contentLength
     }
 
+    /** 0–99 while partially cached; 100 when fully cached. */
+    @OptIn(UnstableApi::class)
+    fun getVideoCacheFillPercent(app: Application, url: String): Int {
+        if (url.isBlank()) {
+            return 0
+        }
+        if (isVideoFullyCached(app, url)) {
+            return 100
+        }
+        val cache = MediaCacheProvider.getSimpleCache(app)
+        val key = Uri.parse(url).toString()
+        val contentLength = ContentMetadata.getContentLength(cache.getContentMetadata(key))
+        if (contentLength <= 0L || contentLength == C.LENGTH_UNSET.toLong()) {
+            return 0
+        }
+        val cached = cache.getCachedBytes(key, 0, contentLength)
+        return ((cached * 100L) / contentLength).toInt().coerceIn(0, 99)
+    }
+
     @OptIn(ExperimentalCoilApi::class)
     fun isImageDiskCached(app: Application, url: String): Boolean {
         if (url.isBlank()) {

@@ -7,7 +7,6 @@ import { PageContainer } from "@/components/shell/page-container";
 import { DEFAULT_TRIAL_DAYS, formatStorageBytes } from "@/lib/plan-quota";
 import { assets } from "@/lib/config/assets";
 import {
-  TRIAL_UPGRADE_MAILTO,
   formatTrialEndDate,
   formatTrialRemaining,
   isOnTrial,
@@ -15,6 +14,8 @@ import {
   trialElapsedRatio,
 } from "@/lib/trial";
 import { cn } from "@/lib/utils";
+
+const BILLING_HREF = "/account?tab=billing";
 
 function useTrialStatus() {
   const quota = usePlanQuota();
@@ -46,7 +47,7 @@ export function TrialTopBarPill() {
 
   return (
     <Link
-      href={TRIAL_UPGRADE_MAILTO}
+      href={BILLING_HREF}
       className={cn(
         "group relative inline-flex shrink-0 items-center gap-2 overflow-hidden rounded-full border px-3 py-1 text-[0.6875rem] font-semibold tracking-wide transition",
         urgent
@@ -116,7 +117,7 @@ export function TrialStrip() {
             />
           </div>
           <Link
-            href={TRIAL_UPGRADE_MAILTO}
+            href={BILLING_HREF}
             className="rounded-md bg-brand px-3 py-1 text-xs font-bold text-brand-contrast shadow-sm transition hover:bg-brand-hover"
           >
             Upgrade
@@ -217,7 +218,7 @@ export function TrialHomeCard() {
           </div>
         </div>
         <Link
-          href={TRIAL_UPGRADE_MAILTO}
+          href={BILLING_HREF}
           className="inline-flex shrink-0 items-center justify-center rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-brand-contrast shadow-md transition hover:bg-brand-hover"
         >
           Upgrade plan

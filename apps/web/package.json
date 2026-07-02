@@ -12,6 +12,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "capture:device-view": "node scripts/capture-device-view-screenshots.mjs",
     "migrate:storage": "node scripts/migrate-supabase-storage-to-minio.mjs",
     "test:minio-upload": "node scripts/test-minio-upload.mjs"
   },
@@ -42,6 +43,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.21",
+    "playwright": "^1.51.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",

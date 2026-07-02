@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
-import { MEDIA_UPLOAD_ACCEPT, uploadMediaFiles } from "@/lib/upload-media";
+import { MEDIA_UPLOAD_ACCEPT, uploadMediaFiles, type MediaUploadProgress } from "@/lib/upload-media";
 
 export function useMediaUpload(
   ownerId: string,
@@ -18,6 +18,7 @@ export function useMediaUpload(
 ) {
   const { syncNow } = useConsoleSync();
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<MediaUploadProgress | null>(null);
   const onComplete = options?.onComplete;
 
   const uploadFiles = useCallback(
@@ -28,8 +29,14 @@ export function useMediaUpload(
         return [];
       }
       setUploading(true);
+      setUploadProgress(null);
       try {
-        const { uploaded, errors } = await uploadMediaFiles(files, ownerId, options?.workspaceId);
+        const { uploaded, errors } = await uploadMediaFiles(
+          files,
+          ownerId,
+          options?.workspaceId,
+          setUploadProgress,
+        );
         for (const message of errors) {
           toast.error(message);
         }
@@ -47,6 +54,7 @@ export function useMediaUpload(
         return [];
       } finally {
         setUploading(false);
+        setUploadProgress(null);
       }
     },
     [onComplete, options?.workspaceId, ownerId, syncNow],
@@ -66,6 +74,7 @@ export function useMediaUpload(
 
   return {
     uploading,
+    uploadProgress,
     uploadFiles,
     open: dropzone.open,
     getInputProps: dropzone.getInputProps,

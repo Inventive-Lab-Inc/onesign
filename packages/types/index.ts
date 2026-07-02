@@ -135,6 +135,22 @@ export interface PlanTemplate {
   monthly_price_bdt_paisa: number;
   /** Optional strikethrough/anchor price in BDT paisa. */
   original_price_bdt_paisa: number | null;
+  /** Annual monthly-equivalent price in USD cents (e.g. $7/mo billed annually). */
+  annual_monthly_price_cents: number;
+  /** Annual monthly-equivalent price in GBP pence. */
+  annual_monthly_price_gbp_cents: number;
+  /** Annual monthly-equivalent price in EUR cents. */
+  annual_monthly_price_eur_cents: number;
+  /** Annual monthly-equivalent price in BDT paisa. */
+  annual_monthly_price_bdt_paisa: number;
+  /** Optional annual strikethrough anchor in USD cents (monthly-equivalent). */
+  original_annual_monthly_price_cents: number | null;
+  /** Optional annual strikethrough anchor in GBP pence. */
+  original_annual_monthly_price_gbp_cents: number | null;
+  /** Optional annual strikethrough anchor in EUR cents. */
+  original_annual_monthly_price_eur_cents: number | null;
+  /** Optional annual strikethrough anchor in BDT paisa. */
+  original_annual_monthly_price_bdt_paisa: number | null;
   cta_label: string;
   features: string[];
   badge: string | null;

@@ -1,0 +1,83 @@
+/* ── TV frame — fills any padded container via container queries ─────── */
+
+.device-tv-frame-wrap {
+  --device-tv-frame-padding: 0.625rem;
+  --device-tv-frame-stand: 0.14rem;
+
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--device-tv-frame-padding);
+  container-type: size;
+}
+
+.device-tv-frame-wrap--relaxed {
+  --device-tv-frame-padding: 0.875rem 1rem;
+}
+
+.device-tv-frame-wrap--tight {
+  --device-tv-frame-padding: 0.3125rem;
+}
+
+.device-tv-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: min(100cqw, calc((100cqh - var(--device-tv-frame-stand)) * 16 / 9));
+  max-width: 100%;
+  transform-origin: center center;
+}
+
+.device-tv-frame--sideways {
+  width: min(100cqh, calc((100cqw - var(--device-tv-frame-stand)) * 16 / 9));
+}
+
+.device-tv-frame--compact {
+  --device-tv-frame-stand: 0.1rem;
+}
+
+.device-tv-frame__panel {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  border: 0.18rem solid #1c1f24;
+  border-radius: 0.26rem;
+  background: transparent;
+  box-shadow:
+    0 8px 18px -12px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    inset 0 -1px 0 rgb(0 0 0 / 0.35);
+}
+
+.device-tv-frame--compact .device-tv-frame__panel {
+  border-width: 0.13rem;
+  border-radius: 0.16rem;
+}
+
+.device-tv-frame__screen {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.1rem;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--background)) 0%,
+    hsl(var(--muted) / 0.55) 50%,
+    hsl(var(--muted-foreground) / 0.1) 50%,
+    hsl(var(--muted-foreground) / 0.08) 100%
+  );
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+}
+
+.device-tv-frame--compact .device-tv-frame__screen {
+  border-radius: 0.06rem;
+}
+
+.device-tv-frame__stand {
+  width: 18%;
+  height: var(--device-tv-frame-stand);
+  border-radius: 0 0 0.06rem 0.06rem;
+  background: #1c1f24;
+}

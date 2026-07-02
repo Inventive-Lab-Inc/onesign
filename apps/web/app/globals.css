@@ -274,7 +274,6 @@ optgroup,
 
 .media-library-add-btn {
   flex-shrink: 0;
-  gap: 0.25rem;
   border-color: hsl(var(--border) / 0.85);
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   transition:

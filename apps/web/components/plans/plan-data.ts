@@ -2,11 +2,15 @@ import type { PlanTemplate } from "@signage/types";
 import { Building2, Rocket, Store, type LucideIcon } from "lucide-react";
 import {
   formatPlanCurrencyAmount,
+  getPlanAnnualMonthlyMinor,
+  getPlanOriginalAnnualMonthlyMinor,
   getPlanPricesForCurrency,
   minorToDisplayAmount,
   type PlanCurrency,
 } from "@/lib/plan-currency";
 import { type SignupPlanSlug } from "@/lib/plan/signup-link";
+
+export type BillingPeriod = "monthly" | "annual";
 
 export interface PlanFeature {
   label: string;
@@ -116,8 +120,12 @@ export interface PlanViewModel {
   originalPrice: number | null;
   monthlyPriceLabel: string;
   originalPriceLabel: string | null;
+  annualMonthlyPrice: number | null;
   annualMonthlyPriceLabel: string | null;
+  annualOriginalPrice: number | null;
+  annualOriginalPriceLabel: string | null;
   perScreenLabel: string | null;
+  annualPerScreenLabel: string | null;
   deviceLimit: number;
   screens: string;
   features: string[];
@@ -127,12 +135,18 @@ export interface PlanViewModel {
   isFree: boolean;
 }
 
+export interface PlanDisplayPricing {
+  priceLabel: string;
+  originalPriceLabel: string | null;
+  showOriginalStrike: boolean;
+  perScreenLabel: string | null;
+  billingSuffix: string;
+}
+
 const PLAN_ICONS: LucideIcon[] = plans.map((plan) => plan.icon);
 
-const ANNUAL_MONTHLY_BY_SLUG: Record<
-  SignupPlanSlug,
-  Record<PlanCurrency, number>
-> = {
+/** Fallback annual monthly-equivalent amounts when DB columns are unset (pre-migration or zero). */
+const ANNUAL_MONTHLY_FALLBACK: Record<SignupPlanSlug, Record<PlanCurrency, number>> = {
   solo: { USD: 7, GBP: 6, EUR: 7, BDT: 700 },
   growth: { USD: 32, GBP: 26, EUR: 29, BDT: 3200 },
   network: { USD: 74, GBP: 62, EUR: 68, BDT: 7400 },
@@ -155,20 +169,59 @@ function slugFromPlanName(name: string): SignupPlanSlug | null {
 }
 
 function perScreenLabel(
-  monthlyPrice: number,
+  price: number,
   deviceLimit: number,
   currency: PlanCurrency,
   isFree: boolean,
 ): string | null {
   if (isFree || deviceLimit <= 1) return null;
-  const perScreen = monthlyPrice / deviceLimit;
+  const perScreen = price / deviceLimit;
   return `${formatPlanCurrencyAmount(perScreen, currency)}/screen`;
 }
 
-function annualMonthlyLabel(slug: SignupPlanSlug | null, currency: PlanCurrency): string | null {
-  if (!slug) return null;
-  const amount = ANNUAL_MONTHLY_BY_SLUG[slug][currency];
-  return formatPlanCurrencyAmount(amount, currency);
+function annualMonthlyFromMinor(annualMinor: number, currency: PlanCurrency, isFree: boolean): number | null {
+  if (isFree || annualMinor <= 0) return null;
+  return minorToDisplayAmount(annualMinor, currency);
+}
+
+function resolveAnnualMonthlyPrice(
+  slug: SignupPlanSlug | null,
+  annualMinor: number,
+  currency: PlanCurrency,
+  isFree: boolean,
+): number | null {
+  const fromDatabase = annualMonthlyFromMinor(annualMinor, currency, isFree);
+  if (fromDatabase != null) return fromDatabase;
+  if (isFree || !slug) return null;
+  return ANNUAL_MONTHLY_FALLBACK[slug][currency] ?? null;
+}
+
+/** Price labels and footnotes for the selected billing period. */
+export function getPlanDisplayPricing(plan: PlanViewModel, billingPeriod: BillingPeriod): PlanDisplayPricing {
+  const useAnnual =
+    billingPeriod === "annual" && plan.annualMonthlyPrice != null && plan.annualMonthlyPriceLabel != null;
+
+  if (useAnnual) {
+    const strikePrice = plan.annualOriginalPrice ?? plan.monthlyPrice;
+    const strikeLabel = plan.annualOriginalPriceLabel ?? plan.monthlyPriceLabel;
+    const showOriginalStrike = strikePrice > plan.annualMonthlyPrice!;
+    return {
+      priceLabel: plan.annualMonthlyPriceLabel!,
+      originalPriceLabel: showOriginalStrike ? strikeLabel : null,
+      showOriginalStrike,
+      perScreenLabel: plan.annualPerScreenLabel,
+      billingSuffix: " · billed annually",
+    };
+  }
+
+  return {
+    priceLabel: plan.monthlyPriceLabel,
+    originalPriceLabel: plan.originalPriceLabel,
+    showOriginalStrike:
+      plan.originalPrice != null && !plan.isFree && plan.originalPrice > plan.monthlyPrice,
+    perScreenLabel: plan.perScreenLabel,
+    billingSuffix: "",
+  };
 }
 
 /** Maps an admin-managed plan template into the serializable pricing view shape. */
@@ -176,8 +229,13 @@ export function mapTemplateToViewModel(template: PlanTemplate, currency: PlanCur
   const { monthlyMinor, originalMinor } = getPlanPricesForCurrency(template, currency);
   const monthlyPrice = minorToDisplayAmount(monthlyMinor, currency);
   const originalPrice = originalMinor == null ? null : minorToDisplayAmount(originalMinor, currency);
-  const slug = slugFromPlanName(template.name);
+  const annualMinor = getPlanAnnualMonthlyMinor(template, currency);
+  const annualOriginalMinor = getPlanOriginalAnnualMonthlyMinor(template, currency);
   const isFree = monthlyPrice <= 0;
+  const slug = slugFromPlanName(template.name);
+  const annualMonthlyPrice = resolveAnnualMonthlyPrice(slug, annualMinor, currency, isFree);
+  const annualOriginalPrice =
+    annualOriginalMinor == null || isFree ? null : minorToDisplayAmount(annualOriginalMinor, currency);
 
   return {
     id: template.id,
@@ -190,8 +248,19 @@ export function mapTemplateToViewModel(template: PlanTemplate, currency: PlanCur
     monthlyPriceLabel: isFree ? "Free" : formatPlanCurrencyAmount(monthlyPrice, currency),
     originalPriceLabel:
       originalPrice == null || isFree ? null : formatPlanCurrencyAmount(originalPrice, currency),
-    annualMonthlyPriceLabel: annualMonthlyLabel(slug, currency),
+    annualMonthlyPrice,
+    annualMonthlyPriceLabel:
+      annualMonthlyPrice == null ? null : formatPlanCurrencyAmount(annualMonthlyPrice, currency),
+    annualOriginalPrice,
+    annualOriginalPriceLabel:
+      annualOriginalPrice == null || isFree
+        ? null
+        : formatPlanCurrencyAmount(annualOriginalPrice, currency),
     perScreenLabel: perScreenLabel(monthlyPrice, template.device_limit, currency, isFree),
+    annualPerScreenLabel:
+      annualMonthlyPrice == null
+        ? null
+        : perScreenLabel(annualMonthlyPrice, template.device_limit, currency, isFree),
     deviceLimit: template.device_limit,
     screens: formatScreensLabel(template.device_limit),
     features: template.features,
@@ -206,6 +275,7 @@ export function mapTemplateToViewModel(template: PlanTemplate, currency: PlanCur
 export function buildStaticPlanViewModels(currency: PlanCurrency = "USD"): PlanViewModel[] {
   return plans.map((plan) => {
     const isFree = plan.monthlyPrice <= 0;
+    const annualMonthlyPrice = resolveAnnualMonthlyPrice(plan.slug, 0, currency, isFree);
     return {
       id: plan.slug,
       slug: plan.slug,
@@ -219,11 +289,17 @@ export function buildStaticPlanViewModels(currency: PlanCurrency = "USD"): PlanV
         plan.originalPrice == null || isFree
           ? null
           : formatPlanCurrencyAmount(plan.originalPrice, currency),
+      annualMonthlyPrice,
       annualMonthlyPriceLabel:
-        plan.annualMonthlyPrice == null
-          ? null
-          : formatPlanCurrencyAmount(plan.annualMonthlyPrice, currency),
+        annualMonthlyPrice == null ? null : formatPlanCurrencyAmount(annualMonthlyPrice, currency),
+      annualOriginalPrice: plan.monthlyPrice,
+      annualOriginalPriceLabel:
+        isFree ? null : formatPlanCurrencyAmount(plan.monthlyPrice, currency),
       perScreenLabel: perScreenLabel(plan.monthlyPrice, plan.deviceLimit, currency, isFree),
+      annualPerScreenLabel:
+        annualMonthlyPrice == null
+          ? null
+          : perScreenLabel(annualMonthlyPrice, plan.deviceLimit, currency, isFree),
       deviceLimit: plan.deviceLimit,
       screens: formatScreensLabel(plan.deviceLimit),
       features: plan.features.map((feature) => feature.label),
@@ -243,4 +319,9 @@ export function planGridClassName(count: number): string {
   if (count === 3) return "md:grid-cols-3";
   if (count === 2) return "md:grid-cols-2";
   return "";
+}
+
+/** True when the catalog includes at least one paid tier (shows the billing period toggle). */
+export function catalogHasPaidPlans(plans: PlanViewModel[]): boolean {
+  return plans.some((plan) => !plan.isFree);
 }

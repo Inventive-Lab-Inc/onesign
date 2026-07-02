@@ -33,11 +33,11 @@ fun TrialWatermarkOverlay(modifier: Modifier = Modifier) {
             iconSize = 20.dp,
         )
         Text(
-            text = stringResource(R.string.brand_name),
+            text = stringResource(R.string.brand_trial_watermark),
             modifier = Modifier.padding(start = 8.dp),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
-            color = Color.White,
+            color = Color.White.copy(alpha = 0.45f),
         )
     }
 }

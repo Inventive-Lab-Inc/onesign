@@ -1,0 +1,99 @@
+.plan-pricing {
+  --plan-pricing-dark: color-mix(in srgb, var(--theme) 30%, #050b09);
+  --plan-pricing-dark-2: color-mix(in srgb, var(--theme) 16%, #02110c);
+}
+
+.plan-pricing-card {
+  position: relative;
+  overflow: hidden;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 1.25rem;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.plan-pricing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 44px -30px color-mix(in srgb, var(--theme) 55%, transparent);
+}
+
+.plan-pricing-card--popular {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(160deg, var(--plan-pricing-dark) 0%, var(--plan-pricing-dark-2) 100%);
+  box-shadow: 0 24px 56px -30px color-mix(in srgb, var(--theme) 65%, transparent);
+}
+
+.plan-pricing-card--current:not(.plan-pricing-card--popular) {
+  border-color: color-mix(in srgb, var(--theme) 35%, hsl(var(--border)));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme) 12%, transparent);
+}
+
+.plan-pricing-badge {
+  background: var(--theme);
+  color: var(--theme-contrast);
+}
+
+.plan-pricing-badge--current {
+  background: color-mix(in srgb, var(--theme) 12%, hsl(var(--card)));
+  color: var(--theme-foreground-strong);
+  border: 1px solid color-mix(in srgb, var(--theme) 25%, transparent);
+}
+
+.plan-pricing-card--popular .plan-pricing-badge--current {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.plan-pricing-check {
+  color: var(--theme);
+}
+
+.plan-pricing-check--dark {
+  color: var(--theme-foreground-on-dark);
+}
+
+.plan-pricing-cta-default {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.plan-pricing-cta-default:hover {
+  border-color: var(--theme);
+  background: var(--theme);
+  color: var(--theme-contrast);
+}
+
+.plan-pricing-cta-popular {
+  background: #fff;
+  color: var(--theme-foreground-strong);
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.plan-pricing-cta-popular:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--theme) 6%, #fff);
+}
+
+.plan-pricing-cta-disabled {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.45);
+  color: hsl(var(--muted-foreground));
+  cursor: default;
+}
+
+.plan-pricing-card--popular .plan-pricing-cta-disabled {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.55);
+}

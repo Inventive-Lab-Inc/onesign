@@ -50,7 +50,7 @@ describe("deviceMediaCacheSummary", () => {
     const summary = deviceMediaCacheSummary(
       deviceWithMediaCache({ items_total: 4, items_ready: 1, warming: true }),
     );
-    expect(summary?.label).toBe("Cache 1/4 · preparing");
+    expect(summary?.label).toBe("Downloading (1 of 4)");
     expect(summary?.tone).toBe("warming");
   });
 
@@ -58,7 +58,23 @@ describe("deviceMediaCacheSummary", () => {
     const summary = deviceMediaCacheSummary(
       deviceWithMediaCache({ items_total: 2, items_ready: 2, warming: false }),
     );
-    expect(summary?.label).toBe("Cache ready 2/2");
+    expect(summary?.label).toBe("All content saved on screen");
+    expect(summary?.detail).toBe("2 items");
     expect(summary?.tone).toBe("ready");
+  });
+
+  it("uses plain language for image-only playlists with storage", () => {
+    const summary = deviceMediaCacheSummary(
+      deviceWithMediaCache({
+        items_total: 3,
+        items_ready: 3,
+        images_total: 3,
+        images_ready: 3,
+        cache_bytes_used: 0,
+        cache_bytes_max: 1073741824,
+      }),
+    );
+    expect(summary?.label).toBe("All content saved on screen");
+    expect(summary?.detail).toBe("3 items · 1 GB available");
   });
 });

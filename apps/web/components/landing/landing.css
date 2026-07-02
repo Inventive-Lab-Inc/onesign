@@ -222,39 +222,6 @@
   background: color-mix(in srgb, var(--theme) 6%, #fff);
 }
 
-/* ---- Pricing teaser highlight -------------------------------------------- */
-
-.landing-price-card {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 1.25rem;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
-}
-.landing-price-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 44px -30px color-mix(in srgb, var(--theme) 55%, transparent);
-}
-.landing-price-card--popular {
-  border-color: transparent;
-  color: #fff;
-  background: linear-gradient(160deg, var(--landing-dark) 0%, var(--landing-dark-2) 100%);
-  box-shadow: 0 24px 56px -30px color-mix(in srgb, var(--theme) 65%, transparent);
-}
-
-.landing-price-badge {
-  background: var(--theme);
-  color: var(--theme-contrast);
-}
-
-.landing-price-check {
-  color: var(--theme);
-}
-.landing-price-check--dark {
-  color: var(--theme-foreground-on-dark);
-}
-
 /* ---- Reveal animation ----------------------------------------------------- */
 
 @media (prefers-reduced-motion: no-preference) {

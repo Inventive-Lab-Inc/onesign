@@ -411,7 +411,7 @@ export function DevicesManager() {
               <p className="mt-1 max-w-sm text-xs text-muted-foreground">Try another search or filter.</p>
             </div>
           ) : view === "grid" ? (
-            <ul className="device-screen-grid grid grid-cols-2 items-stretch gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <ul className="device-screen-grid grid grid-cols-2 items-stretch gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filtered.map((device) => (
                 <DeviceScreenCard
                   key={device.id}

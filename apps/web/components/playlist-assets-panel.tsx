@@ -4,13 +4,21 @@ import type { Media, Website } from "@signage/types";
 import { Draggable, Droppable } from "@hello-pangea/dnd";
 import { FileImage, Globe, GripVertical, Images, Plus, Search, Upload } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { contentLibraryPath, useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMediaUpload } from "@/hooks/use-media-upload";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { formatWebsiteMeta } from "@/lib/website-display";
 import { WebsitePreviewFrame } from "@/components/websites/website-preview-frame";
+import { ItemActionMenu } from "@/components/console/item-action-menu";
+import {
+  formatMediaUploadLabel,
+  MediaUploadProgressBar,
+} from "@/components/media/media-upload-progress";
+import { useMediaItemActions } from "@/hooks/use-media-item-actions";
 import { cn, mediaLibraryAddButtonClassName } from "@/lib/utils";
 
 type LibraryTab = "content" | "websites";
@@ -77,9 +85,17 @@ export function PlaylistAssetsPanel({
   addDisabledHint,
 }: PlaylistAssetsPanelProps) {
   const [libraryTab, setLibraryTab] = useState<LibraryTab>("content");
+  const adminRoutes = useAdminClientRoutes();
+  const contentLibraryHref = contentLibraryPath(adminRoutes);
   const canUpload = Boolean(ownerId) && !readOnly && !storageFull && libraryTab === "content";
-  const { uploading, open, getInputProps } = useMediaUpload(ownerId ?? "", { workspaceId });
+  const { uploading, uploadProgress, open, getInputProps } = useMediaUpload(ownerId ?? "", { workspaceId });
+  const { buildActionItems, actionDialogs } = useMediaItemActions({
+    userId: ownerId ?? "",
+    readOnly,
+    menuScope: "playlist-picker",
+  });
   const activeDroppableId = libraryTab === "content" ? droppableId : `${droppableId}-websites`;
+  const mediaName = (media: Media) => media.original_filename ?? media.storage_path;
 
   return (
     <aside className="w-full min-w-0 shrink-0 lg:w-full">
@@ -89,7 +105,11 @@ export function PlaylistAssetsPanel({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-foreground">Content library</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">Drag onto the playlist, tap Add, or upload.</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {libraryTab === "content"
+                  ? "Drag onto the playlist, tap +, or upload."
+                  : "Drag onto the playlist or tap + to add."}
+              </p>
             </div>
             {canUpload ? (
               <Button
@@ -97,8 +117,8 @@ export function PlaylistAssetsPanel({
                 size="sm"
                 className="h-8 shrink-0 gap-1.5 bg-brand px-2.5 text-brand-contrast shadow-sm hover:bg-brand-hover"
                 disabled={uploading}
-                title="Upload files"
-                aria-label="Upload files"
+                title={uploadProgress ? formatMediaUploadLabel(uploadProgress) : "Upload files"}
+                aria-label={uploadProgress ? formatMediaUploadLabel(uploadProgress) : "Upload files"}
                 onClick={() => open()}
               >
                 <Upload className="h-3.5 w-3.5" aria-hidden />
@@ -107,7 +127,7 @@ export function PlaylistAssetsPanel({
             ) : null}
           </div>
 
-          <div className="mt-3 flex gap-4 border-b border-border/80">
+          <div className="mt-3 flex items-end gap-4 border-b border-border/80">
             <button
               type="button"
               className={cn(
@@ -134,7 +154,22 @@ export function PlaylistAssetsPanel({
               <Globe className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
               Websites
             </button>
+            <Link
+              href={contentLibraryHref}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "mb-1.5 ml-auto shrink-0",
+              )}
+            >
+              Manage all content
+            </Link>
           </div>
+
+          {uploadProgress ? (
+            <div className="mt-3 rounded-lg border border-border bg-background px-3 py-2.5">
+              <MediaUploadProgressBar progress={uploadProgress} compact />
+            </div>
+          ) : null}
 
           <div className="relative mt-3">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -198,20 +233,27 @@ export function PlaylistAssetsPanel({
                             </button>
                             <LibraryThumb media={m} />
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium">{m.original_filename ?? m.storage_path}</p>
+                              <p className="truncate text-xs font-medium">{mediaName(m)}</p>
                               <p className="text-[0.625rem] capitalize text-muted-foreground">{m.file_type}</p>
                             </div>
+                            {ownerId ? (
+                              <ItemActionMenu
+                                ariaLabel={`Actions for ${mediaName(m)}`}
+                                items={buildActionItems(m)}
+                                className="shrink-0"
+                              />
+                            ) : null}
                             <Button
                               type="button"
                               size="sm"
                               variant="secondary"
-                              className={mediaLibraryAddButtonClassName}
+                              className={cn(mediaLibraryAddButtonClassName, "h-8 w-8 p-0")}
                               disabled={addDisabled}
                               title={addDisabled ? addDisabledHint : "Add to playlist"}
+                              aria-label={addDisabled ? addDisabledHint : "Add to playlist"}
                               onClick={() => onAddMedia(m.id)}
                             >
-                              <Plus className="h-3 w-3" />
-                              Add
+                              <Plus className="h-3.5 w-3.5" aria-hidden />
                             </Button>
                           </li>
                         )}
@@ -261,13 +303,13 @@ export function PlaylistAssetsPanel({
                               type="button"
                               size="sm"
                               variant="secondary"
-                              className={mediaLibraryAddButtonClassName}
+                              className={cn(mediaLibraryAddButtonClassName, "h-8 w-8 p-0")}
                               disabled={addDisabled}
                               title={addDisabled ? addDisabledHint : "Add to playlist"}
+                              aria-label={addDisabled ? addDisabledHint : "Add to playlist"}
                               onClick={() => onAddWebsite(website.id)}
                             >
-                              <Plus className="h-3 w-3" />
-                              Add
+                              <Plus className="h-3.5 w-3.5" aria-hidden />
                             </Button>
                           </li>
                         )}
@@ -281,6 +323,7 @@ export function PlaylistAssetsPanel({
           )}
         </div>
       </div>
+      {ownerId ? actionDialogs : null}
     </aside>
   );
 }

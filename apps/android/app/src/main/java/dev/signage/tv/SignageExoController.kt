@@ -32,8 +32,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 @UnstableApi
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -193,8 +196,14 @@ class SignageExoController(
     private val prefetchJobs = ConcurrentHashMap<String, Job>()
     private val playlistWarmGeneration = AtomicInteger(0)
     private var playlistWarmJob: Job? = null
+    private var lastScheduledWarmUrls: List<String> = emptyList()
+    private val videoPrefetchProgress = ConcurrentHashMap<String, Int>()
+    private val prefetchSemaphore = Semaphore(MAX_CONCURRENT_VIDEO_PREFETCH)
 
-    /** URL bound to Exo right now — do not background-cache the same bytes. */
+    /** Fired on IO thread when a background video prefetch reports byte progress. */
+    var onVideoPrefetchProgress: ((url: String, percent: Int) -> Unit)? = null
+
+    fun getVideoPrefetchProgress(url: String): Int? = videoPrefetchProgress[url]
     fun currentlyPlayingVideoUrl(): String? = boundVideo?.url
 
     /** True while a sequential playlist warm or ad-hoc prefetch job is running. */
@@ -205,6 +214,7 @@ class SignageExoController(
         val allowed = allowedUrls.toSet()
         prefetchJobs.keys.filter { it !in allowed }.forEach { url ->
             prefetchJobs.remove(url)?.cancel()
+            videoPrefetchProgress.remove(url)
         }
     }
 
@@ -212,26 +222,46 @@ class SignageExoController(
         playlistWarmGeneration.incrementAndGet()
         playlistWarmJob?.cancel()
         playlistWarmJob = null
+        lastScheduledWarmUrls = emptyList()
     }
 
     /**
-     * Downloads [urls] one at a time (highest priority first). Cancels in-flight jobs for URLs
-     * not in this playlist generation. Never blocks the main thread or active Exo decode.
+     * Downloads [urls] with limited parallelism (highest priority first). Skips restart when the
+     * same queue is already warming. Never blocks the main thread or active Exo decode.
      */
     fun schedulePrioritizedVideoWarm(urls: List<String>) {
-        if (urls.isEmpty()) {
+        val targetUrls =
+            urls.filter { url ->
+                url.isNotBlank() && url != boundVideo?.url
+            }
+        if (targetUrls.isEmpty()) {
             return
         }
+        if (playlistWarmJob?.isActive == true && lastScheduledWarmUrls == targetUrls) {
+            return
+        }
+        lastScheduledWarmUrls = targetUrls
         val generation = playlistWarmGeneration.incrementAndGet()
         playlistWarmJob?.cancel()
         playlistWarmJob =
             ioScope.launch {
-                for (url in urls) {
-                    if (!isActive || generation != playlistWarmGeneration.get()) {
-                        return@launch
+                val queue = Channel<String>(Channel.UNLIMITED)
+                targetUrls.forEach { queue.send(it) }
+                queue.close()
+                val workers =
+                    List(MAX_CONCURRENT_VIDEO_PREFETCH) {
+                        launch {
+                            for (url in queue) {
+                                if (!isActive || generation != playlistWarmGeneration.get()) {
+                                    return@launch
+                                }
+                                prefetchSemaphore.withPermit {
+                                    cacheVideoUrlFully(url)
+                                }
+                            }
+                        }
                     }
-                    cacheVideoUrlFully(url)
-                }
+                workers.forEach { it.join() }
             }
     }
 
@@ -255,7 +285,9 @@ class SignageExoController(
         prefetchJobs[url] =
             ioScope.launch {
                 try {
-                    cacheVideoUrlFully(url)
+                    prefetchSemaphore.withPermit {
+                        cacheVideoUrlFully(url)
+                    }
                 } finally {
                     prefetchJobs.remove(url)
                 }
@@ -270,11 +302,6 @@ class SignageExoController(
             Log.d(log, "Skip full prefetch; url is actively playing: $url")
             return
         }
-        val existing = prefetchJobs[url]
-        if (existing?.isActive == true) {
-            existing.join()
-            return
-        }
         withContext(Dispatchers.IO) {
             val uri = Uri.parse(url)
             val dataSource = cacheDataSourceFactory.createDataSource() as? CacheDataSource
@@ -284,7 +311,15 @@ class SignageExoController(
                     .setUri(uri)
                     .setPosition(0)
                     .build()
-            val writer = CacheWriter(dataSource, dataSpec, null, null)
+            val progressListener =
+                CacheWriter.ProgressListener { requestLength, bytesCached, _ ->
+                    if (requestLength > 0) {
+                        val pct = ((bytesCached * 100) / requestLength).toInt().coerceIn(0, 100)
+                        videoPrefetchProgress[url] = pct
+                        onVideoPrefetchProgress?.invoke(url, pct)
+                    }
+                }
+            val writer = CacheWriter(dataSource, dataSpec, null, progressListener)
             if (!coroutineContext.isActive) {
                 writer.cancel()
                 return@withContext
@@ -293,8 +328,11 @@ class SignageExoController(
             runCatching {
                 writer.cache()
             }.onSuccess {
+                videoPrefetchProgress[url] = 100
+                onVideoPrefetchProgress?.invoke(url, 100)
                 Log.i(log, "Full prefetch complete url=$url")
             }.onFailure { e: Throwable ->
+                videoPrefetchProgress.remove(url)
                 if (e is IOException) {
                     Log.d(log, "Full prefetch ended url=$url: $e")
                 } else {
@@ -607,6 +645,7 @@ class SignageExoController(
     }
 
     companion object {
+        const val MAX_CONCURRENT_VIDEO_PREFETCH = 3
         const val STALL_CHECK_INTERVAL_MS = 2_000L
         const val STALL_TICKS_BEFORE_RECOVER = 6
         const val STALL_BUFFERING_TICKS_BEFORE_RECOVER = 20

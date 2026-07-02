@@ -80,6 +80,37 @@ export function getPlanPricesForCurrency(
   }
 }
 
+/** Annual monthly-equivalent price in minor units for the visitor's currency. */
+export function getPlanAnnualMonthlyMinor(template: PlanTemplate, currency: PlanCurrency): number {
+  switch (currency) {
+    case "GBP":
+      return template.annual_monthly_price_gbp_cents ?? 0;
+    case "EUR":
+      return template.annual_monthly_price_eur_cents ?? 0;
+    case "BDT":
+      return template.annual_monthly_price_bdt_paisa ?? 0;
+    default:
+      return template.annual_monthly_price_cents ?? 0;
+  }
+}
+
+/** Optional annual strikethrough anchor in minor units for the visitor's currency. */
+export function getPlanOriginalAnnualMonthlyMinor(
+  template: PlanTemplate,
+  currency: PlanCurrency,
+): number | null {
+  switch (currency) {
+    case "GBP":
+      return template.original_annual_monthly_price_gbp_cents ?? null;
+    case "EUR":
+      return template.original_annual_monthly_price_eur_cents ?? null;
+    case "BDT":
+      return template.original_annual_monthly_price_bdt_paisa ?? null;
+    default:
+      return template.original_annual_monthly_price_cents ?? null;
+  }
+}
+
 /** Converts stored minor units to a display amount (major units). */
 export function minorToDisplayAmount(minor: number, currency: PlanCurrency): number {
   if (currency === "BDT") {

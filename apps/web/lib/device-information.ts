@@ -21,13 +21,25 @@ function telemetryString(v: unknown): string | null {
 }
 
 function deviceHardwareLabel(device: Device): { brand: string | null; model: string | null } {
-  const t = device.telemetry;
-  if (!t || typeof t !== "object") return { brand: null, model: null };
-  const hw = t.hardware;
+  return deviceHardwareLabelFromTelemetry(device.telemetry);
+}
+
+function deviceHardwareLabelFromTelemetry(
+  telemetry: Device["telemetry"],
+): { brand: string | null; model: string | null } {
+  if (!telemetry || typeof telemetry !== "object") return { brand: null, model: null };
+  const hw = telemetry.hardware;
   if (!hw || typeof hw !== "object") return { brand: null, model: null };
   const h = hw as Record<string, unknown>;
   const brand = telemetryString(h.brand) ?? telemetryString(h.manufacturer);
   return { brand, model: telemetryString(h.model) };
+}
+
+/** Default screen name when pairing without a display name, e.g. `Vivo - XT123`. */
+export function buildDeviceNameFromTelemetry(telemetry: Device["telemetry"]): string | null {
+  const { brand, model } = deviceHardwareLabelFromTelemetry(telemetry);
+  if (brand && model) return `${brand} - ${model}`;
+  return brand ?? model;
 }
 
 function formatWhen(iso: string | null | undefined): string {

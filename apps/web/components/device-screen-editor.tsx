@@ -277,7 +277,7 @@ export function DeviceScreenEditor({
             deviceId={device.id}
             ownerId={ownerId}
             thumbnailStoragePath={device.thumbnail_storage_path}
-            previewItems={cachedItems}
+            screenOrientation={screenOrientation}
             canEdit={canManageTvPlaylist}
             showFormatHint={false}
             onUpdated={(thumbnailStoragePath) =>

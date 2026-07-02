@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Device } from "@signage/types";
-import { buildDeviceHistoryEvents, buildDeviceInformationRows } from "./device-information";
+import {
+  buildDeviceHistoryEvents,
+  buildDeviceInformationRows,
+  buildDeviceNameFromTelemetry,
+} from "./device-information";
 
 function makeDevice(overrides: Partial<Device> = {}): Device {
   return {
@@ -17,6 +21,34 @@ function makeDevice(overrides: Partial<Device> = {}): Device {
     ...overrides,
   };
 }
+
+describe("buildDeviceNameFromTelemetry", () => {
+  it("combines manufacturer and model with a dash", () => {
+    expect(
+      buildDeviceNameFromTelemetry({
+        hardware: { manufacturer: "vivo", model: "XT123" },
+      }),
+    ).toBe("vivo - XT123");
+  });
+
+  it("prefers brand over manufacturer", () => {
+    expect(
+      buildDeviceNameFromTelemetry({
+        hardware: { brand: "Vivo", manufacturer: "vivo", model: "XT123" },
+      }),
+    ).toBe("Vivo - XT123");
+  });
+
+  it("returns only manufacturer or model when the other is missing", () => {
+    expect(buildDeviceNameFromTelemetry({ hardware: { manufacturer: "Sony" } })).toBe("Sony");
+    expect(buildDeviceNameFromTelemetry({ hardware: { model: "BRAVIA" } })).toBe("BRAVIA");
+  });
+
+  it("returns null when telemetry has no hardware info", () => {
+    expect(buildDeviceNameFromTelemetry(null)).toBeNull();
+    expect(buildDeviceNameFromTelemetry({})).toBeNull();
+  });
+});
 
 describe("buildDeviceInformationRows", () => {
   it("includes playlist change when provided", () => {

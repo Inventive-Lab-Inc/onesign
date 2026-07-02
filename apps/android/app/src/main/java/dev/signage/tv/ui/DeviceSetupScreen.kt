@@ -1,24 +1,41 @@
 package dev.signage.tv.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.signage.tv.R
 import dev.signage.tv.ui.theme.SignageColors
+
+private val setupSteps =
+    listOf(
+        R.string.device_setup_step_open_settings,
+        R.string.device_setup_step_allow_installs,
+        R.string.device_setup_step_return,
+    )
 
 @Composable
 fun DeviceSetupScreen(
@@ -27,81 +44,120 @@ fun DeviceSetupScreen(
     onContinueClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(horizontal = 48.dp, vertical = 40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        SignageBrandHeaderTv()
-        Spacer(modifier = Modifier.height(36.dp))
+    TvBrandedScreenLayout(modifier = modifier) {
         Column(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .widthIn(max = 720.dp)
-                    .fillMaxWidth(),
-            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth(0.56f),
         ) {
             Text(
                 text = stringResource(R.string.device_setup_title),
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.SemiBold,
+                ),
                 color = SignageColors.ThemeForegroundOnDark,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.device_setup_intro),
-                style = MaterialTheme.typography.bodyLarge,
-                color = SignageColors.ThemeForegroundOnDarkSoft,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(modifier = Modifier.height(28.dp))
-            SetupStep(number = 1, text = stringResource(R.string.device_setup_step_open_settings))
-            Spacer(modifier = Modifier.height(12.dp))
-            SetupStep(number = 2, text = stringResource(R.string.device_setup_step_allow_installs))
-            Spacer(modifier = Modifier.height(12.dp))
-            SetupStep(number = 3, text = stringResource(R.string.device_setup_step_return))
             Spacer(modifier = Modifier.height(32.dp))
+            setupSteps.forEachIndexed { index, stepRes ->
+                if (index > 0) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+                SetupStepRow(number = index + 1, text = stringResource(stepRes), isActive = index == 0)
+            }
+            Spacer(modifier = Modifier.height(40.dp))
             if (installPermissionGranted) {
                 Text(
                     text = stringResource(R.string.device_setup_permission_granted),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = SignageColors.Theme,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(20.dp))
-                Button(onClick = onContinueClick) {
-                    Text(stringResource(R.string.device_setup_continue))
-                }
-            } else {
-                Text(
-                    text = stringResource(R.string.device_setup_one_time_note),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = SignageColors.ThemeForegroundOnDarkSoft,
-                    textAlign = TextAlign.Center,
+                DeviceSetupPrimaryButton(
+                    label = stringResource(R.string.device_setup_continue),
+                    onClick = onContinueClick,
                 )
-                Spacer(modifier = Modifier.height(20.dp))
-                Button(onClick = onOpenSettingsClick) {
-                    Text(stringResource(R.string.device_setup_open_settings))
-                }
+            } else {
+                DeviceSetupPrimaryButton(
+                    label = stringResource(R.string.device_setup_open_settings),
+                    onClick = onOpenSettingsClick,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SetupStep(
+private fun SetupStepRow(
     number: Int,
     text: String,
+    isActive: Boolean,
 ) {
-    Text(
-        text = stringResource(R.string.device_setup_step_format, number, text),
-        style = MaterialTheme.typography.bodyLarge,
-        color = SignageColors.ThemeForegroundOnDark,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth(),
-    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(44.dp)
+                    .border(
+                        width = 1.dp,
+                        color =
+                            if (isActive) {
+                                SignageColors.Theme
+                            } else {
+                                SignageColors.Theme.copy(alpha = 0.3f)
+                            },
+                        shape = CircleShape,
+                    )
+                    .background(
+                        color = if (isActive) SignageColors.Theme else Color.Transparent,
+                        shape = CircleShape,
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = number.toString(),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = if (isActive) SignageColors.ThemeContrast else SignageColors.ThemeForegroundOnDark,
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 26.sp),
+            color =
+                if (isActive) {
+                    SignageColors.ThemeForegroundOnDark
+                } else {
+                    SignageColors.ThemeForegroundOnDarkSoft
+                },
+            fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
+        )
+    }
+}
+
+@Composable
+private fun DeviceSetupPrimaryButton(
+    label: String,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = SignageColors.Theme,
+                contentColor = SignageColors.ThemeContrast,
+            ),
+        modifier = Modifier.padding(horizontal = 40.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+        )
+    }
 }

@@ -35,6 +35,8 @@ import { cn } from "@/lib/utils";
 type CurrencyPriceFields = {
   monthly: string;
   original: string;
+  annualMonthly: string;
+  annualOriginal: string;
 };
 
 type PlanFormState = {
@@ -55,10 +57,10 @@ type PlanFormState = {
 
 function emptyPrices(): Record<PlanCurrency, CurrencyPriceFields> {
   return {
-    USD: { monthly: "", original: "" },
-    GBP: { monthly: "", original: "" },
-    EUR: { monthly: "", original: "" },
-    BDT: { monthly: "", original: "" },
+    USD: { monthly: "", original: "", annualMonthly: "", annualOriginal: "" },
+    GBP: { monthly: "", original: "", annualMonthly: "", annualOriginal: "" },
+    EUR: { monthly: "", original: "", annualMonthly: "", annualOriginal: "" },
+    BDT: { monthly: "", original: "", annualMonthly: "", annualOriginal: "" },
   };
 }
 
@@ -80,9 +82,15 @@ function emptyForm(): PlanFormState {
   };
 }
 
-function minorToInput(minor: number, currency: PlanCurrency): string {
+function minorToInput(minor: number | undefined | null, currency: PlanCurrency): string {
+  if (minor == null || !Number.isFinite(minor)) return "";
   const amount = minor / 100;
   return Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
+}
+
+function formatAnnualMinorUnits(minor: number | undefined | null, currency: PlanCurrency): string | null {
+  if (minor == null || !Number.isFinite(minor) || minor <= 0) return null;
+  return formatPlanMinorUnits(minor, currency);
 }
 
 function planToForm(plan: PlanTemplate): PlanFormState {
@@ -97,21 +105,41 @@ function planToForm(plan: PlanTemplate): PlanFormState {
       USD: {
         monthly: minorToInput(plan.monthly_price_cents, "USD"),
         original: plan.original_price_cents == null ? "" : minorToInput(plan.original_price_cents, "USD"),
+        annualMonthly: minorToInput(plan.annual_monthly_price_cents, "USD"),
+        annualOriginal:
+          plan.original_annual_monthly_price_cents == null
+            ? ""
+            : minorToInput(plan.original_annual_monthly_price_cents, "USD"),
       },
       GBP: {
         monthly: minorToInput(plan.monthly_price_gbp_cents, "GBP"),
         original:
           plan.original_price_gbp_cents == null ? "" : minorToInput(plan.original_price_gbp_cents, "GBP"),
+        annualMonthly: minorToInput(plan.annual_monthly_price_gbp_cents, "GBP"),
+        annualOriginal:
+          plan.original_annual_monthly_price_gbp_cents == null
+            ? ""
+            : minorToInput(plan.original_annual_monthly_price_gbp_cents, "GBP"),
       },
       EUR: {
         monthly: minorToInput(plan.monthly_price_eur_cents, "EUR"),
         original:
           plan.original_price_eur_cents == null ? "" : minorToInput(plan.original_price_eur_cents, "EUR"),
+        annualMonthly: minorToInput(plan.annual_monthly_price_eur_cents, "EUR"),
+        annualOriginal:
+          plan.original_annual_monthly_price_eur_cents == null
+            ? ""
+            : minorToInput(plan.original_annual_monthly_price_eur_cents, "EUR"),
       },
       BDT: {
         monthly: minorToInput(plan.monthly_price_bdt_paisa, "BDT"),
         original:
           plan.original_price_bdt_paisa == null ? "" : minorToInput(plan.original_price_bdt_paisa, "BDT"),
+        annualMonthly: minorToInput(plan.annual_monthly_price_bdt_paisa, "BDT"),
+        annualOriginal:
+          plan.original_annual_monthly_price_bdt_paisa == null
+            ? ""
+            : minorToInput(plan.original_annual_monthly_price_bdt_paisa, "BDT"),
       },
     },
     ctaLabel: plan.cta_label,
@@ -166,6 +194,14 @@ function planToPayload(plan: PlanTemplate): Record<string, unknown> {
     originalPriceEurCents: plan.original_price_eur_cents,
     monthlyPriceBdtPaisa: plan.monthly_price_bdt_paisa,
     originalPriceBdtPaisa: plan.original_price_bdt_paisa,
+    annualMonthlyPriceCents: plan.annual_monthly_price_cents,
+    annualMonthlyPriceGbpCents: plan.annual_monthly_price_gbp_cents,
+    annualMonthlyPriceEurCents: plan.annual_monthly_price_eur_cents,
+    annualMonthlyPriceBdtPaisa: plan.annual_monthly_price_bdt_paisa,
+    originalAnnualMonthlyPriceCents: plan.original_annual_monthly_price_cents,
+    originalAnnualMonthlyPriceGbpCents: plan.original_annual_monthly_price_gbp_cents,
+    originalAnnualMonthlyPriceEurCents: plan.original_annual_monthly_price_eur_cents,
+    originalAnnualMonthlyPriceBdtPaisa: plan.original_annual_monthly_price_bdt_paisa,
     ctaLabel: plan.cta_label,
     features: plan.features,
     badge: plan.badge,
@@ -175,12 +211,28 @@ function planToPayload(plan: PlanTemplate): Record<string, unknown> {
   };
 }
 
-function planPriceSummary(plan: PlanTemplate): { currency: PlanCurrency; label: string }[] {
+function planPriceSummary(plan: PlanTemplate): { currency: PlanCurrency; monthly: string; annual: string | null }[] {
   return [
-    { currency: "USD", label: formatPlanMinorUnits(plan.monthly_price_cents, "USD") },
-    { currency: "GBP", label: formatPlanMinorUnits(plan.monthly_price_gbp_cents, "GBP") },
-    { currency: "EUR", label: formatPlanMinorUnits(plan.monthly_price_eur_cents, "EUR") },
-    { currency: "BDT", label: formatPlanMinorUnits(plan.monthly_price_bdt_paisa, "BDT") },
+    {
+      currency: "USD",
+      monthly: formatPlanMinorUnits(plan.monthly_price_cents, "USD"),
+      annual: formatAnnualMinorUnits(plan.annual_monthly_price_cents, "USD"),
+    },
+    {
+      currency: "GBP",
+      monthly: formatPlanMinorUnits(plan.monthly_price_gbp_cents, "GBP"),
+      annual: formatAnnualMinorUnits(plan.annual_monthly_price_gbp_cents, "GBP"),
+    },
+    {
+      currency: "EUR",
+      monthly: formatPlanMinorUnits(plan.monthly_price_eur_cents, "EUR"),
+      annual: formatAnnualMinorUnits(plan.annual_monthly_price_eur_cents, "EUR"),
+    },
+    {
+      currency: "BDT",
+      monthly: formatPlanMinorUnits(plan.monthly_price_bdt_paisa, "BDT"),
+      annual: formatAnnualMinorUnits(plan.annual_monthly_price_bdt_paisa, "BDT"),
+    },
   ];
 }
 
@@ -298,12 +350,19 @@ export function AdminPlansManager({ plans }: { plans: PlanTemplate[] }) {
               </div>
 
               <dl className="mt-3 space-y-1">
-                {planPriceSummary(plan).map(({ currency, label }) => (
+                {planPriceSummary(plan).map(({ currency, monthly, annual }) => (
                   <div key={currency} className="flex items-baseline justify-between gap-2 text-sm">
                     <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{currency}</dt>
-                    <dd className="font-semibold text-foreground">
-                      {label}
+                    <dd className="text-right font-semibold text-foreground">
+                      <span>{monthly}</span>
                       <span className="ml-1 text-xs font-normal text-muted-foreground">/mo</span>
+                      {annual && annual !== monthly ? (
+                        <>
+                          <span className="mx-1 text-muted-foreground">·</span>
+                          <span>{annual}</span>
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">/mo annual</span>
+                        </>
+                      ) : null}
                     </dd>
                   </div>
                 ))}
@@ -485,7 +544,19 @@ function PlanEditorModal({
       EUR: 0,
       BDT: 0,
     };
+    const annualMonthlyPriceCents: Record<PlanCurrency, number> = {
+      USD: 0,
+      GBP: 0,
+      EUR: 0,
+      BDT: 0,
+    };
     const originalPriceMinor: Record<PlanCurrency, number | null> = {
+      USD: null,
+      GBP: null,
+      EUR: null,
+      BDT: null,
+    };
+    const originalAnnualMonthlyPriceMinor: Record<PlanCurrency, number | null> = {
       USD: null,
       GBP: null,
       EUR: null,
@@ -500,17 +571,32 @@ function PlanEditorModal({
       }
       monthlyPriceCents[currency] = Math.round(monthly * 100);
 
-      const originalRaw = form.prices[currency].original.trim();
-      if (originalRaw === "") {
-        originalPriceMinor[currency] = null;
-        continue;
-      }
-      const original = parsePriceInput(originalRaw);
-      if (original == null) {
-        toast.error(`Enter a valid ${currency} original price or leave it blank`);
+      const annualMonthly = parsePriceInput(form.prices[currency].annualMonthly);
+      if (annualMonthly == null) {
+        toast.error(`Enter a valid ${currency} annual monthly-equivalent price`);
         return;
       }
-      originalPriceMinor[currency] = Math.round(original * 100);
+      annualMonthlyPriceCents[currency] = Math.round(annualMonthly * 100);
+
+      const originalRaw = form.prices[currency].original.trim();
+      if (originalRaw !== "") {
+        const original = parsePriceInput(originalRaw);
+        if (original == null) {
+          toast.error(`Enter a valid ${currency} original price or leave it blank`);
+          return;
+        }
+        originalPriceMinor[currency] = Math.round(original * 100);
+      }
+
+      const annualOriginalRaw = form.prices[currency].annualOriginal.trim();
+      if (annualOriginalRaw !== "") {
+        const annualOriginal = parsePriceInput(annualOriginalRaw);
+        if (annualOriginal == null) {
+          toast.error(`Enter a valid ${currency} annual original price or leave it blank`);
+          return;
+        }
+        originalAnnualMonthlyPriceMinor[currency] = Math.round(annualOriginal * 100);
+      }
     }
 
     const features = form.features
@@ -534,6 +620,14 @@ function PlanEditorModal({
         originalPriceEurCents: originalPriceMinor.EUR,
         monthlyPriceBdtPaisa: monthlyPriceCents.BDT,
         originalPriceBdtPaisa: originalPriceMinor.BDT,
+        annualMonthlyPriceCents: annualMonthlyPriceCents.USD,
+        annualMonthlyPriceGbpCents: annualMonthlyPriceCents.GBP,
+        annualMonthlyPriceEurCents: annualMonthlyPriceCents.EUR,
+        annualMonthlyPriceBdtPaisa: annualMonthlyPriceCents.BDT,
+        originalAnnualMonthlyPriceCents: originalAnnualMonthlyPriceMinor.USD,
+        originalAnnualMonthlyPriceGbpCents: originalAnnualMonthlyPriceMinor.GBP,
+        originalAnnualMonthlyPriceEurCents: originalAnnualMonthlyPriceMinor.EUR,
+        originalAnnualMonthlyPriceBdtPaisa: originalAnnualMonthlyPriceMinor.BDT,
         ctaLabel: form.ctaLabel.trim() || "Choose plan",
         features,
         badge: form.badge.trim() || null,
@@ -556,7 +650,7 @@ function PlanEditorModal({
         role="dialog"
         aria-modal="true"
         aria-label={isNew ? "Create plan" : `Edit ${form.name}`}
-        className="relative w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl"
+        className="relative w-full max-w-5xl rounded-xl border border-border bg-card p-5 shadow-xl"
       >
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground">{isNew ? "New plan" : "Edit plan"}</h2>
@@ -594,34 +688,62 @@ function PlanEditorModal({
             </div>
           </div>
 
-          <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-3">
-            <p className="text-xs font-medium text-muted-foreground">
-              Monthly prices by currency (all required). Visitors see the amount for their region.
-            </p>
-            {PLAN_CURRENCIES.map((currency) => (
-              <div key={currency} className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor={`plan-price-${currency}`}>Monthly ({currency})</Label>
-                  <Input
-                    id={`plan-price-${currency}`}
-                    inputMode="decimal"
-                    value={form.prices[currency].monthly}
-                    onChange={(event) => updatePrice(currency, "monthly", event.target.value)}
-                    placeholder={currency === "BDT" ? "1900" : "59"}
-                  />
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+            <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-3">
+              {PLAN_CURRENCIES.map((currency) => (
+                <div key={currency} className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`plan-price-${currency}`}>Monthly ({currency})</Label>
+                    <Input
+                      id={`plan-price-${currency}`}
+                      inputMode="decimal"
+                      value={form.prices[currency].monthly}
+                      onChange={(event) => updatePrice(currency, "monthly", event.target.value)}
+                      placeholder={currency === "BDT" ? "1900" : "59"}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`plan-original-${currency}`}>Original ({currency}, optional)</Label>
+                    <Input
+                      id={`plan-original-${currency}`}
+                      inputMode="decimal"
+                      value={form.prices[currency].original}
+                      onChange={(event) => updatePrice(currency, "original", event.target.value)}
+                      placeholder={currency === "BDT" ? "2900" : "79"}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor={`plan-original-${currency}`}>Original ({currency}, optional)</Label>
-                  <Input
-                    id={`plan-original-${currency}`}
-                    inputMode="decimal"
-                    value={form.prices[currency].original}
-                    onChange={(event) => updatePrice(currency, "original", event.target.value)}
-                    placeholder={currency === "BDT" ? "2900" : "79"}
-                  />
+              ))}
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-3">
+              {PLAN_CURRENCIES.map((currency) => (
+                <div key={`annual-${currency}`} className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`plan-annual-${currency}`}>Annual ({currency})</Label>
+                    <Input
+                      id={`plan-annual-${currency}`}
+                      inputMode="decimal"
+                      value={form.prices[currency].annualMonthly}
+                      onChange={(event) => updatePrice(currency, "annualMonthly", event.target.value)}
+                      placeholder={currency === "BDT" ? "700" : "7"}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`plan-annual-original-${currency}`}>
+                      Original ({currency}, optional)
+                    </Label>
+                    <Input
+                      id={`plan-annual-original-${currency}`}
+                      inputMode="decimal"
+                      value={form.prices[currency].annualOriginal}
+                      onChange={(event) => updatePrice(currency, "annualOriginal", event.target.value)}
+                      placeholder={currency === "BDT" ? "900" : "9"}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

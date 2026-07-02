@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Color
  * Change [Theme] only; other values mirror the web admin dashboard palette.
  */
 object SignageColors {
-    val Theme = Color(0xFF047857)
+    val Theme = Color(0xFF087958)
     val ThemeContrast = Color(0xFFF5FAF8)
     val ThemeShellDark = Color(0xFF012218)
     val ThemeShellLight = Color(0xFF023E2D)

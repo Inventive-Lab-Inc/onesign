@@ -12,7 +12,7 @@ sealed interface MainUiState {
     data class AwaitingLink(
         val pairingCode: String,
         val deviceId: String,
-        val message: String,
+        val showWaitingIndicator: Boolean = true,
     ) : MainUiState
 
     data class Playback(
@@ -31,7 +31,7 @@ sealed interface MainUiState {
         /** Mirrors [DeviceRow.screenOrientation] from poll (dashboard setting). */
         val screenOrientation: String = "landscape",
         /** Admin paused playback in the dashboard; show standby branding instead of slides or errors. */
-        val playbackDisabledByAdmin: Boolean = false,
+        val playbackBlockReason: PlaybackBlockReason? = null,
         /** Screen is outside configured operating hours (from tv_get_playback_slides). */
         val outsideOperatingHours: Boolean = false,
         /** When true with [outsideOperatingHours], show a blank screen instead of standby branding. */
@@ -51,3 +51,6 @@ sealed interface MainUiState {
      */
     data class Error(val code: String) : MainUiState
 }
+
+val MainUiState.Playback.isPlaybackBlocked: Boolean
+    get() = playbackBlockReason != null

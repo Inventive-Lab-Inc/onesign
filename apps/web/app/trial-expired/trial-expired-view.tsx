@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { billingContactMailto } from "@/lib/plan/billing";
 import { cn } from "@/lib/utils";
 
 export function TrialExpiredView() {
@@ -32,13 +33,7 @@ export function TrialExpiredView() {
           continue managing content.
         </p>
         <div className="mt-6 flex flex-wrap gap-2">
-          <Link href="/plans" className={cn(buttonVariants({ size: "default" }))}>
-            View plans
-          </Link>
-          <Link
-            href="mailto:aminulislamborhan@gmail.com?subject=OneSign%20upgrade"
-            className={cn(buttonVariants({ size: "default", variant: "outline" }))}
-          >
+          <Link href={billingContactMailto("OneSign upgrade")} className={cn(buttonVariants({ size: "default" }))}>
             Contact us to upgrade
           </Link>
           <Button type="button" variant="ghost" onClick={() => void signOut()}>

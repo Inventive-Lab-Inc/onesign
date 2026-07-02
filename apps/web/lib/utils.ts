@@ -5,5 +5,5 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Asset library “+ Add” — muted at rest, theme green on hover/focus (see globals.css). */
+/** Asset library add (+) button — muted at rest, theme green on hover/focus (see globals.css). */
 export const mediaLibraryAddButtonClassName = "media-library-add-btn";

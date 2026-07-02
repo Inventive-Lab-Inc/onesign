@@ -1,12 +1,11 @@
 "use client";
 
-import type { DeviceStatus, PlaylistItemWithMedia } from "@signage/types";
-import { ImageIcon, Loader2, Pencil, Trash2 } from "lucide-react";
+import type { DeviceScreenOrientation, DeviceStatus } from "@signage/types";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { PlaylistItemPreviewStill } from "@/components/playlist-item-preview-still";
-import { firstPreviewablePlaylistItem } from "@/lib/playlist-preview-items";
+import { DeviceScreenCardTvFrame } from "@/components/devices/device-screen-card-tv-frame";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import {
   DEVICE_THUMBNAIL_ACCEPT,
@@ -15,6 +14,7 @@ import {
   uploadDeviceThumbnail,
 } from "@/lib/upload-device-thumbnail";
 import { cn } from "@/lib/utils";
+import "./device-tv-frame.css";
 
 function statusLabel(status: DeviceStatus): string {
   switch (status) {
@@ -48,7 +48,7 @@ export function DeviceThumbnailPicker({
   deviceId,
   ownerId,
   thumbnailStoragePath,
-  previewItems = [],
+  screenOrientation,
   canEdit = true,
   onUpdated,
   className,
@@ -57,7 +57,7 @@ export function DeviceThumbnailPicker({
   deviceId: string;
   ownerId: string;
   thumbnailStoragePath?: string | null;
-  previewItems?: PlaylistItemWithMedia[];
+  screenOrientation?: DeviceScreenOrientation | string | null;
   canEdit?: boolean;
   onUpdated: (thumbnailStoragePath: string | null) => void;
   className?: string;
@@ -112,13 +112,12 @@ export function DeviceThumbnailPicker({
   }, [busy, canEdit, deviceId, onUpdated, ownerId, thumbnailStoragePath]);
 
   const thumbnailUrl = thumbnailStoragePath ? mediaPublicUrl(thumbnailStoragePath) : null;
-  const fallbackPreviewItem = thumbnailUrl ? null : firstPreviewablePlaylistItem(previewItems);
 
   return (
     <div className={cn("flex w-full shrink-0 flex-col gap-2 sm:w-auto", className)}>
       <div
         className={cn(
-          "group/thumb relative mx-auto h-24 w-36 shrink-0 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted to-muted/40 shadow-inner sm:mx-0",
+          "group/thumb relative mx-auto h-24 w-36 shrink-0 overflow-hidden rounded-xl border border-border bg-muted/60 shadow-inner sm:mx-0",
           canEdit && !busy && "cursor-pointer",
         )}
       >
@@ -132,11 +131,9 @@ export function DeviceThumbnailPicker({
             sizes="144px"
             unoptimized
           />
-        ) : fallbackPreviewItem ? (
-          <PlaylistItemPreviewStill item={fallbackPreviewItem} fit="cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <ImageIcon className="h-10 w-10 text-muted-foreground/80" strokeWidth={1.25} aria-hidden />
+          <div className="device-tv-frame-wrap device-tv-frame-wrap--tight">
+            <DeviceScreenCardTvFrame orientation={screenOrientation} compact />
           </div>
         )}
 

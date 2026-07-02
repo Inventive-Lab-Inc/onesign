@@ -48,6 +48,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.app.Application
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -62,6 +63,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.delay
+import dev.signage.tv.ui.SignageShellBackground
+import dev.signage.tv.ui.SlideLoadProgressOverlay
+import dev.signage.tv.ui.SlideLoadProgressStyle
 import dev.signage.tv.ui.TrialWatermarkOverlay
 
 private const val LOG_TAG = "SignageTV"
@@ -158,8 +162,26 @@ private fun hookTextureSurfaceRecycleIfNeeded(
 }
 
 @Composable
-private fun AdminDisabledStandbyScreen() {
-    TvStandbyBrandingScreen(message = stringResource(R.string.device_disabled_by_admin))
+private fun BrandedStandbyPlayback(
+    showTrialWatermark: Boolean,
+    content: @Composable () -> Unit,
+) {
+    SignageShellBackground {
+        Box(modifier = Modifier.fillMaxSize()) {
+            content()
+            if (showTrialWatermark) {
+                TrialWatermarkOverlay(modifier = Modifier.align(Alignment.BottomEnd))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaybackStandbyScreen(
+    badge: String,
+    hint: String,
+) {
+    TvStandbyBrandingScreen(badge = badge, hint = hint)
 }
 
 @OptIn(UnstableApi::class)
@@ -189,20 +211,18 @@ fun PlaybackScreen(
             }
     }
 
-    if (state.playbackDisabledByAdmin) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            AdminDisabledStandbyScreen()
-            if (state.showTrialWatermark) {
-                TrialWatermarkOverlay(modifier = Modifier.align(Alignment.BottomEnd))
-            }
+    if (state.playbackBlockReason != null) {
+        BrandedStandbyPlayback(showTrialWatermark = state.showTrialWatermark) {
+            TvStandbyBlockScreen(state.playbackBlockReason)
         }
         return
     }
     if (state.outsideOperatingHours && state.blankWhenOffHours) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(ComposeColor.Black),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .background(ComposeColor.Black),
         ) {
             if (state.showTrialWatermark) {
                 TrialWatermarkOverlay(modifier = Modifier.align(Alignment.BottomEnd))
@@ -210,21 +230,27 @@ fun PlaybackScreen(
         }
         return
     }
+    if (state.outsideOperatingHours) {
+        BrandedStandbyPlayback(showTrialWatermark = state.showTrialWatermark) {
+            PlaybackStandbyScreen(
+                badge = stringResource(R.string.standby_off_hours),
+                hint = stringResource(R.string.standby_off_hours_hint),
+            )
+        }
+        return
+    }
     if (state.slides.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        BrandedStandbyPlayback(showTrialWatermark = state.showTrialWatermark) {
             if (state.playlistName == null) {
-                TvStandbyBrandingScreen(
-                    message = stringResource(R.string.standby_no_playlist),
+                PlaybackStandbyScreen(
+                    badge = stringResource(R.string.standby_no_playlist),
                     hint = stringResource(R.string.standby_no_playlist_hint),
                 )
             } else {
-                TvStandbyBrandingScreen(
-                    message = stringResource(R.string.standby_playlist_empty),
+                PlaybackStandbyScreen(
+                    badge = stringResource(R.string.standby_playlist_empty),
                     hint = stringResource(R.string.standby_playlist_empty_hint),
                 )
-            }
-            if (state.showTrialWatermark) {
-                TrialWatermarkOverlay(modifier = Modifier.align(Alignment.BottomEnd))
             }
         }
         return
@@ -232,6 +258,7 @@ fun PlaybackScreen(
 
     val engine = remember { viewModel.exoForPlayback() }
     val recoveryEpoch by viewModel.playbackUiRecoveryEpoch.collectAsState()
+    val mediaCacheProgress by viewModel.mediaCacheProgress.collectAsState()
     // Do not key on uiRefreshGeneration — recovery remounts the current slide without restarting the loop.
     val slideKey =
         state.slides.joinToString("|") { s ->
@@ -356,7 +383,39 @@ fun PlaybackScreen(
         if (state.showTrialWatermark) {
             TrialWatermarkOverlay(modifier = Modifier.align(Alignment.BottomEnd))
         }
+        mediaCacheProgress?.let { progress ->
+            if (progress.isWarming && viewModel.isMediaCached(slide)) {
+                PlaylistCacheProgressBanner(
+                    progress = progress,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun PlaylistCacheProgressBanner(
+    progress: MediaCacheProgressState,
+    modifier: Modifier = Modifier,
+) {
+    val subtitle =
+        progress.currentLabel?.let { label ->
+            val pct = progress.currentPercent
+            if (pct != null) {
+                "$label — $pct%"
+            } else {
+                label
+            }
+        }
+    SlideLoadProgressOverlay(
+        fileLabel = progress.currentLabel ?: "",
+        percent = progress.overallPercent,
+        headline = stringResource(R.string.slide_loading_playlist_cache),
+        subtitle = subtitle,
+        style = SlideLoadProgressStyle.Ring,
+        modifier = modifier,
+    )
 }
 
 @OptIn(UnstableApi::class)
@@ -370,24 +429,41 @@ private fun SharedExoVideoSlide(
     onEnded: () -> Unit,
     engine: SignageExoController,
 ) {
+    val context = LocalContext.current
+    val app = context.applicationContext as Application
     val onEndState = rememberUpdatedState(onEnded)
     val bindKey = Triple(url, maxDurationSeconds, loopSingleItem)
     var lastBound: Triple<String, Int?, Boolean>? by remember(recoveryEpoch, url, maxDurationSeconds, loopSingleItem) {
         mutableStateOf(null)
     }
     var videoRevealed by remember(url, holdImageUrl, recoveryEpoch) {
-        mutableStateOf(holdImageUrl == null)
+        mutableStateOf(PlaylistCacheStatus.isVideoFullyCached(app, url))
     }
+    var loadPercent by remember(url, recoveryEpoch) { mutableIntStateOf(0) }
 
     LaunchedEffect(url, holdImageUrl) {
-        if (holdImageUrl == null) {
-            videoRevealed = true
-        }
         delay(12_000)
         if (!videoRevealed) {
             Log.w(LOG_TAG, "Video first frame slow; rebinding url=$url")
             engine.rebindCurrentBoundVideo("first_frame_timeout")
             videoRevealed = true
+        }
+    }
+
+    LaunchedEffect(url, videoRevealed) {
+        if (videoRevealed) {
+            return@LaunchedEffect
+        }
+        while (!videoRevealed) {
+            loadPercent =
+                maxOf(
+                    PlaylistCacheStatus.getVideoCacheFillPercent(app, url),
+                    engine.getVideoPrefetchProgress(url) ?: 0,
+                )
+            if (PlaylistCacheStatus.isVideoFullyCached(app, url)) {
+                loadPercent = 100
+            }
+            delay(200)
         }
     }
 
@@ -435,17 +511,12 @@ private fun SharedExoVideoSlide(
                 view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                 if (lastBound != bindKey || engine.shouldRebindSameItemInView() || engine.needsVideoRebind()) {
                     lastBound = bindKey
-                    videoRevealed = (holdImageUrl == null)
+                    videoRevealed = PlaylistCacheStatus.isVideoFullyCached(app, url)
                     engine.bindCurrentVideoUrl(
                         url = url,
                         maxDurationSeconds = maxDurationSeconds,
                         onEnded = { onEndState.value() },
-                        onFirstFrameRendered =
-                            if (holdImageUrl != null) {
-                                { videoRevealed = true }
-                            } else {
-                                null
-                            },
+                        onFirstFrameRendered = { videoRevealed = true },
                         loopSingleItem = loopSingleItem,
                     )
                 }
@@ -463,6 +534,18 @@ private fun SharedExoVideoSlide(
                         },
                     ),
         )
+        if (!videoRevealed) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                SlideLoadProgressOverlay(
+                    fileLabel = mediaFileLabel(url),
+                    percent = loadPercent.takeIf { it > 0 },
+                    style = SlideLoadProgressStyle.Ring,
+                )
+            }
+        }
     }
 }
 
@@ -500,56 +583,80 @@ private fun ImageSlideContent(
     contentRevision: String?,
 ) {
     val context = LocalContext.current
+    var loadPercent by remember(url, contentRevision) { mutableStateOf<Int?>(0) }
     val request =
         remember(url, contentRevision) {
             ImageRequest.Builder(context)
                 .data(url)
                 .listener(
-                    onError = { _, result ->
-                        Log.e(LOG_TAG, "Image load failed: $url", result.throwable)
+                    object : ImageRequest.Listener {
+                        override fun onStart(request: ImageRequest) {
+                            loadPercent = 0
+                        }
+
+                        override fun onSuccess(
+                            request: ImageRequest,
+                            result: SuccessResult,
+                        ) {
+                            loadPercent = 100
+                        }
+
+                        override fun onError(
+                            request: ImageRequest,
+                            result: ErrorResult,
+                        ) {
+                            loadPercent = null
+                            Log.e(LOG_TAG, "Image load failed: $url", result.throwable)
+                        }
                     },
                 )
                 .build()
         }
 
-    SubcomposeAsyncImage(
-        model = request,
-        contentDescription = null,
-        modifier = Modifier.fillMaxSize(),
-        contentScale = ContentScale.Crop,
-    ) {
-        when (val s = painter.state) {
-            is AsyncImagePainter.State.Success -> SubcomposeAsyncImageContent()
-            is AsyncImagePainter.State.Error -> {
-                Log.e(LOG_TAG, "Slide image load failed: $url", s.result.throwable)
-                Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = stringResource(R.string.slide_load_failed),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.92f),
-                            textAlign = TextAlign.Center,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(R.string.slide_load_skipping),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
-                            textAlign = TextAlign.Center,
-                        )
+    Box(modifier = Modifier.fillMaxSize()) {
+        SubcomposeAsyncImage(
+            model = request,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        ) {
+            when (val s = painter.state) {
+                is AsyncImagePainter.State.Success -> SubcomposeAsyncImageContent()
+                is AsyncImagePainter.State.Error -> {
+                    Log.e(LOG_TAG, "Slide image load failed: $url", s.result.throwable)
+                    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = stringResource(R.string.slide_load_failed),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.92f),
+                                textAlign = TextAlign.Center,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.slide_load_skipping),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.72f),
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                     }
                 }
+                is AsyncImagePainter.State.Loading,
+                is AsyncImagePainter.State.Empty,
+                -> Unit
             }
-            is AsyncImagePainter.State.Loading,
-            is AsyncImagePainter.State.Empty,
-            -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = stringResource(R.string.loading_slide),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                }
+        }
+        if (loadPercent != null && loadPercent!! < 100) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                SlideLoadProgressOverlay(
+                    fileLabel = mediaFileLabel(url),
+                    percent = loadPercent,
+                    style = SlideLoadProgressStyle.Ring,
+                )
             }
         }
     }

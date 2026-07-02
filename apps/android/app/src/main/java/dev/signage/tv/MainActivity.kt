@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -42,9 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import dev.signage.tv.ui.AppUpdateOverlay
 import dev.signage.tv.ui.DeviceSetupScreen
-import dev.signage.tv.ui.SignageBrandHeaderTv
-import dev.signage.tv.ui.SignageBrandMark
+import dev.signage.tv.ui.PairingScreen
 import dev.signage.tv.ui.SignageShellBackground
+import dev.signage.tv.ui.TvBrandedScreenLayout
 import dev.signage.tv.ui.theme.SignageColors
 import dev.signage.tv.ui.theme.SignageTvTheme
 
@@ -112,7 +111,7 @@ class MainActivity : ComponentActivity() {
 
                         MainUiState.MissingConfig ->
                             TvStandbyBrandingScreen(
-                                message = stringResource(R.string.setup_config_needed),
+                                badge = stringResource(R.string.setup_config_needed),
                                 hint = stringResource(R.string.setup_config_hint),
                             )
 
@@ -145,37 +144,41 @@ class MainActivity : ComponentActivity() {
                             when (ui.code) {
                                 TvUserFacingError.RELAUNCH_TO_PAIR ->
                                     TvStandbyBrandingScreen(
-                                        message = stringResource(R.string.error_relaunch_title),
+                                        badge = stringResource(R.string.error_relaunch_title),
                                         hint = stringResource(R.string.error_relaunch_hint),
                                     )
 
                                 TvUserFacingError.SSL_TRUST_FAILED ->
                                     TvStandbyBrandingScreen(
-                                        message = stringResource(R.string.error_ssl_trust_title),
+                                        badge = stringResource(R.string.error_ssl_trust_title),
                                         hint = stringResource(R.string.error_ssl_trust_hint),
                                         footerContent = {
-                                            Spacer(modifier = Modifier.height(28.dp))
-                                            Button(onClick = { viewModel.retryAfterConnectionError() }) {
-                                                Text(stringResource(R.string.button_try_again))
-                                            }
+                                            TvStandbyPrimaryAction(
+                                                label = stringResource(R.string.button_try_again),
+                                                onClick = { viewModel.retryAfterConnectionError() },
+                                            )
                                         },
                                     )
 
                                 else ->
                                     TvStandbyBrandingScreen(
-                                        message = stringResource(R.string.error_connection_title),
+                                        badge = stringResource(R.string.error_connection_title),
                                         hint = stringResource(R.string.error_connection_hint),
                                         footerContent = {
-                                            Spacer(modifier = Modifier.height(28.dp))
-                                            Button(onClick = { viewModel.resetRegistration() }) {
-                                                Text(stringResource(R.string.button_reset_registration))
-                                            }
+                                            TvStandbyPrimaryAction(
+                                                label = stringResource(R.string.button_try_again),
+                                                onClick = { viewModel.retryAfterConnectionError() },
+                                            )
                                         },
                                     )
                             }
                         }
 
-                        is MainUiState.AwaitingLink -> PairingScreen(ui)
+                        is MainUiState.AwaitingLink ->
+                            PairingScreen(
+                                pairingCode = ui.pairingCode,
+                                showWaitingIndicator = ui.showWaitingIndicator,
+                            )
 
                         is MainUiState.Playback -> Unit
                                 }
@@ -267,18 +270,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun TvLoadingScreen(message: String) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(48.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        SignageBrandMark(
-            boxWidth = 102.dp,
-            boxHeight = 96.dp,
-            cornerRadius = 9.dp,
-            iconSize = 54.dp,
-        )
-        Spacer(modifier = Modifier.height(28.dp))
+    TvBrandedScreenLayout {
         CircularProgressIndicator(
             modifier = Modifier.size(48.dp),
             color = SignageColors.Theme,
@@ -290,44 +282,5 @@ private fun TvLoadingScreen(message: String) {
             color = SignageColors.ThemeForegroundOnDark,
             textAlign = TextAlign.Center,
         )
-    }
-}
-
-@Composable
-private fun PairingScreen(state: MainUiState.AwaitingLink) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(48.dp),
-    ) {
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center,
-        ) {
-            SignageBrandHeaderTv()
-        }
-        Spacer(modifier = Modifier.height(40.dp))
-        Column(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = "Pair this screen",
-                style = MaterialTheme.typography.titleLarge,
-                color = SignageColors.ThemeForegroundOnDark,
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = state.pairingCode,
-                style = MaterialTheme.typography.displayLarge,
-                color = SignageColors.Theme,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = state.message,
-                style = MaterialTheme.typography.bodyLarge,
-                color = SignageColors.ThemeForegroundOnDarkSoft,
-                textAlign = TextAlign.Center,
-            )
-        }
     }
 }

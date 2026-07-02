@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   CalendarClock,
-  Check,
   Globe,
   Image as ImageIcon,
   Layers,
@@ -20,13 +19,11 @@ import { Logo } from "@/components/logo";
 import { layoutConfig } from "@/lib/config/layout";
 import { appUrl } from "@/lib/site-hosts";
 import { type PlanCurrency } from "@/lib/plan-currency";
-import { buildSignupHref } from "@/lib/plan/signup-link";
 import {
   STATIC_PLAN_VIEW_MODELS,
-  planGridClassName,
-  planIconForIndex,
   type PlanViewModel,
 } from "@/components/plans/plan-data";
+import { LandingPricingSection } from "@/components/landing/landing-pricing-section";
 import { DEFAULT_TRIAL_DAYS } from "@/lib/plan-quota";
 import { LandingLiveChat } from "./landing-live-chat";
 import { LandingDownloadButton } from "./landing-download-button";
@@ -146,7 +143,7 @@ export function LandingPage({
       <Features />
       <HowItWorks />
       <StatsBand />
-      <PricingTeaser plans={pricingPlans} />
+      <LandingPricingSection plans={pricingPlans} />
       <FinalCta />
       <Footer name={name} />
       <LandingLiveChat />
@@ -458,113 +455,6 @@ function StatsBand() {
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
-
-function PricingTeaser({ plans }: { plans: PlanViewModel[] }) {
-  return (
-    <section id="pricing" className="px-5 py-20">
-      <div className="mx-auto w-full max-w-6xl">
-        <SectionHeading
-          eyebrow="Pricing"
-          title="Simple plans that scale with you"
-          subtitle="Start with a 14-day Solo trial, then pick the plan that matches your screen count. No setup fees, cancel anytime."
-        />
-        <div className={`mt-12 grid gap-5 md:items-center ${planGridClassName(plans.length)}`}>
-          {plans.map((plan, index) => {
-            const popular = plan.highlighted;
-            const Icon = planIconForIndex(index);
-            const signupHref = appUrl(buildSignupHref(plan.slug));
-            return (
-              <div
-                key={plan.id}
-                className={`landing-price-card p-6 ${popular ? "landing-price-card--popular xl:scale-[1.03]" : ""}`}
-              >
-                {popular && plan.badge && (
-                  <span className="landing-price-badge absolute right-5 top-5 rounded-full px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-wider">
-                    {plan.badge}
-                  </span>
-                )}
-                <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                    popular ? "bg-white/15 text-white" : "bg-brand-soft text-brand-strong"
-                  }`}
-                >
-                  <Icon size={18} strokeWidth={2} />
-                </span>
-                <h3 className={`mt-4 text-lg font-bold ${popular ? "text-white" : "text-foreground"}`}>
-                  {plan.name}
-                </h3>
-                <p className={`text-sm ${popular ? "text-white/60" : "text-muted-foreground"}`}>
-                  {plan.tagline}
-                </p>
-                <div className="mt-4 flex items-end gap-1.5">
-                  <span className={`text-3xl font-bold tracking-tight ${popular ? "text-white" : "text-foreground"}`}>
-                    {plan.monthlyPriceLabel}
-                  </span>
-                  {!plan.isFree && plan.originalPrice != null && plan.originalPrice > plan.monthlyPrice && (
-                    <span
-                      className={`mb-1 text-sm font-semibold line-through ${popular ? "text-white/45" : "text-muted-foreground/70"}`}
-                    >
-                      {plan.originalPriceLabel}
-                    </span>
-                  )}
-                  {!plan.isFree ? (
-                    <span className={`mb-1 text-xs font-medium ${popular ? "text-white/55" : "text-muted-foreground"}`}>
-                      /mo · {plan.screens}
-                    </span>
-                  ) : (
-                    <span className={`mb-1 text-xs font-medium ${popular ? "text-white/55" : "text-muted-foreground"}`}>
-                      · {plan.screens}
-                    </span>
-                  )}
-                </div>
-                {!plan.isFree && plan.perScreenLabel ? (
-                  <p className={`mt-1 text-xs ${popular ? "text-white/50" : "text-muted-foreground"}`}>
-                    {plan.perScreenLabel}
-                  </p>
-                ) : null}
-                <ul className="mt-5 space-y-2">
-                  {plan.features.slice(0, 4).map((feature) => (
-                    <li
-                      key={feature}
-                      className={`flex items-center gap-2 text-sm ${popular ? "text-white/85" : "text-foreground"}`}
-                    >
-                      <Check
-                        size={14}
-                        strokeWidth={2.5}
-                        className={popular ? "landing-price-check--dark" : "landing-price-check"}
-                      />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href={signupHref}
-                  className={`mt-6 flex h-10 w-full items-center justify-center rounded-lg text-sm font-semibold transition-colors ${
-                    popular
-                      ? "landing-btn-on-dark"
-                      : "landing-btn-ghost"
-                  }`}
-                >
-                  {plan.ctaLabel}
-                </Link>
-              </div>
-            );
-          })}
-        </div>
-        <p className="mt-8 text-center text-sm text-muted-foreground">
-          Need 20+ screens?{" "}
-          <a
-            href="mailto:aminulislamborhan@gmail.com?subject=OneSign%20Custom%20plan"
-            className="font-medium text-brand-strong underline underline-offset-2"
-          >
-            Contact us for custom pricing
-          </a>
-          .
-        </p>
       </div>
     </section>
   );

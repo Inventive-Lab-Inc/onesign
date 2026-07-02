@@ -19,6 +19,14 @@ type UpsertBody = {
   originalPriceEurCents?: number | null;
   monthlyPriceBdtPaisa?: number;
   originalPriceBdtPaisa?: number | null;
+  annualMonthlyPriceCents?: number;
+  annualMonthlyPriceGbpCents?: number;
+  annualMonthlyPriceEurCents?: number;
+  annualMonthlyPriceBdtPaisa?: number;
+  originalAnnualMonthlyPriceCents?: number | null;
+  originalAnnualMonthlyPriceGbpCents?: number | null;
+  originalAnnualMonthlyPriceEurCents?: number | null;
+  originalAnnualMonthlyPriceBdtPaisa?: number | null;
   ctaLabel?: string;
   features?: string[];
   badge?: string | null;
@@ -85,6 +93,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "BDT monthly price must be a whole number of paisa" }, { status: 400 });
   }
 
+  if (!isPositiveInt(body.annualMonthlyPriceCents)) {
+    return NextResponse.json({ error: "USD annual price must be a whole number of cents" }, { status: 400 });
+  }
+
+  if (!isPositiveInt(body.annualMonthlyPriceGbpCents)) {
+    return NextResponse.json({ error: "GBP annual price must be a whole number of pence" }, { status: 400 });
+  }
+
+  if (!isPositiveInt(body.annualMonthlyPriceEurCents)) {
+    return NextResponse.json({ error: "EUR annual price must be a whole number of cents" }, { status: 400 });
+  }
+
+  if (!isPositiveInt(body.annualMonthlyPriceBdtPaisa)) {
+    return NextResponse.json({ error: "BDT annual price must be a whole number of paisa" }, { status: 400 });
+  }
+
   const features = Array.isArray(body.features)
     ? body.features.map((feature) => feature.trim()).filter((feature) => feature.length > 0)
     : [];
@@ -103,6 +127,14 @@ export async function POST(request: NextRequest) {
     p_original_price_eur_cents: optionalPositiveInt(body.originalPriceEurCents),
     p_monthly_price_bdt_paisa: body.monthlyPriceBdtPaisa,
     p_original_price_bdt_paisa: optionalPositiveInt(body.originalPriceBdtPaisa),
+    p_annual_monthly_price_cents: body.annualMonthlyPriceCents,
+    p_annual_monthly_price_gbp_cents: body.annualMonthlyPriceGbpCents,
+    p_annual_monthly_price_eur_cents: body.annualMonthlyPriceEurCents,
+    p_annual_monthly_price_bdt_paisa: body.annualMonthlyPriceBdtPaisa,
+    p_original_annual_monthly_price_cents: optionalPositiveInt(body.originalAnnualMonthlyPriceCents),
+    p_original_annual_monthly_price_gbp_cents: optionalPositiveInt(body.originalAnnualMonthlyPriceGbpCents),
+    p_original_annual_monthly_price_eur_cents: optionalPositiveInt(body.originalAnnualMonthlyPriceEurCents),
+    p_original_annual_monthly_price_bdt_paisa: optionalPositiveInt(body.originalAnnualMonthlyPriceBdtPaisa),
     p_cta_label: body.ctaLabel?.trim() || "Choose plan",
     p_features: features,
     p_badge: body.badge?.trim() || null,

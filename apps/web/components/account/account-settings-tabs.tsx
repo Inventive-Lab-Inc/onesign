@@ -6,12 +6,14 @@ import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { AccountUsersPanel } from "@/components/account/account-users-panel";
 import { AccountWorkspacesPanel } from "@/components/account/account-workspaces-panel";
-import { PlansView } from "@/components/plans/plans-view";
+import { BillingSettingsView } from "@/components/billing/billing-settings-view";
+import type { PlanViewModel } from "@/components/plans/plan-data";
+import type { PlanCurrency } from "@/lib/plan-currency";
 
 const tabs = [
   { id: "users", label: "Users", href: "/account?tab=users" },
   { id: "workspaces", label: "Workspaces", href: "/account?tab=workspaces" },
-  { id: "plan", label: "Plan", href: "/account?tab=plan" },
+  { id: "billing", label: "Billing", href: "/account?tab=billing" },
   { id: "api-keys", label: "API Keys", href: "/account?tab=api-keys" },
 ] as const;
 
@@ -20,16 +22,23 @@ type TabId = (typeof tabs)[number]["id"];
 const DEFAULT_TAB: TabId = "users";
 
 function resolveTab(value: string | null): TabId {
+  if (value === "plan") return "billing";
   return tabs.some((tab) => tab.id === value) ? (value as TabId) : DEFAULT_TAB;
 }
 
-export function AccountSettingsTabs() {
+export function AccountSettingsTabs({
+  plans,
+  currency,
+}: {
+  plans: PlanViewModel[];
+  currency: PlanCurrency;
+}) {
   const searchParams = useSearchParams();
   const tab = resolveTab(searchParams.get("tab"));
 
   return (
-    <div className="space-y-6">
-      <nav className="flex flex-wrap gap-2 border-b border-border pb-3">
+    <div className="space-y-8">
+      <nav className="-mb-px flex flex-wrap gap-1 border-b border-border">
         {tabs.map((item) => {
           const active = tab === item.id;
           return (
@@ -37,8 +46,10 @@ export function AccountSettingsTabs() {
               key={item.id}
               href={item.href}
               className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                active ? "bg-brand text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                "border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
+                active
+                  ? "border-brand text-foreground"
+                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
               )}
             >
               {item.label}
@@ -49,7 +60,7 @@ export function AccountSettingsTabs() {
 
       {tab === "users" ? <AccountUsersPanel /> : null}
       {tab === "workspaces" ? <AccountWorkspacesPanel /> : null}
-      {tab === "plan" ? <PlansView /> : null}
+      {tab === "billing" ? <BillingSettingsView plans={plans} currency={currency} /> : null}
       {tab === "api-keys" ? <ApiKeysPlaceholder /> : null}
     </div>
   );
