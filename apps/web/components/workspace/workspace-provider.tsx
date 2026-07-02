@@ -139,5 +139,5 @@ export function useWorkspaceOptional() {
 }
 
 export function useActiveWorkspaceRole(): WorkspaceRole | null {
-  return useWorkspace().activeWorkspace?.role ?? null;
+  return useWorkspaceOptional()?.activeWorkspace?.role ?? null;
 }

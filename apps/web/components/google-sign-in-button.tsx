@@ -29,13 +29,8 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "0.625rem",
     width: "100%",
     padding: "0.75rem 1rem",
-    background: "#fff",
-    color: "#374151",
-    border: "0.0625rem solid #e5e7eb",
-    borderRadius: "0.5rem",
     fontSize: "0.9375rem",
     fontWeight: 600,
-    cursor: "pointer",
   },
 };
 
@@ -92,6 +87,7 @@ export function GoogleSignInButton({
     <>
       <button
         type="button"
+        className="google-sign-in-button"
         onClick={onClick}
         disabled={disabled || loading}
         style={{

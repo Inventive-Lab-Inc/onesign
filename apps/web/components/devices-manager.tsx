@@ -35,7 +35,7 @@ import { DeviceGroupEditorDialog } from "@/components/device-groups/device-group
 import { DeviceScreenCard } from "@/components/devices/device-screen-card";
 import { LinkScreenDialog } from "@/components/devices/link-screen-dialog";
 import { MoveToWorkspaceDialog } from "@/components/workspace/move-to-workspace-dialog";
-import { useWorkspace } from "@/components/workspace/workspace-provider";
+import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
 import {
   GatedHeaderButton,
   PermissionTooltip,
@@ -116,10 +116,10 @@ export function DevicesManager() {
   const [view, setView] = useState<"grid" | "list">("grid");
   const [devicePendingDelete, setDevicePendingDelete] = useState<Device | null>(null);
   const [devicePendingMove, setDevicePendingMove] = useState<Device | null>(null);
-  const { workspaces } = useWorkspace();
+  const workspace = useWorkspaceOptional();
   const canManageScreens = useWorkspacePermission("manage_screens");
   const screensHint = permissionHint("manage_screens");
-  const canMoveBetweenWorkspaces = workspaces.length > 1;
+  const canMoveBetweenWorkspaces = (workspace?.workspaces.length ?? 0) > 1;
   const [deleteInProgress, setDeleteInProgress] = useState(false);
   const [groupEditorOpen, setGroupEditorOpen] = useState(false);
   const [groupBeingEdited, setGroupBeingEdited] = useState<DeviceGroupWithMembers | null>(null);
@@ -495,13 +495,15 @@ export function DevicesManager() {
         isConfirming={deleteInProgress}
       />
 
-      <MoveToWorkspaceDialog
-        open={devicePendingMove !== null}
-        onClose={() => setDevicePendingMove(null)}
-        entityType="device"
-        entityId={devicePendingMove?.id ?? ""}
-        entityLabel={devicePendingMove?.name ?? "screen"}
-      />
+      {workspace ? (
+        <MoveToWorkspaceDialog
+          open={devicePendingMove !== null}
+          onClose={() => setDevicePendingMove(null)}
+          entityType="device"
+          entityId={devicePendingMove?.id ?? ""}
+          entityLabel={devicePendingMove?.name ?? "screen"}
+        />
+      ) : null}
 
       <ConfirmActionDialog
         open={pendingMoveToGroup != null}

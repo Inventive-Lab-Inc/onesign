@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useWorkspace } from "@/components/workspace/workspace-provider";
+import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { friendlyWorkspaceError } from "@/lib/workspace/error-messages";
@@ -22,15 +22,16 @@ export function MoveToWorkspaceDialog({
   entityId: string;
   entityLabel: string;
 }) {
-  const { workspaces, activeWorkspaceId, isAccountOwner } = useWorkspace();
+  const workspace = useWorkspaceOptional();
   const { syncNow } = useConsoleSync();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [targetWorkspaceId, setTargetWorkspaceId] = useState("");
   const [moving, setMoving] = useState(false);
 
-  const destinationOptions = workspaces.filter((workspace) => workspace.id !== activeWorkspaceId);
+  if (!workspace || !open) return null;
 
-  if (!open) return null;
+  const { workspaces, activeWorkspaceId, isAccountOwner } = workspace;
+  const destinationOptions = workspaces.filter((entry) => entry.id !== activeWorkspaceId);
 
   async function move() {
     if (!targetWorkspaceId) {

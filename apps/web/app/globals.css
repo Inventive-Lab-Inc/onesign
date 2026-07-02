@@ -94,9 +94,82 @@ optgroup,
   color: #9ca3af;
 }
 
-/* Scroll-safe auth layout: margin auto centers when content fits, scrolls when it doesn't */
-.auth-card--login,
-.auth-card--signup {
+.google-sign-in-button {
+  background: #fff;
+  color: #1f2937;
+  border: 0.0625rem solid #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.google-sign-in-button:not(:disabled):hover,
+.google-sign-in-button:not(:disabled):focus-visible {
+  background: #f9fafb;
+  border-color: var(--theme);
+  box-shadow: 0 2px 8px 0 rgb(0 0 0 / 0.06);
+}
+
+.google-sign-in-button:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.google-sign-in-button:disabled {
+  cursor: not-allowed;
+}
+
+/* Login screen — full-bleed split layout; see app/login/login-form.tsx */
+.login-screen input {
+  font-size: max(1rem, 16px);
+}
+
+@keyframes login-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.375rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-step-in {
+  animation: login-step-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes login-hero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.625rem);
+  }
+}
+
+.login-hero-float {
+  animation: login-hero-float 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-step-in,
+  .login-hero-float {
+    animation: none;
+  }
+}
+
+/*
+ * Scroll-safe auth layout for the legacy two-panel auth screens (forgot-password,
+ * accept-invite, reset-password). Login and signup use their own Tailwind-based
+ * layout (see .login-screen) and no longer depend on these hooks.
+ */
+.auth-card--login {
   overflow-x: hidden !important;
   overflow-y: auto !important;
   overscroll-behavior: contain;
@@ -134,18 +207,15 @@ optgroup,
 }
 
 @media (max-height: 42rem) {
-  .auth-card--login .auth-content,
-  .auth-card--signup .auth-content {
+  .auth-card--login .auth-content {
     gap: 1.25rem !important;
   }
 
-  .auth-card--login .auth-right-panel,
-  .auth-card--signup .auth-right-panel {
+  .auth-card--login .auth-right-panel {
     padding-block: 1rem !important;
   }
 
-  .auth-card--login h2,
-  .auth-card--signup h2 {
+  .auth-card--login h2 {
     margin-bottom: 0.625rem !important;
     font-size: 1.5rem !important;
   }
@@ -153,17 +223,13 @@ optgroup,
 
 .auth-card--login input,
 .auth-card--login select,
-.auth-card--login textarea,
-.auth-card--signup input,
-.auth-card--signup select,
-.auth-card--signup textarea {
+.auth-card--login textarea {
   font-size: max(1rem, 16px);
 }
 
-/* Login/signup compact / mobile — stack earlier so browser zoom keeps the form usable */
+/* Compact / mobile — stack earlier so browser zoom keeps the form usable */
 @media (max-width: 56rem) {
-  .auth-card--login,
-  .auth-card--signup {
+  .auth-card--login {
     flex-direction: column !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
@@ -175,13 +241,11 @@ optgroup,
     background: #fff !important;
   }
 
-  .auth-card--login .auth-left-panel,
-  .auth-card--signup .auth-left-panel {
+  .auth-card--login .auth-left-panel {
     display: none !important;
   }
 
-  .auth-card--login .auth-right-panel,
-  .auth-card--signup .auth-right-panel {
+  .auth-card--login .auth-right-panel {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     width: 100% !important;
@@ -192,21 +256,18 @@ optgroup,
     align-items: center;
   }
 
-  .auth-card--login .auth-content,
-  .auth-card--signup .auth-content {
+  .auth-card--login .auth-content {
     max-width: 22rem;
     gap: 1.25rem !important;
     align-items: center !important;
   }
 
-  .auth-card--login .auth-brand-offset,
-  .auth-card--signup .auth-brand-offset {
+  .auth-card--login .auth-brand-offset {
     transform: none !important;
     align-self: center;
   }
 
-  .auth-card--login button[type="submit"],
-  .auth-card--signup button[type="submit"] {
+  .auth-card--login button[type="submit"] {
     min-height: 2.75rem;
   }
 }

@@ -4,158 +4,16 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { assets, getBackgroundStyle } from "@/lib/config/assets";
-import { AuthBrandHeader } from "@/components/auth-brand-header";
+import { Logo } from "@/components/logo";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { AuthHeroPanel } from "@/components/auth/auth-hero-panel";
+import { AlertBanner } from "@/components/auth/alert-banner";
 
-const inputBase: React.CSSProperties = {
-  width: "100%",
-  padding: "0.625rem 0.75rem",
-  background: "#f9fafb",
-  border: "0.0625rem solid #e5e7eb",
-  borderRadius: "0.5rem",
-  fontSize: "0.875rem",
-  color: "#111827",
-  boxSizing: "border-box",
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    position: "fixed",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    display: "flex",
-    background: "#e5e7eb",
-    padding: "0.5rem",
-    boxSizing: "border-box",
-    borderRadius: "0.75rem",
-  },
-  leftPanel: {
-    flex: 7,
-    minWidth: 0,
-    padding: "2.5rem 2rem",
-    ...getBackgroundStyle(assets.loginBackgroundValue),
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    gap: "0.5rem",
-    minHeight: 0,
-    overflow: "hidden",
-    borderRadius: "0.5rem",
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-  },
-  leftTitle: {
-    margin: 0,
-    fontSize: "clamp(2rem, 4vw, 3.5rem)",
-    fontWeight: 700,
-    color: "#fff",
-    lineHeight: 1.1,
-  },
-  leftSubtitle: {
-    margin: 0,
-    fontSize: "1.05rem",
-    fontWeight: 400,
-    color: "rgba(255,255,255,0.9)",
-    lineHeight: 1.25,
-  },
-  rightPanel: {
-    flex: 3,
-    minWidth: 0,
-    minHeight: 0,
-    padding: "clamp(1rem, 3vh, 2.5rem) clamp(1rem, 2vw, 2rem)",
-    background: "#fff",
-    display: "flex",
-    flexDirection: "column",
-    borderRadius: "0.5rem",
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-  },
-  authContent: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "clamp(1.25rem, 4vh, 2.5rem)",
-  },
-  formStack: {
-    width: "100%",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  formTitle: {
-    margin: "0 0 1rem",
-    fontSize: "1.75rem",
-    fontWeight: 800,
-    color: "#111827",
-    textAlign: "center",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  error: {
-    padding: "0.5rem 0.75rem",
-    background: "#fef2f2",
-    color: "#b91c1c",
-    borderRadius: "0.5rem",
-    fontSize: "0.8125rem",
-  },
-  field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.375rem",
-  },
-  fieldLabel: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    color: "#374151",
-  },
-  input: inputBase,
-  inputPassword: { ...inputBase, paddingRight: "2.5rem" },
-  passwordWrap: { position: "relative", width: "100%" },
-  eyeButton: {
-    position: "absolute",
-    right: "0.625rem",
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "0.25rem",
-    display: "flex",
-    alignItems: "center",
-  },
-  forgotLink: {
-    alignSelf: "flex-end",
-    fontSize: "0.8125rem",
-    color: assets.themePrimary,
-    fontWeight: 500,
-    textDecoration: "none",
-  },
-  submitButton: {
-    width: "100%",
-    padding: "0.75rem 1rem",
-    background: assets.themePrimary,
-    color: assets.themePrimaryContrast,
-    border: "none",
-    borderRadius: "0.5rem",
-    fontSize: "0.9375rem",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  footer: {
-    margin: 0,
-    fontSize: "0.8125rem",
-    color: "#6b7280",
-    textAlign: "center",
-  },
-};
+const inputClass =
+  "w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-[0.9375rem] text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-brand focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-faint20";
 
 export function LoginForm() {
   const router = useAppRouter();
@@ -165,27 +23,46 @@ export function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [step, setStep] = useState<"email" | "password">("email");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accountNotFound, setAccountNotFound] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function accountExists(candidateEmail: string): Promise<boolean | null> {
+  function resetToEmailStep() {
+    setStep("email");
+    setPassword("");
+    setShowPassword(false);
+    setError(null);
+    setAccountNotFound(false);
+  }
+
+  async function onEmailContinue(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) return;
+
+    setError(null);
+    setAccountNotFound(false);
+    setLoading(true);
     try {
-      const res = await fetch("/api/auth/account-exists", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: candidateEmail }),
-      });
-      if (!res.ok) return null;
-      const data = (await res.json()) as { exists?: boolean | null };
-      return data.exists ?? null;
+      const exists = await accountExists(trimmedEmail);
+      if (exists === false) {
+        setAccountNotFound(true);
+        toast.error("Account not found.");
+        return;
+      }
+      setEmail(trimmedEmail);
+      setStep("password");
     } catch {
-      return null;
+      setEmail(trimmedEmail);
+      setStep("password");
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function onLoginSubmit(e: React.FormEvent) {
+  async function onPasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setAccountNotFound(false);
@@ -227,126 +104,220 @@ export function LoginForm() {
     }
   }
 
+  async function accountExists(candidateEmail: string): Promise<boolean | null> {
+    try {
+      const res = await fetch("/api/auth/account-exists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: candidateEmail }),
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { exists?: boolean | null };
+      return data.exists ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  const authErrors = (
+    <>
+      {authError === "auth_confirm_failed" && (
+        <AlertBanner>
+          That link is invalid or has expired. Request a new confirmation or password reset email.
+        </AlertBanner>
+      )}
+      {authError === "google_auth_failed" && (
+        <AlertBanner>Google sign-in was cancelled or failed. Please try again.</AlertBanner>
+      )}
+      {authError === "google_bridge_failed" && (
+        <AlertBanner>
+          Google sign-in succeeded but your console session could not be started. Check server
+          configuration or try again.
+        </AlertBanner>
+      )}
+      {authError === "Configuration" && (
+        <AlertBanner>
+          Google sign-in is not configured yet. Set AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, and
+          AUTH_SECRET.
+        </AlertBanner>
+      )}
+      {accountNotFound && (
+        <AlertBanner>
+          Account not found. If you are new here,{" "}
+          <Link
+            href={email.trim() ? `/signup?email=${encodeURIComponent(email.trim())}` : "/signup"}
+            className="font-semibold text-brand underline-offset-2 hover:underline"
+          >
+            sign up
+          </Link>{" "}
+          now.
+        </AlertBanner>
+      )}
+      {error && <AlertBanner>{error}</AlertBanner>}
+    </>
+  );
+
   return (
-    <div className="auth-card auth-card--login" style={styles.wrapper}>
-      <div className="auth-left-panel" style={styles.leftPanel}>
-        <h1 style={styles.leftTitle}>Welcome back</h1>
-        <p style={styles.leftSubtitle}>
-          Your promos and playlists — on every screen, in every venue.
-        </p>
-      </div>
-      <div className="auth-right-panel" style={styles.rightPanel}>
-        <div className="auth-content" style={styles.authContent}>
-          <div className="auth-brand-offset" data-auth-anchor>
-            <AuthBrandHeader variant="hero-light" />
+    <div className="login-screen flex min-h-[100dvh] w-full bg-white">
+      <AuthHeroPanel
+        eyebrow="Digital signage, simplified"
+        headline={
+          <>
+            One console.
+            <br />
+            Every screen.
+          </>
+        }
+        subline="Pair a TV in seconds. Push playlists, schedules, and live updates to every display at once — no IT visit required."
+      />
+
+      <div
+        className="flex w-full flex-1 flex-col items-center justify-center px-6 py-10 sm:px-10 lg:px-14 xl:px-20"
+        style={{
+          paddingTop: "max(2.5rem, env(safe-area-inset-top))",
+          paddingBottom: "max(2rem, env(safe-area-inset-bottom))",
+        }}
+      >
+        <div className="flex w-full max-w-[23rem] flex-col">
+          <div className="mb-10 flex justify-center lg:mb-12 lg:justify-start">
+            <Logo height={32} tone="dark" />
           </div>
-          <div style={styles.formStack}>
-            <h2 style={styles.formTitle}>Sign in</h2>
-            <GoogleSignInButton nextPath={next} disabled={loading} />
-            <form onSubmit={onLoginSubmit} style={styles.form}>
-              {authError === "auth_confirm_failed" && (
-                <div style={styles.error} role="alert">
-                  That link is invalid or has expired. Request a new confirmation or password reset
-                  email.
+
+          <div key={step} className="login-step-in flex flex-col gap-5">
+            {step === "email" ? (
+              <>
+                <div>
+                  <h1 className="text-[1.75rem] font-extrabold tracking-tight text-neutral-900">
+                    Welcome back
+                  </h1>
+                  <p className="mt-1.5 text-[0.9375rem] text-neutral-500">
+                    Sign in to your OneSign console
+                  </p>
                 </div>
-              )}
-              {authError === "google_auth_failed" && (
-                <div style={styles.error} role="alert">
-                  Google sign-in was cancelled or failed. Please try again.
+
+                <GoogleSignInButton nextPath={next} disabled={loading} showDivider={false} />
+
+                <div className="flex items-center gap-3" aria-hidden="true">
+                  <span className="h-px flex-1 bg-neutral-200" />
+                  <span className="font-mono text-[0.6875rem] font-medium uppercase tracking-wider text-neutral-400">
+                    or email
+                  </span>
+                  <span className="h-px flex-1 bg-neutral-200" />
                 </div>
-              )}
-              {authError === "google_bridge_failed" && (
-                <div style={styles.error} role="alert">
-                  Google sign-in succeeded but your console session could not be started. Check server
-                  configuration or try again.
-                </div>
-              )}
-              {authError === "Configuration" && (
-                <div style={styles.error} role="alert">
-                  Google sign-in is not configured yet. Set AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, and
-                  AUTH_SECRET.
-                </div>
-              )}
-              {accountNotFound && (
-                <div style={styles.error} role="alert">
-                  Account not found. If you are new here,{" "}
-                  <Link
-                    href={
-                      email.trim()
-                        ? `/signup?email=${encodeURIComponent(email.trim())}`
-                        : "/signup"
-                    }
-                    style={{ color: assets.themePrimary, fontWeight: 700 }}
+
+                {authErrors}
+
+                <form onSubmit={onEmailContinue} className="flex flex-col gap-4">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-neutral-700">Email</span>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@company.com"
+                      required
+                      autoComplete="email"
+                      autoFocus
+                      className={inputClass}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    data-auth-anchor
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-[0.9375rem] font-semibold text-brand-contrast transition-all hover:bg-brand-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Sign Up
-                  </Link>{" "}
-                  now.
+                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {loading ? "Checking…" : "Continue"}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <form onSubmit={onPasswordSubmit} className="flex flex-col gap-4">
+                <button
+                  type="button"
+                  onClick={resetToEmailStep}
+                  className="flex items-center gap-1 self-start text-[0.8125rem] font-medium text-neutral-500 transition-colors hover:text-neutral-800"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  Back
+                </button>
+
+                <div>
+                  <h1 className="text-[1.75rem] font-extrabold tracking-tight text-neutral-900">
+                    Enter your password
+                  </h1>
                 </div>
-              )}
-              {error && (
-                <div style={styles.error} role="alert">
-                  {error}
-                </div>
-              )}
-              <label style={styles.field}>
-                <span style={styles.fieldLabel}>Email</span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  required
-                  autoComplete="email"
-                  style={styles.input}
-                />
-              </label>
-              <label style={styles.field}>
-                <span style={styles.fieldLabel}>Password</span>
-                <div style={styles.passwordWrap}>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    required
-                    autoComplete="current-password"
-                    style={styles.inputPassword}
-                  />
+
+                {authErrors}
+
+                <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-2.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
+                    {email.trim().charAt(0).toUpperCase() || "?"}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-neutral-700">{email}</span>
                   <button
                     type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    style={styles.eyeButton}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={resetToEmailStep}
+                    className="shrink-0 text-[0.8125rem] font-semibold text-brand hover:underline"
                   >
-                    {showPassword ? (
-                      <EyeOff size={18} color="#6b7280" strokeWidth={1.75} />
-                    ) : (
-                      <Eye size={18} color="#6b7280" strokeWidth={1.75} />
-                    )}
+                    Change
                   </button>
                 </div>
-                <Link
-                  href={
-                    email.trim()
-                      ? `/forgot-password?email=${encodeURIComponent(email.trim())}`
-                      : "/forgot-password"
-                  }
-                  style={styles.forgotLink}
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-sm font-semibold text-neutral-700">Password</span>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      required
+                      autoComplete="current-password"
+                      autoFocus
+                      className={`${inputClass} pr-10`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center text-neutral-400 transition-colors hover:text-neutral-600"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
+                      ) : (
+                        <Eye className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
+                      )}
+                    </button>
+                  </div>
+                  <Link
+                    href={`/forgot-password?email=${encodeURIComponent(email)}`}
+                    className="self-end text-[0.8125rem] font-medium text-brand hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  data-auth-anchor
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-[0.9375rem] font-semibold text-brand-contrast transition-all hover:bg-brand-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Forgot password?
-                </Link>
-              </label>
-              <button type="submit" disabled={loading} data-auth-anchor style={styles.submitButton}>
-                {loading ? "Signing in…" : "Sign in"}
-              </button>
-            </form>
-            <p className="auth-login-footer" data-auth-anchor style={styles.footer}>
-              New to OneSign?{" "}
-              <Link href="/signup" style={{ color: assets.themePrimary, fontWeight: 600 }}>
-                Sign Up
-              </Link>
-            </p>
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {loading ? "Signing in…" : "Sign in"}
+                </button>
+              </form>
+            )}
           </div>
+
+          <p className="mt-9 text-center text-sm text-neutral-500">
+            New to OneSign?{" "}
+            <Link href="/signup" className="font-semibold text-brand hover:underline">
+              Sign up
+            </Link>
+          </p>
         </div>
       </div>
     </div>

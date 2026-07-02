@@ -2,200 +2,23 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useAppRouter } from "@/hooks/use-app-router";
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getSignupConfirmRedirectUrl } from "@/lib/auth/app-url";
 import { DEFAULT_TRIAL_DAYS } from "@/lib/plan-quota";
-import { assets, getBackgroundStyle } from "@/lib/config/assets";
-import { AuthBrandHeader } from "@/components/auth-brand-header";
+import { Logo } from "@/components/logo";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { AuthHeroPanel } from "@/components/auth/auth-hero-panel";
+import { AlertBanner } from "@/components/auth/alert-banner";
 
-const AUTH_PANEL_CSS = `.auth-card input::placeholder { color: #9ca3af; }
-.auth-right-panel { overflow: auto; scrollbar-width: none; -ms-overflow-style: none; }
-.auth-right-panel::-webkit-scrollbar { display: none; }`;
-
-const inputBase: React.CSSProperties = {
-  width: "100%",
-  padding: "0.625rem 0.75rem",
-  background: "#f9fafb",
-  border: "0.0625rem solid #e5e7eb",
-  borderRadius: "0.5rem",
-  fontSize: "0.875rem",
-  color: "#111827",
-  boxSizing: "border-box",
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    position: "fixed",
-    inset: 0,
-    width: "100%",
-    height: "100%",
-    display: "flex",
-    overflow: "hidden",
-    background: "#e5e7eb",
-    padding: "0.5rem",
-    boxSizing: "border-box",
-    borderRadius: "0.75rem",
-  },
-  leftPanel: {
-    flex: 7,
-    minWidth: 0,
-    padding: "2.5rem 2rem",
-    ...getBackgroundStyle(assets.loginBackgroundValue),
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    gap: "0.5rem",
-    minHeight: 0,
-    overflow: "hidden",
-    borderRadius: "0.5rem",
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-  },
-  leftTitle: {
-    margin: 0,
-    fontSize: "clamp(2rem, 4vw, 3.5rem)",
-    fontWeight: 700,
-    color: "#fff",
-    lineHeight: 1.1,
-  },
-  leftSubtitle: {
-    margin: 0,
-    fontSize: "1.05rem",
-    fontWeight: 400,
-    color: "rgba(255,255,255,0.9)",
-    lineHeight: 1.25,
-  },
-  rightPanel: {
-    flex: 3,
-    minWidth: 0,
-    minHeight: 0,
-    padding: "2.5rem 2rem",
-    background: "#fff",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    overflow: "auto",
-    borderRadius: "0.5rem",
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-  },
-  authContent: {
-    width: "100%",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "2.5rem",
-  },
-  brandMarkOffset: {
-    transform: "translateY(-3rem)",
-  },
-  formStack: {
-    width: "100%",
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  formTitle: {
-    margin: "0 0 1rem",
-    fontSize: "1.75rem",
-    fontWeight: 800,
-    color: "#111827",
-    textAlign: "center",
-  },
-  formHint: {
-    margin: "-0.5rem 0 1rem",
-    fontSize: "0.8125rem",
-    color: "#6b7280",
-    textAlign: "center",
-    lineHeight: 1.4,
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  error: {
-    padding: "0.5rem 0.75rem",
-    background: "#fef2f2",
-    color: "#b91c1c",
-    borderRadius: "0.5rem",
-    fontSize: "0.8125rem",
-  },
-  success: {
-    padding: "0.75rem 0.875rem",
-    background: "#ecfdf5",
-    color: "#047857",
-    borderRadius: "0.5rem",
-    fontSize: "0.8125rem",
-    lineHeight: 1.45,
-    textAlign: "center",
-  },
-  field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.375rem",
-  },
-  fieldLabel: {
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    color: "#374151",
-  },
-  fieldOptional: {
-    fontWeight: 400,
-    color: "#9ca3af",
-  },
-  input: inputBase,
-  inputPassword: { ...inputBase, paddingRight: "2.5rem" },
-  passwordWrap: { position: "relative", width: "100%" },
-  eyeButton: {
-    position: "absolute",
-    right: "0.625rem",
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "0.25rem",
-    display: "flex",
-    alignItems: "center",
-  },
-  submitButton: {
-    width: "100%",
-    padding: "0.75rem 1rem",
-    background: assets.themePrimary,
-    color: assets.themePrimaryContrast,
-    border: "none",
-    borderRadius: "0.5rem",
-    fontSize: "0.9375rem",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  footer: {
-    margin: 0,
-    fontSize: "0.8125rem",
-    color: "#6b7280",
-    textAlign: "center",
-  },
-  footerLink: {
-    background: "none",
-    border: "none",
-    padding: 0,
-    color: assets.themePrimary,
-    fontWeight: 600,
-    cursor: "pointer",
-    fontSize: "inherit",
-  },
-};
+const inputClass =
+  "w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-[0.9375rem] text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-brand focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-faint20";
 
 type SignupView = "form" | "check-email";
 
 export function SignupForm() {
-  const router = useAppRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/dashboard";
 
@@ -226,10 +49,9 @@ export function SignupForm() {
       });
 
       if (signUpError) {
-        const message =
-          signUpError.message.toLowerCase().includes("already registered")
-            ? "An account already exists for this email. Try signing in instead."
-            : signUpError.message;
+        const message = signUpError.message.toLowerCase().includes("already registered")
+          ? "An account already exists for this email. Try signing in instead."
+          : signUpError.message;
         setError(message);
         toast.error(message);
         return;
@@ -247,40 +69,76 @@ export function SignupForm() {
   }
 
   return (
-    <div className="auth-card auth-card--signup" style={styles.wrapper}>
-      <style>{AUTH_PANEL_CSS}</style>
-      <div className="auth-left-panel" style={styles.leftPanel}>
-        <h1 style={styles.leftTitle}>
-          {view === "form" ? "Start your free trial" : "Almost there"}
-        </h1>
-        <p style={styles.leftSubtitle}>
-          {view === "form"
-            ? `${DEFAULT_TRIAL_DAYS} days free · 1 screen included · no credit card`
-            : "Confirm your email to open your OneSign console."}
-        </p>
-      </div>
-      <div className="auth-right-panel" style={styles.rightPanel}>
-        <div className="auth-content" style={styles.authContent}>
-          <div className="auth-brand-offset" style={styles.brandMarkOffset}>
-            <AuthBrandHeader variant="hero-light" />
+    <div className="login-screen flex min-h-[100dvh] w-full bg-white">
+      <AuthHeroPanel
+        eyebrow={`${DEFAULT_TRIAL_DAYS}-day free trial`}
+        headline={
+          view === "form" ? (
+            <>
+              Start your
+              <br />
+              free trial.
+            </>
+          ) : (
+            <>
+              Almost
+              <br />
+              there.
+            </>
+          )
+        }
+        subline={
+          view === "form"
+            ? `One screen included, no credit card required. Cancel anytime — you're in full control from day one.`
+            : "Confirm your email to open your OneSign console and start pairing screens."
+        }
+      />
+
+      <div
+        className="flex w-full flex-1 flex-col items-center justify-center px-6 py-10 sm:px-10 lg:px-14 xl:px-20"
+        style={{
+          paddingTop: "max(2.5rem, env(safe-area-inset-top))",
+          paddingBottom: "max(2rem, env(safe-area-inset-bottom))",
+        }}
+      >
+        <div className="flex w-full max-w-[23rem] flex-col">
+          <div className="mb-10 flex justify-center lg:mb-12 lg:justify-start">
+            <Logo height={32} tone="dark" />
           </div>
-          <div style={styles.formStack}>
+
+          <div key={view} className="login-step-in flex flex-col gap-5">
             {view === "form" ? (
               <>
-                <h2 style={styles.formTitle}>Create account</h2>
-                <p style={styles.formHint}>
-                  Sign up with Google or email. You&apos;ll get one screen for {DEFAULT_TRIAL_DAYS} days.
-                </p>
-                <GoogleSignInButton nextPath={next} disabled={loading} label="Sign up with Google" />
-                <form onSubmit={onSubmit} style={styles.form}>
-                  {error && (
-                    <div style={styles.error} role="alert">
-                      {error}
-                    </div>
-                  )}
-                  <label style={styles.field}>
-                    <span style={styles.fieldLabel}>
-                      Company name <span style={styles.fieldOptional}>(optional)</span>
+                <div>
+                  <h1 className="text-[1.75rem] font-extrabold tracking-tight text-neutral-900">
+                    Create your account
+                  </h1>
+                  <p className="mt-1.5 text-[0.9375rem] text-neutral-500">
+                    {DEFAULT_TRIAL_DAYS} days free · 1 screen included
+                  </p>
+                </div>
+
+                <GoogleSignInButton
+                  nextPath={next}
+                  disabled={loading}
+                  showDivider={false}
+                  label="Sign up with Google"
+                />
+
+                <div className="flex items-center gap-3" aria-hidden="true">
+                  <span className="h-px flex-1 bg-neutral-200" />
+                  <span className="font-mono text-[0.6875rem] font-medium uppercase tracking-wider text-neutral-400">
+                    or email
+                  </span>
+                  <span className="h-px flex-1 bg-neutral-200" />
+                </div>
+
+                {error && <AlertBanner>{error}</AlertBanner>}
+
+                <form onSubmit={onSubmit} className="flex flex-col gap-4">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-neutral-700">
+                      Company name <span className="font-normal text-neutral-400">(optional)</span>
                     </span>
                     <input
                       type="text"
@@ -288,11 +146,11 @@ export function SignupForm() {
                       onChange={(e) => setCompanyName(e.target.value)}
                       placeholder="Your business"
                       autoComplete="organization"
-                      style={styles.input}
+                      className={inputClass}
                     />
                   </label>
-                  <label style={styles.field}>
-                    <span style={styles.fieldLabel}>Email</span>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-neutral-700">Email</span>
                     <input
                       type="email"
                       value={email}
@@ -300,12 +158,12 @@ export function SignupForm() {
                       placeholder="you@company.com"
                       required
                       autoComplete="email"
-                      style={styles.input}
+                      className={inputClass}
                     />
                   </label>
-                  <label style={styles.field}>
-                    <span style={styles.fieldLabel}>Password</span>
-                    <div style={styles.passwordWrap}>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-sm font-semibold text-neutral-700">Password</span>
+                    <div className="relative">
                       <input
                         type={showPassword ? "text" : "password"}
                         value={password}
@@ -314,42 +172,56 @@ export function SignupForm() {
                         required
                         minLength={8}
                         autoComplete="new-password"
-                        style={styles.inputPassword}
+                        className={`${inputClass} pr-10`}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword((s) => !s)}
-                        style={styles.eyeButton}
                         aria-label={showPassword ? "Hide password" : "Show password"}
+                        className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center text-neutral-400 transition-colors hover:text-neutral-600"
                       >
                         {showPassword ? (
-                          <EyeOff size={18} color="#6b7280" strokeWidth={1.75} />
+                          <EyeOff className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
                         ) : (
-                          <Eye size={18} color="#6b7280" strokeWidth={1.75} />
+                          <Eye className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
                         )}
                       </button>
                     </div>
                   </label>
-                  <button type="submit" disabled={loading} style={styles.submitButton}>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-[0.9375rem] font-semibold text-brand-contrast transition-all hover:bg-brand-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                     {loading ? "Creating account…" : "Create account"}
                   </button>
                 </form>
-                <p style={styles.footer}>
+
+                <p className="text-center text-sm text-neutral-500">
                   Already have an account?{" "}
-                  <Link href="/login" style={{ color: assets.themePrimary, fontWeight: 600 }}>
+                  <Link href="/login" className="font-semibold text-brand hover:underline">
                     Sign in
                   </Link>
                 </p>
               </>
             ) : (
               <>
-                <h2 style={styles.formTitle}>Check your email</h2>
-                <div style={styles.success} role="status">
-                  We sent a confirmation link to <strong>{email.trim()}</strong>. Click it to start
-                  your {DEFAULT_TRIAL_DAYS}-day trial.
+                <h1 className="text-[1.75rem] font-extrabold tracking-tight text-neutral-900">
+                  Check your email
+                </h1>
+                <div
+                  role="status"
+                  className="flex items-start gap-2.5 rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-3 text-[0.8125rem] leading-relaxed text-emerald-800"
+                >
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
+                  <span>
+                    We sent a confirmation link to <strong>{email.trim()}</strong>. Click it to
+                    start your {DEFAULT_TRIAL_DAYS}-day trial.
+                  </span>
                 </div>
-                <p style={styles.footer}>
-                  <Link href="/login" style={{ color: assets.themePrimary, fontWeight: 600 }}>
+                <p className="text-center text-sm text-neutral-500">
+                  <Link href="/login" className="font-semibold text-brand hover:underline">
                     Back to sign in
                   </Link>
                 </p>
