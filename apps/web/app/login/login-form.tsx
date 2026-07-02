@@ -7,28 +7,9 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { assets } from "@/lib/config/assets";
-import dynamic from "next/dynamic";
+import { assets, getBackgroundStyle } from "@/lib/config/assets";
 import { AuthBrandHeader } from "@/components/auth-brand-header";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
-
-const LoginMotionPanel = dynamic(
-  () =>
-    import("@/components/auth/login-motion-panel").then((m) => ({ default: m.LoginMotionPanel })),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          background: "linear-gradient(160deg, #1a120e 0%, #0a0a0a 100%)",
-        }}
-        aria-hidden
-      />
-    ),
-  },
-);
 
 const inputBase: React.CSSProperties = {
   width: "100%",
@@ -56,12 +37,31 @@ const styles: Record<string, React.CSSProperties> = {
   leftPanel: {
     flex: 7,
     minWidth: 0,
+    padding: "2.5rem 2rem",
+    ...getBackgroundStyle(assets.loginBackgroundValue),
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    gap: "0.5rem",
     minHeight: 0,
     overflow: "hidden",
     borderRadius: "0.5rem",
     borderTopRightRadius: 0,
     borderBottomRightRadius: 0,
-    position: "relative",
+  },
+  leftTitle: {
+    margin: 0,
+    fontSize: "clamp(2rem, 4vw, 3.5rem)",
+    fontWeight: 700,
+    color: "#fff",
+    lineHeight: 1.1,
+  },
+  leftSubtitle: {
+    margin: 0,
+    fontSize: "1.05rem",
+    fontWeight: 400,
+    color: "rgba(255,255,255,0.9)",
+    lineHeight: 1.25,
   },
   rightPanel: {
     flex: 3,
@@ -230,10 +230,10 @@ export function LoginForm() {
   return (
     <div className="auth-card auth-card--login" style={styles.wrapper}>
       <div className="auth-left-panel" style={styles.leftPanel}>
-        <LoginMotionPanel
-          title="Welcome back"
-          subtitle="Your promos and playlists — on every screen, in every venue."
-        />
+        <h1 style={styles.leftTitle}>Welcome back</h1>
+        <p style={styles.leftSubtitle}>
+          Your promos and playlists — on every screen, in every venue.
+        </p>
       </div>
       <div className="auth-right-panel" style={styles.rightPanel}>
         <div className="auth-content" style={styles.authContent}>
