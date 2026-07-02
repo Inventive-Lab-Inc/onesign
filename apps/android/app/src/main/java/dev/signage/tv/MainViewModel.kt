@@ -116,6 +116,8 @@ private data class TvGetPlaybackResult(
     val outsideOperatingHours: Boolean = false,
     @SerialName("blankWhenOffHours")
     val blankWhenOffHours: Boolean = false,
+    @SerialName("showTrialWatermark")
+    val showTrialWatermark: Boolean = false,
 )
 
 @Serializable
@@ -159,6 +161,7 @@ private data class TvGetPlaybackRevisionResult(
     @SerialName("playlistName") val playlistName: String? = null,
     @SerialName("screenOrientation") val screenOrientation: String? = null,
     @SerialName("screenshotRequestedAt") val screenshotRequestedAt: String? = null,
+    @SerialName("showTrialWatermark") val showTrialWatermark: Boolean = false,
 )
 
 private const val TELEMETRY_INTERVAL_MS = 120_000L
@@ -463,6 +466,7 @@ class MainViewModel(
         if (normalizeScreenOrientation(rev.screenOrientation) != normalizeScreenOrientation(cur.screenOrientation)) {
             return false
         }
+        if (rev.showTrialWatermark != cur.showTrialWatermark) return false
         return true
     }
 
@@ -759,6 +763,7 @@ class MainViewModel(
             playbackDisabledByAdmin = false,
             transitionStyle = cached.transitionStyle,
             shuffleEnabled = cached.shuffleEnabled,
+            showTrialWatermark = cached.showTrialWatermark,
         )
     }
 
@@ -784,6 +789,7 @@ class MainViewModel(
                 screenOrientation = screenOrientation,
                 transitionStyle = res.transitionStyle,
                 shuffleEnabled = res.shuffleEnabled,
+                showTrialWatermark = res.showTrialWatermark,
             )
         val encoded = cachedPlaybackJson.encodeToString(CachedPlaybackV1.serializer(), payload)
         dataStore.edit { it[DeviceKeys.CACHED_PLAYBACK] = encoded }
@@ -1531,6 +1537,7 @@ class MainViewModel(
                     playbackDisabledByAdmin = true,
                     outsideOperatingHours = res.outsideOperatingHours,
                     blankWhenOffHours = res.blankWhenOffHours,
+                    showTrialWatermark = res.showTrialWatermark,
                     uiRefreshGeneration = prevGen,
                 ),
             )
@@ -1583,6 +1590,7 @@ class MainViewModel(
                 uiRefreshGeneration = prevGen,
                 transitionStyle = res.transitionStyle,
                 shuffleEnabled = res.shuffleEnabled,
+                showTrialWatermark = res.showTrialWatermark,
             ),
         )
     }

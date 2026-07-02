@@ -1,8 +1,14 @@
 /** Shared plan quota constants and formatting. */
 
 export const DEFAULT_DEVICE_LIMIT = 1;
-export const DEFAULT_TRIAL_DAYS = 7;
-export const DEFAULT_STORAGE_LIMIT_BYTES = 500 * 1024 ** 2;
+export const DEFAULT_TRIAL_DAYS = 14;
+/** Default signup trial matches the Solo tier. */
+export const DEFAULT_TRIAL_DEVICE_LIMIT = 1;
+export const SOLO_PLAN_STORAGE_LIMIT_BYTES = 500 * 1024 ** 2;
+export const GROWTH_PLAN_STORAGE_LIMIT_BYTES = 3 * 1024 ** 3;
+export const DEFAULT_TRIAL_STORAGE_LIMIT_BYTES = SOLO_PLAN_STORAGE_LIMIT_BYTES;
+export const NETWORK_PLAN_STORAGE_LIMIT_BYTES = 10 * 1024 ** 3;
+export const DEFAULT_STORAGE_LIMIT_BYTES = SOLO_PLAN_STORAGE_LIMIT_BYTES;
 export const MIN_STORAGE_LIMIT_BYTES = 1024 ** 2;
 export const MAX_UPLOAD_FILE_BYTES = 500 * 1024 ** 2;
 
@@ -15,7 +21,6 @@ const STORAGE_UNIT_BYTES: Record<StorageUnit, number> = {
 
 export function formatStorageBytes(bytes: number, digits = 1): string {
   if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
-  // Keep decimals only when they carry information (e.g. "45.1 MB" but "500 MB").
   const trim = (value: number) => Number(value.toFixed(digits)).toString();
   if (bytes < 1024) return `${Math.round(bytes)} B`;
   if (bytes < 1024 ** 2) return `${trim(bytes / 1024)} KB`;

@@ -54,8 +54,8 @@ android {
         applicationId = "dev.signage.tv"
         minSdk = 24
         targetSdk = 35
-        versionCode = 25
-        versionName = "0.9.16"
+        versionCode = 26
+        versionName = "0.9.17"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

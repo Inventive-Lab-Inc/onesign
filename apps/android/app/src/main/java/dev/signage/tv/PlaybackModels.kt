@@ -17,6 +17,7 @@ data class CachedPlaybackV1(
     val screenOrientation: String = "landscape",
     val transitionStyle: String = "none",
     val shuffleEnabled: Boolean = false,
+    val showTrialWatermark: Boolean = false,
 )
 
 @Serializable

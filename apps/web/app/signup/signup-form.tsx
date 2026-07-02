@@ -7,7 +7,12 @@ import { CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getSignupConfirmRedirectUrl } from "@/lib/auth/app-url";
-import { DEFAULT_TRIAL_DAYS } from "@/lib/plan-quota";
+import {
+  DEFAULT_TRIAL_DAYS,
+  DEFAULT_TRIAL_DEVICE_LIMIT,
+  DEFAULT_TRIAL_STORAGE_LIMIT_BYTES,
+  formatStorageBytes,
+} from "@/lib/plan-quota";
 import { Logo } from "@/components/logo";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { AuthHeroPanel } from "@/components/auth/auth-hero-panel";
@@ -17,6 +22,8 @@ const inputClass =
   "w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-[0.9375rem] text-neutral-900 placeholder:text-neutral-400 transition-colors focus:border-brand focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-faint20";
 
 type SignupView = "form" | "check-email";
+
+const trialStorageLabel = formatStorageBytes(DEFAULT_TRIAL_STORAGE_LIMIT_BYTES);
 
 export function SignupForm() {
   const searchParams = useSearchParams();
@@ -71,7 +78,7 @@ export function SignupForm() {
   return (
     <div className="login-screen flex min-h-[100dvh] w-full bg-white">
       <AuthHeroPanel
-        eyebrow={`${DEFAULT_TRIAL_DAYS}-day free trial`}
+        eyebrow={`${DEFAULT_TRIAL_DAYS}-day Solo trial`}
         headline={
           view === "form" ? (
             <>
@@ -89,7 +96,7 @@ export function SignupForm() {
         }
         subline={
           view === "form"
-            ? `One screen included, no credit card required. Cancel anytime — you're in full control from day one.`
+            ? `${DEFAULT_TRIAL_DEVICE_LIMIT} screen and ${trialStorageLabel} of storage included. No credit card required — upgrade to a paid plan when your trial ends.`
             : "Confirm your email to open your OneSign console and start pairing screens."
         }
       />
@@ -114,7 +121,8 @@ export function SignupForm() {
                     Create your account
                   </h1>
                   <p className="mt-1.5 text-[0.9375rem] text-neutral-500">
-                    {DEFAULT_TRIAL_DAYS} days free · 1 screen included
+                    {DEFAULT_TRIAL_DAYS}-day Solo trial · {DEFAULT_TRIAL_DEVICE_LIMIT} screen ·{" "}
+                    {trialStorageLabel} storage
                   </p>
                 </div>
 
@@ -194,7 +202,7 @@ export function SignupForm() {
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-[0.9375rem] font-semibold text-brand-contrast transition-all hover:bg-brand-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {loading ? "Creating account…" : "Create account"}
+                    {loading ? "Creating account…" : "Start free trial"}
                   </button>
                 </form>
 
@@ -217,7 +225,7 @@ export function SignupForm() {
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
                   <span>
                     We sent a confirmation link to <strong>{email.trim()}</strong>. Click it to
-                    start your {DEFAULT_TRIAL_DAYS}-day trial.
+                    start your {DEFAULT_TRIAL_DAYS}-day Solo trial.
                   </span>
                 </div>
                 <p className="text-center text-sm text-neutral-500">

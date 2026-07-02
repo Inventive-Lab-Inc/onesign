@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { Check, Monitor, RefreshCw, ShieldCheck, Sparkles, Star } from "lucide-react";
 import { planCurrencyFooter, type PlanCurrency } from "@/lib/plan-currency";
+import { buildSignupHref } from "@/lib/plan/signup-link";
 import { cn } from "@/lib/utils";
 import {
+  CUSTOM_PLAN,
   STATIC_PLAN_VIEW_MODELS,
   planIconForIndex,
   type PlanViewModel,
@@ -12,22 +15,29 @@ import "./plans.css";
 
 const trustBadges = [
   { icon: ShieldCheck, label: "No setup fees" },
-  { icon: Sparkles, label: "All core features included" },
+  { icon: Sparkles, label: "14-day Solo trial" },
   { icon: RefreshCw, label: "Cancel anytime" },
 ];
 
+function planGridColumns(count: number): string {
+  if (count >= 4) return "md:grid-cols-2 xl:grid-cols-4";
+  if (count === 3) return "md:grid-cols-3";
+  if (count === 2) return "md:grid-cols-2";
+  return "";
+}
+
 export function PlansView({ plans, currency = "USD" }: { plans?: PlanViewModel[]; currency?: PlanCurrency }) {
   const items = plans && plans.length > 0 ? plans : STATIC_PLAN_VIEW_MODELS;
-  const columns = items.length === 3 ? "md:grid-cols-3" : items.length === 2 ? "md:grid-cols-2" : "";
 
   return (
     <div className="plans-page py-2">
       <PlansHeader />
-      <div className={cn("mx-auto mt-12 grid w-full max-w-5xl gap-5 md:items-center", columns)}>
+      <div className={cn("mx-auto mt-12 grid w-full max-w-6xl gap-5 md:items-center", planGridColumns(items.length))}>
         {items.map((plan, index) => (
           <PlanCard key={plan.id} plan={plan} index={index} />
         ))}
       </div>
+      <CustomPlanCard />
       <PlansFooter currency={currency} />
     </div>
   );
@@ -41,6 +51,11 @@ function PlansHeader() {
         <br />
         <span className="plans-title-accent">powerful digital signage</span>
       </h1>
+
+      <p className="mt-4 text-sm text-muted-foreground">
+        Every account starts with a 14-day Solo trial. Pick the paid plan that fits when you&apos;re
+        ready to scale.
+      </p>
 
       <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-medium text-muted-foreground">
         {trustBadges.map(({ icon: Icon, label }, i) => (
@@ -69,13 +84,14 @@ function PlansHeader() {
 function PlanCard({ plan, index }: { plan: PlanViewModel; index: number }) {
   const popular = plan.highlighted;
   const Icon = planIconForIndex(index);
+  const signupHref = buildSignupHref(plan.slug);
 
   return (
     <div
       className={cn(
         "plan-card plans-enter p-6",
         popular ? "plan-card--popular" : "",
-        `plans-enter-${index + 1}`,
+        `plans-enter-${Math.min(index + 1, 5)}`,
       )}
     >
       {popular && plan.badge && (
@@ -106,7 +122,7 @@ function PlanCard({ plan, index }: { plan: PlanViewModel; index: number }) {
         <span className={cn("text-4xl font-bold tracking-tight", popular ? "text-white" : "text-foreground")}>
           {plan.monthlyPriceLabel}
         </span>
-        {plan.originalPrice != null && plan.originalPrice > plan.monthlyPrice ? (
+        {!plan.isFree && plan.originalPrice != null && plan.originalPrice > plan.monthlyPrice ? (
           <span
             className={cn(
               "mb-1 text-lg font-semibold line-through",
@@ -116,22 +132,36 @@ function PlanCard({ plan, index }: { plan: PlanViewModel; index: number }) {
             {plan.originalPriceLabel}
           </span>
         ) : null}
-        <span className={cn("mb-1.5 text-xs font-medium", popular ? "text-white/55" : "text-muted-foreground")}>
-          /mo
-        </span>
+        {!plan.isFree ? (
+          <span className={cn("mb-1.5 text-xs font-medium", popular ? "text-white/55" : "text-muted-foreground")}>
+            /mo
+          </span>
+        ) : null}
       </div>
 
-      <button
-        type="button"
+      {!plan.isFree && plan.perScreenLabel ? (
+        <p className={cn("mt-1 text-xs font-medium", popular ? "text-white/55" : "text-muted-foreground")}>
+          {plan.perScreenLabel}
+        </p>
+      ) : null}
+
+      {!plan.isFree && plan.annualMonthlyPriceLabel ? (
+        <p className={cn("mt-1 text-xs", popular ? "text-white/50" : "text-muted-foreground")}>
+          or {plan.annualMonthlyPriceLabel}/mo billed annually
+        </p>
+      ) : null}
+
+      <Link
+        href={signupHref}
         className={cn(
-          "mt-5 h-10 w-full rounded-lg text-sm font-semibold transition-colors",
+          "mt-5 flex h-10 w-full items-center justify-center rounded-lg text-sm font-semibold transition-colors",
           popular
             ? "plan-cta-popular"
             : "border border-input bg-background text-foreground hover:border-brand hover:bg-brand hover:text-brand-contrast",
         )}
       >
         {plan.ctaLabel}
-      </button>
+      </Link>
 
       <div
         className={cn(
@@ -161,6 +191,34 @@ function PlanCard({ plan, index }: { plan: PlanViewModel; index: number }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function CustomPlanCard() {
+  return (
+    <div className="plans-enter plans-enter-5 mx-auto mt-8 w-full max-w-6xl rounded-2xl border border-dashed border-border bg-muted/20 p-6 sm:p-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-brand">Enterprise</p>
+          <h2 className="mt-1 text-xl font-bold text-foreground">{CUSTOM_PLAN.name}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{CUSTOM_PLAN.tagline}</p>
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+            {CUSTOM_PLAN.features.map((feature) => (
+              <li key={feature} className="flex items-center gap-2 text-sm text-foreground">
+                <Check size={14} className="text-brand" strokeWidth={2.5} />
+                {feature}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <a
+          href={`mailto:aminulislamborhan@gmail.com?subject=${CUSTOM_PLAN.mailtoSubject}`}
+          className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-input bg-background px-5 text-sm font-semibold text-foreground transition-colors hover:border-brand hover:bg-brand hover:text-brand-contrast"
+        >
+          {CUSTOM_PLAN.ctaLabel}
+        </a>
+      </div>
     </div>
   );
 }

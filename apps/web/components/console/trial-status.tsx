@@ -197,7 +197,7 @@ export function TrialHomeCard() {
           <TrialProgressRing daysLeft={trial.daysLeft} elapsed={trial.elapsed} />
           <div className="min-w-0 space-y-1.5">
             <p className="text-[0.625rem] font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">
-              {DEFAULT_TRIAL_DAYS}-day free trial
+              {DEFAULT_TRIAL_DAYS}-day Solo trial
             </p>
             <h2 className="text-xl font-semibold tracking-tight text-foreground">
               {trial.remainingLabel} on your trial

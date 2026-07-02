@@ -36,6 +36,8 @@ sealed interface MainUiState {
         val outsideOperatingHours: Boolean = false,
         /** When true with [outsideOperatingHours], show a blank screen instead of standby branding. */
         val blankWhenOffHours: Boolean = false,
+        /** Active Solo trial — show OneSign logo watermark on playback. */
+        val showTrialWatermark: Boolean = false,
         /**
          * Bumped when the display returns after standby so [kotlinx.coroutines.flow.MutableStateFlow] emits
          * even if the server manifest is unchanged, and so the UI restarts the playlist like a fresh sync.

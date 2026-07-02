@@ -21,10 +21,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,7 +39,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -60,8 +60,9 @@ import coil.request.ErrorResult
 import coil.request.SuccessResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.delay
+import dev.signage.tv.ui.TrialWatermarkOverlay
 
 private const val LOG_TAG = "SignageTV"
 
@@ -189,7 +190,12 @@ fun PlaybackScreen(
     }
 
     if (state.playbackDisabledByAdmin) {
-        AdminDisabledStandbyScreen()
+        Box(modifier = Modifier.fillMaxSize()) {
+            AdminDisabledStandbyScreen()
+            if (state.showTrialWatermark) {
+                TrialWatermarkOverlay(modifier = Modifier.align(Alignment.BottomEnd))
+            }
+        }
         return
     }
     if (state.outsideOperatingHours && state.blankWhenOffHours) {
@@ -197,20 +203,29 @@ fun PlaybackScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(ComposeColor.Black),
-        )
+        ) {
+            if (state.showTrialWatermark) {
+                TrialWatermarkOverlay(modifier = Modifier.align(Alignment.BottomEnd))
+            }
+        }
         return
     }
     if (state.slides.isEmpty()) {
-        if (state.playlistName == null) {
-            TvStandbyBrandingScreen(
-                message = stringResource(R.string.standby_no_playlist),
-                hint = stringResource(R.string.standby_no_playlist_hint),
-            )
-        } else {
-            TvStandbyBrandingScreen(
-                message = stringResource(R.string.standby_playlist_empty),
-                hint = stringResource(R.string.standby_playlist_empty_hint),
-            )
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (state.playlistName == null) {
+                TvStandbyBrandingScreen(
+                    message = stringResource(R.string.standby_no_playlist),
+                    hint = stringResource(R.string.standby_no_playlist_hint),
+                )
+            } else {
+                TvStandbyBrandingScreen(
+                    message = stringResource(R.string.standby_playlist_empty),
+                    hint = stringResource(R.string.standby_playlist_empty_hint),
+                )
+            }
+            if (state.showTrialWatermark) {
+                TrialWatermarkOverlay(modifier = Modifier.align(Alignment.BottomEnd))
+            }
         }
         return
     }
@@ -337,6 +352,9 @@ fun PlaybackScreen(
                     )
                 }
             }
+        }
+        if (state.showTrialWatermark) {
+            TrialWatermarkOverlay(modifier = Modifier.align(Alignment.BottomEnd))
         }
     }
 }

@@ -113,6 +113,12 @@
   .plans-enter-3 {
     animation-delay: 0.19s;
   }
+  .plans-enter-4 {
+    animation-delay: 0.26s;
+  }
+  .plans-enter-5 {
+    animation-delay: 0.33s;
+  }
 }
 
 @keyframes plans-fade-up {

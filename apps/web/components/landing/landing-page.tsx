@@ -20,11 +20,13 @@ import { Logo } from "@/components/logo";
 import { layoutConfig } from "@/lib/config/layout";
 import { appUrl } from "@/lib/site-hosts";
 import { type PlanCurrency } from "@/lib/plan-currency";
+import { buildSignupHref } from "@/lib/plan/signup-link";
 import {
   STATIC_PLAN_VIEW_MODELS,
   planIconForIndex,
   type PlanViewModel,
 } from "@/components/plans/plan-data";
+import { DEFAULT_TRIAL_DAYS } from "@/lib/plan-quota";
 import { LandingLiveChat } from "./landing-live-chat";
 import { LandingDownloadButton } from "./landing-download-button";
 import { LandingMockupSlideshow, type MockupSlide } from "./landing-mockup-slideshow";
@@ -220,7 +222,7 @@ function Hero({ name }: { name: string }) {
           </div>
           <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground lg:justify-start">
             <ShieldCheck size={13} className="text-brand" strokeWidth={2} />
-            7-day free trial · No credit card required
+            {DEFAULT_TRIAL_DAYS}-day Solo trial · No credit card required
           </p>
         </div>
 
@@ -467,16 +469,17 @@ function PricingTeaser({ plans }: { plans: PlanViewModel[] }) {
         <SectionHeading
           eyebrow="Pricing"
           title="Simple plans that scale with you"
-          subtitle="Start free, then pick the plan that matches your screen count. No setup fees, cancel anytime."
+          subtitle="Start with a 14-day Solo trial, then pick the plan that matches your screen count. No setup fees, cancel anytime."
         />
-        <div className="mt-12 grid gap-5 md:grid-cols-3 md:items-center">
+        <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-4 xl:items-center">
           {plans.map((plan, index) => {
             const popular = plan.highlighted;
             const Icon = planIconForIndex(index);
+            const signupHref = appUrl(buildSignupHref(plan.slug));
             return (
               <div
                 key={plan.id}
-                className={`landing-price-card p-6 ${popular ? "landing-price-card--popular md:scale-[1.03]" : ""}`}
+                className={`landing-price-card p-6 ${popular ? "landing-price-card--popular xl:scale-[1.03]" : ""}`}
               >
                 {popular && plan.badge && (
                   <span className="landing-price-badge absolute right-5 top-5 rounded-full px-2.5 py-1 text-[0.625rem] font-bold uppercase tracking-wider">
@@ -500,17 +503,28 @@ function PricingTeaser({ plans }: { plans: PlanViewModel[] }) {
                   <span className={`text-3xl font-bold tracking-tight ${popular ? "text-white" : "text-foreground"}`}>
                     {plan.monthlyPriceLabel}
                   </span>
-                  {plan.originalPrice != null && plan.originalPrice > plan.monthlyPrice && (
+                  {!plan.isFree && plan.originalPrice != null && plan.originalPrice > plan.monthlyPrice && (
                     <span
                       className={`mb-1 text-sm font-semibold line-through ${popular ? "text-white/45" : "text-muted-foreground/70"}`}
                     >
                       {plan.originalPriceLabel}
                     </span>
                   )}
-                  <span className={`mb-1 text-xs font-medium ${popular ? "text-white/55" : "text-muted-foreground"}`}>
-                    /mo · {plan.screens}
-                  </span>
+                  {!plan.isFree ? (
+                    <span className={`mb-1 text-xs font-medium ${popular ? "text-white/55" : "text-muted-foreground"}`}>
+                      /mo · {plan.screens}
+                    </span>
+                  ) : (
+                    <span className={`mb-1 text-xs font-medium ${popular ? "text-white/55" : "text-muted-foreground"}`}>
+                      · {plan.screens}
+                    </span>
+                  )}
                 </div>
+                {!plan.isFree && plan.perScreenLabel ? (
+                  <p className={`mt-1 text-xs ${popular ? "text-white/50" : "text-muted-foreground"}`}>
+                    {plan.perScreenLabel}
+                  </p>
+                ) : null}
                 <ul className="mt-5 space-y-2">
                   {plan.features.slice(0, 4).map((feature) => (
                     <li
@@ -527,7 +541,7 @@ function PricingTeaser({ plans }: { plans: PlanViewModel[] }) {
                   ))}
                 </ul>
                 <Link
-                  href={appUrl("/signup")}
+                  href={signupHref}
                   className={`mt-6 flex h-10 w-full items-center justify-center rounded-lg text-sm font-semibold transition-colors ${
                     popular
                       ? "landing-btn-on-dark"
@@ -540,6 +554,16 @@ function PricingTeaser({ plans }: { plans: PlanViewModel[] }) {
             );
           })}
         </div>
+        <p className="mt-8 text-center text-sm text-muted-foreground">
+          Need 20+ screens?{" "}
+          <a
+            href="mailto:aminulislamborhan@gmail.com?subject=OneSign%20Custom%20plan"
+            className="font-medium text-brand-strong underline underline-offset-2"
+          >
+            Contact us for custom pricing
+          </a>
+          .
+        </p>
       </div>
     </section>
   );
@@ -558,7 +582,7 @@ function FinalCta() {
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-base text-white/70">
             Join the businesses running their displays the easy way. Set up your first screen in
-            minutes — free for 7 days.
+            minutes — start with a {DEFAULT_TRIAL_DAYS}-day Solo trial.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <LandingDownloadButton className="landing-btn-on-dark flex h-11 items-center gap-2 rounded-xl px-6 text-sm font-semibold" />

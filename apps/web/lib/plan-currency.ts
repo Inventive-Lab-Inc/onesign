@@ -122,5 +122,5 @@ export function planCurrencyLabel(currency: PlanCurrency): string {
 }
 
 export function planCurrencyFooter(currency: PlanCurrency): string {
-  return `Prices in ${planCurrencyLabel(currency)}. Taxes may apply. 14-day money-back guarantee.`;
+  return `Prices in ${planCurrencyLabel(currency)}. Save ~17% with annual billing. Taxes may apply. 14-day money-back guarantee.`;
 }

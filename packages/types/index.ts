@@ -109,7 +109,7 @@ export interface Profile {
   storage_used_bytes?: number;
   /** Null = no trial clock (legacy, paid, admin-invited). */
   trial_ends_at?: string | null;
-  plan_kind?: "trial" | "standard" | "custom";
+  plan_kind?: "trial" | "standard" | "custom" | "free";
 }
 
 /** A subscription plan in the admin-managed catalog (public.plan_templates). */

@@ -22,7 +22,7 @@ const CHAT_PRESETS: ChatPreset[] = [
     id: "pricing",
     question: "How much does it cost?",
     answer:
-      "Plans start at $19/mo for one screen (Starter), $59/mo for five screens (Business), and $149/mo for twenty (Enterprise). Every plan includes a 7-day free trial with no credit card required.",
+      "OneSign starts at $9/mo for Solo (1 screen). Growth is $39/mo for 5 screens and Network is $89/mo for 15 screens. Every new account gets a 14-day Solo trial — no credit card required.",
   },
   {
     id: "setup",
@@ -40,7 +40,7 @@ const CHAT_PRESETS: ChatPreset[] = [
     id: "trial",
     question: "Is there a free trial?",
     answer:
-      "Yes — every account gets a 7-day free trial with full access. No credit card needed to sign up, and you can cancel anytime.",
+      "Yes — every new account gets a 14-day Solo trial with 1 screen and 500 MB of storage. No credit card needed to sign up. Choose a paid plan when your trial ends to keep going.",
   },
   {
     id: "scheduling",
