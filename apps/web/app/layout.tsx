@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { AppProviders } from "@/app/providers";
+import { MicrosoftClarity } from "@/components/analytics/microsoft-clarity";
 import { getSupabaseConnectEnv } from "@/lib/supabase/env";
 import "@fontsource-variable/inter/wght.css";
 import "./globals.css";
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ) : null}
       </head>
       <body className="font-sans antialiased">
+        <MicrosoftClarity />
         <AppProviders>{children}</AppProviders>
         <Toaster richColors position="top-right" />
       </body>
