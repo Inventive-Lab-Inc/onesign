@@ -475,6 +475,74 @@ class MainViewModel(
         return true
     }
 
+    /**
+     * Apply admin/TV settings from the cheap revision poll without calling [tv_get_playback_slides].
+     * Disable transitions only need revision data; metadata-only edits skip the heavy manifest fetch.
+     */
+    private fun patchPlaybackFromRevision(
+        rev: TvGetPlaybackRevisionResult,
+        cur: MainUiState.Playback?,
+        deviceId: String,
+        deviceNameFallback: String,
+    ): MainUiState.Playback? {
+        val resolvedName =
+            rev.deviceName?.takeIf { it.isNotBlank() }
+                ?: cur?.deviceName?.takeIf { it.isNotBlank() }
+                ?: deviceNameFallback.ifBlank { "Display" }
+        val orient = normalizeScreenOrientation(rev.screenOrientation)
+
+        if (rev.playbackDisabled) {
+            if (cur != null && cur.isPlaybackBlocked && cur.slides.isEmpty()) {
+                if (
+                    cur.contentRevision == rev.contentRevision &&
+                        normalizeScreenOrientation(cur.screenOrientation) == orient &&
+                        cur.deviceName == resolvedName &&
+                        cur.showTrialWatermark == rev.showTrialWatermark
+                ) {
+                    return null
+                }
+            }
+            return MainUiState.Playback(
+                deviceName = resolvedName,
+                deviceId = deviceId,
+                playlistName = null,
+                slides = emptyList(),
+                isFromCache = false,
+                contentRevision = rev.contentRevision,
+                playlistId = null,
+                screenOrientation = orient,
+                playbackBlockReason = PlaybackBlockReason.AdminDisabled,
+                showTrialWatermark = rev.showTrialWatermark,
+                uiRefreshGeneration = cur?.uiRefreshGeneration ?: 0L,
+            )
+        }
+
+        if (cur == null || cur.isPlaybackBlocked) {
+            return null
+        }
+
+        if (rev.contentRevision != cur.contentRevision || rev.playlistId != cur.playlistId) {
+            return null
+        }
+
+        val needsPatch =
+            normalizeScreenOrientation(cur.screenOrientation) != orient ||
+                cur.deviceName != resolvedName ||
+                (rev.playlistName ?: "") != (cur.playlistName ?: "") ||
+                cur.showTrialWatermark != rev.showTrialWatermark
+        if (!needsPatch) {
+            return null
+        }
+
+        return cur.copy(
+            deviceName = resolvedName,
+            playlistName = rev.playlistName ?: cur.playlistName,
+            screenOrientation = orient,
+            showTrialWatermark = rev.showTrialWatermark,
+            isFromCache = false,
+        )
+    }
+
     private suspend fun fetchPlaybackRevision(deviceId: String): TvGetPlaybackRevisionResult {
         val storedPlaybackSecret = dataStore.data.first()[DeviceKeys.PLAYBACK_SECRET]
         return retrySupabaseNetwork("tv_get_playback_revision") {
@@ -1385,22 +1453,40 @@ class MainViewModel(
                                     }
                             if (canSkipFullFetch) {
                                 nameForPoll = rev.deviceName?.takeIf { it.isNotBlank() } ?: nameForPoll
+                                patchPlaybackFromRevision(rev, cur, deviceId, nameForPoll)?.let { patched ->
+                                    _state.value = patched
+                                    nameForPoll = patched.deviceName
+                                }
                             } else {
-                                manifestNeedsQuickFollowUp.set(true)
-                                when (val loaded = loadPlaybackState(nameForPoll, deviceId)) {
-                                    is PlaybackLoadResult.NeedsRePairing -> {
-                                        viewModelScope.launch {
-                                            recoverPairingAfterPlaybackRejected()
-                                        }
-                                        return@launch
+                                val revisionPatch =
+                                    patchPlaybackFromRevision(rev, cur, deviceId, nameForPoll)
+                                if (revisionPatch != null) {
+                                    if (revisionPatch.isPlaybackBlocked) {
+                                        viewModelScope.launch { clearCachedPlayback() }
                                     }
-                                    is PlaybackLoadResult.Ok -> {
-                                        val next = loaded.state
-                                        nameForPoll = next.deviceName
-                                        _state.value = next
-                                        playbackRealtime?.update(deviceId, next.playlistId, onStale)
-                                        if (!next.isPlaybackBlocked && next.slides.isNotEmpty()) {
-                                            startPlaylistCacheWarm(next.slides, next.contentRevision)
+                                    nameForPoll = revisionPatch.deviceName
+                                    _state.value = revisionPatch
+                                    playbackRealtime?.update(deviceId, revisionPatch.playlistId, onStale)
+                                    if (!revisionPatch.isPlaybackBlocked && revisionPatch.slides.isNotEmpty()) {
+                                        startPlaylistCacheWarm(revisionPatch.slides, revisionPatch.contentRevision)
+                                    }
+                                } else {
+                                    manifestNeedsQuickFollowUp.set(true)
+                                    when (val loaded = loadPlaybackState(nameForPoll, deviceId)) {
+                                        is PlaybackLoadResult.NeedsRePairing -> {
+                                            viewModelScope.launch {
+                                                recoverPairingAfterPlaybackRejected()
+                                            }
+                                            return@launch
+                                        }
+                                        is PlaybackLoadResult.Ok -> {
+                                            val next = loaded.state
+                                            nameForPoll = next.deviceName
+                                            _state.value = next
+                                            playbackRealtime?.update(deviceId, next.playlistId, onStale)
+                                            if (!next.isPlaybackBlocked && next.slides.isNotEmpty()) {
+                                                startPlaylistCacheWarm(next.slides, next.contentRevision)
+                                            }
                                         }
                                     }
                                 }

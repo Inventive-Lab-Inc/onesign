@@ -1,4 +1,6 @@
--- Expose why playback is blocked so TVs can show the correct standby copy.
+-- Fix tv_get_playback_slides: to_jsonb('none') uses unknown type and crashes jsonb_build_object
+-- (PostgreSQL error 42804). TVs then fail every slides fetch → disable/enable and post-cache
+-- playlist load all break.
 
 create or replace function public.tv_get_playback_slides(p_device_id uuid, p_playback_secret text default null)
 returns jsonb
