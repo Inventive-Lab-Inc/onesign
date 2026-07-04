@@ -1,3 +1,15 @@
+import {
+  CreditCard,
+  Layers,
+  Monitor,
+  ScrollText,
+  Settings,
+  Tv,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+
 export function getAdminPageTitle(pathname: string): string {
   if (pathname === "/admin") return "Clients";
   if (pathname === "/admin/device-view") return "Device View";
@@ -18,4 +30,22 @@ export function getAdminPageTitle(pathname: string): string {
   if (pathname.startsWith("/admin/clients/") && pathname.endsWith("/audit")) return "Audit log";
   if (pathname.startsWith("/admin/clients/")) return "Client";
   return "Admin";
+}
+
+export function getAdminPageIcon(pathname: string): LucideIcon | undefined {
+  if (pathname === "/admin") return Users;
+  if (pathname === "/admin/device-view") return Monitor;
+  if (pathname === "/admin/plans") return CreditCard;
+  if (pathname === "/admin/audit") return ScrollText;
+  if (pathname === "/admin/admins" || pathname === "/admin/staff") return Settings;
+  if (pathname.startsWith("/admin/clients/")) {
+    if (pathname.includes("/screens")) return Monitor;
+    if (pathname.includes("/groups")) return Tv;
+    if (pathname.includes("/content") || pathname.includes("/playlists") || pathname.includes("/media")) {
+      return Layers;
+    }
+    if (pathname.includes("/audit")) return ScrollText;
+    return UserRound;
+  }
+  return undefined;
 }

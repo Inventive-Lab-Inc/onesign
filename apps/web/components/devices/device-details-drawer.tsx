@@ -3,19 +3,17 @@
 import type { Device } from "@signage/types";
 import { useMemo, useState } from "react";
 import { DeviceSideDrawer } from "@/components/devices/device-side-drawer";
-import { DeviceLiveScreenshotTab as ScreenshotsTab } from "@/components/devices/device-live-screenshot-tab";
 import { DeviceTelemetryPanelContent } from "@/components/device-telemetry-panel";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { buildDeviceHistoryEvents, buildDeviceInformationRows } from "@/lib/device-information";
 import { useConsoleDevice } from "@/hooks/use-console-device";
 import { cn } from "@/lib/utils";
 
-type DetailsTab = "information" | "history" | "screenshots";
+type DetailsTab = "information" | "history";
 
 const TAB_OPTIONS: { id: DetailsTab; label: string }[] = [
   { id: "information", label: "Information" },
   { id: "history", label: "History" },
-  { id: "screenshots", label: "Screenshots" },
 ];
 
 function InfoRows({ rows }: { rows: { label: string; value: string }[] }) {
@@ -109,7 +107,6 @@ export function DeviceDetailsDrawer({
         ) : null}
 
         {tab === "history" ? <HistoryTab device={device} lastPlaylistChangeAt={lastPlaylistChangeAt} /> : null}
-        {tab === "screenshots" ? <ScreenshotsTab device={device} /> : null}
       </div>
     </DeviceSideDrawer>
   );

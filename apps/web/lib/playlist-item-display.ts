@@ -22,3 +22,10 @@ export function formatPlaylistItemMeta(item: PlaylistItemWithMedia): string {
   const type = item.media!.file_type;
   return `${type.charAt(0).toUpperCase()}${type.slice(1)} • ${formatMediaAge(item.created_at)}`;
 }
+
+export function formatPlaylistItemAge(item: PlaylistItemWithMedia): string {
+  if (playlistItemIsWebsite(item)) {
+    return formatMediaAge(item.website!.created_at);
+  }
+  return formatMediaAge(item.created_at);
+}

@@ -22,7 +22,7 @@ import { SettingsProvider } from "@/components/shell/settings-context";
 import { clearConsoleCachePersist } from "@/stores/console-data-store";
 import { clearStaffPortalChoice } from "@/lib/auth/staff-portal-choice";
 import type { NavItem } from "@/components/shell/types";
-import { getAdminPageTitle } from "@/lib/config/admin-layout";
+import { getAdminPageTitle, getAdminPageIcon } from "@/lib/config/admin-layout";
 
 const adminNavItems: NavItem[] = [
   { path: "/admin", label: "Clients", icon: Users, end: true },
@@ -89,6 +89,7 @@ export function AdminPortalShell({
             brand={brand}
             navItems={navItems}
             getPageTitle={getAdminPageTitle}
+            getPageIcon={getAdminPageIcon}
             userName={displayName}
             profileSubtext={profileSubtext}
             onSignOut={() => void signOut()}

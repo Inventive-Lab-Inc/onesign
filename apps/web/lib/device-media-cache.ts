@@ -54,39 +54,30 @@ export function getDeviceMediaCache(device: Device): DeviceMediaCacheTelemetry |
   };
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+function formatBytesCompact(bytes: number): string | null {
+  if (bytes <= 0) return null;
+  if (bytes < 1024) return `${bytes}b`;
+  if (bytes < 1024 * 1024) {
+    const kb = bytes / 1024;
+    const value = kb >= 100 ? kb.toFixed(0) : kb.toFixed(1).replace(/\.0$/, "");
+    return `${value}kb`;
+  }
   if (bytes < 1024 * 1024 * 1024) {
     const mb = bytes / (1024 * 1024);
-    return mb >= 10 ? `${mb.toFixed(0)} MB` : `${mb.toFixed(1)} MB`;
+    const value = mb >= 100 ? mb.toFixed(0) : mb.toFixed(1).replace(/\.0$/, "");
+    return `${value}mb`;
   }
   const gb = bytes / (1024 * 1024 * 1024);
-  return gb >= 10 ? `${gb.toFixed(0)} GB` : `${gb.toFixed(2).replace(/\.?0+$/, "")} GB`;
+  const value = gb >= 10 ? gb.toFixed(0) : gb.toFixed(1).replace(/\.0$/, "");
+  return `${value}gb`;
 }
 
-function formatStorageUsage(used: number, max?: number): string | null {
-  if (max != null && max > 0) {
-    if (used <= 0) return `${formatBytes(max)} available`;
-    return `${formatBytes(used)} of ${formatBytes(max)} used`;
-  }
-  if (used > 0) return `${formatBytes(used)} used`;
-  return null;
-}
-
-function formatMediaBreakdown(cache: DeviceMediaCacheTelemetry): string | null {
-  const videos = cache.videos_total ?? 0;
-  const images = cache.images_total ?? 0;
-  if (videos > 0 && images > 0) {
-    const videoLabel = videos === 1 ? "1 video" : `${videos} videos`;
-    const imageLabel = images === 1 ? "1 image" : `${images} images`;
-    return `${videoLabel}, ${imageLabel}`;
-  }
-  return null;
-}
-
-function formatItemCount(count: number): string {
-  return count === 1 ? "1 item" : `${count} items`;
+function buildCacheLabel(ready: number, total: number, warming: boolean, bytesUsed: number): string {
+  const ratio = `${ready}/${total}`;
+  const size = formatBytesCompact(bytesUsed);
+  const sizeSuffix = size ? ` (${size})` : "";
+  const verb = warming ? "Caching" : "Cached";
+  return `${verb} ${ratio}${sizeSuffix}`;
 }
 
 export type DeviceMediaCacheSummary = {
@@ -104,39 +95,22 @@ export function deviceMediaCacheSummary(device: Device): DeviceMediaCacheSummary
 
   const ready = cache.items_ready ?? 0;
   const warming = cache.warming === true;
+  const bytesUsed = cache.cache_bytes_used ?? 0;
 
   let tone: DeviceMediaCacheSummary["tone"];
-  let label: string;
   if (warming) {
     tone = "warming";
-    label = ready > 0 ? `Downloading (${ready} of ${total})` : "Downloading content";
   } else if (ready >= total) {
     tone = "ready";
-    label = total === 1 ? "Content saved on screen" : "All content saved on screen";
   } else if (ready <= 0) {
     tone = "empty";
-    label = "Content not on screen yet";
   } else {
     tone = "partial";
-    label = `${ready} of ${total} items saved`;
   }
-
-  const parts: string[] = [];
-  const breakdown = formatMediaBreakdown(cache);
-  if (breakdown) {
-    parts.push(breakdown);
-  } else if (ready >= total) {
-    parts.push(formatItemCount(total));
-  }
-
-  const storage = formatStorageUsage(cache.cache_bytes_used ?? 0, cache.cache_bytes_max);
-  if (storage) parts.push(storage);
-
-  const detail = parts.length > 0 ? parts.join(" · ") : null;
 
   return {
-    label,
-    detail,
+    label: buildCacheLabel(ready, total, warming, bytesUsed),
+    detail: null,
     tone,
   };
 }

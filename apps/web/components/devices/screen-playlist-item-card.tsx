@@ -2,7 +2,7 @@
 
 import type { PlaylistItemWithMedia } from "@signage/types";
 import { Draggable } from "@hello-pangea/dnd";
-import { FileImage, FileVideo, Globe } from "lucide-react";
+import { FileImage, Globe } from "lucide-react";
 import Image from "next/image";
 import { PlaylistDurationField } from "@/components/devices/playlist-duration-field";
 import { WebsitePreviewFrame } from "@/components/websites/website-preview-frame";
@@ -17,14 +17,15 @@ import {
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { cn } from "@/lib/utils";
 import type { DraftPlaylistItem } from "@/lib/persist-playlist-draft";
+import { PlaylistItemSavingOverlay } from "@/components/playlist/playlist-item-saving-overlay";
 
 function ItemThumb({ item }: { item: PlaylistItemWithMedia }) {
   if (playlistItemIsWebsite(item)) {
     return (
-      <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+      <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
         <WebsitePreviewFrame website={item.website!} className="pointer-events-none h-full w-full" />
-        <span className="absolute bottom-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded bg-black/70 text-white">
-          <Globe className="h-3 w-3" aria-hidden />
+        <span className="absolute bottom-0.5 right-0.5 inline-flex h-4 w-4 items-center justify-center rounded bg-black/70 text-white">
+          <Globe className="h-2.5 w-2.5" aria-hidden />
         </span>
       </div>
     );
@@ -32,14 +33,14 @@ function ItemThumb({ item }: { item: PlaylistItemWithMedia }) {
 
   const url = mediaPublicUrl(item.media!.storage_path);
   return (
-    <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+    <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
       {item.media!.file_type === "image" ? (
-        <Image src={url} alt="" fill className="object-cover" sizes="112px" />
+        <Image src={url} alt="" fill className="object-cover" sizes="64px" />
       ) : item.media!.file_type === "video" ? (
         <video className="h-full w-full object-cover" src={url} muted playsInline preload="metadata" />
       ) : (
         <div className="flex h-full items-center justify-center">
-          <FileImage className="h-6 w-6 text-muted-foreground" />
+          <FileImage className="h-4 w-4 text-muted-foreground" />
         </div>
       )}
     </div>
@@ -67,40 +68,29 @@ export function ScreenPlaylistItemCard({
   const cardBody = (
     <>
       <ItemThumb item={item} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-foreground">{playlistItemTitle(item)}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{formatPlaylistItemMeta(item)}</p>
-        <div className="mt-1 flex items-center gap-1 text-xs capitalize text-muted-foreground">
-          {kind === "video" ? (
-            <FileVideo className="h-3.5 w-3.5" />
-          ) : kind === "website" ? (
-            <Globe className="h-3.5 w-3.5" />
-          ) : null}
-          <span>{kind}</span>
-        </div>
+      <div className="min-w-0 flex-1 self-center leading-tight">
+        <p className="truncate text-[0.8125rem] font-semibold text-foreground">{playlistItemTitle(item)}</p>
+        <p className="mt-0.5 truncate text-[0.6875rem] capitalize text-muted-foreground">
+          {formatPlaylistItemMeta(item)}
+        </p>
       </div>
-      <div className="flex shrink-0 items-end gap-0.5">
+      <div className="flex shrink-0 items-center gap-0.5 self-center">
         {isVideo ? (
-          <div className="flex w-[5.5rem] flex-col items-center gap-1">
-            <span className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Duration
-            </span>
-            <div className="flex w-full items-center justify-end gap-1.5">
-              <ReadonlyVideoDuration
-                id={`duration-video-${item.draftKey}`}
-                durationSeconds={item.media!.duration_seconds}
-                fallbackProbeUrl={mediaPublicUrl(item.media!.storage_path)}
-                onProbedDuration={(sec) => onVideoDurationProbed?.(item.media!.id, sec)}
-                className="h-9 w-[3.25rem] px-1 text-center"
-              />
-              <span className="shrink-0 text-sm text-muted-foreground">Secs</span>
-            </div>
+          <div className="flex items-center gap-1">
+            <ReadonlyVideoDuration
+              id={`duration-video-${item.draftKey}`}
+              durationSeconds={item.media!.duration_seconds}
+              fallbackProbeUrl={mediaPublicUrl(item.media!.storage_path)}
+              onProbedDuration={(sec) => onVideoDurationProbed?.(item.media!.id, sec)}
+              className="h-7 w-10 px-0.5 text-center text-xs"
+            />
+            <span className="shrink-0 text-[0.6875rem] text-muted-foreground">s</span>
           </div>
         ) : (
           <PlaylistDurationField
             id={`duration-${item.draftKey}`}
             seconds={item.duration_seconds}
-            disabled={readOnly}
+            disabled={readOnly || item.isPending}
             onChange={(seconds) => onDurationChange(item.draftKey, seconds)}
           />
         )}
@@ -108,7 +98,6 @@ export function ScreenPlaylistItemCard({
           <ItemActionMenu
             ariaLabel={`Actions for ${playlistItemTitle(item)}`}
             items={menuItems}
-            className="mb-1.5"
           />
         ) : null}
       </div>
@@ -117,25 +106,27 @@ export function ScreenPlaylistItemCard({
 
   if (readOnly) {
     return (
-      <div className="flex cursor-default items-stretch gap-3 rounded-xl border border-border bg-background p-3 shadow-sm">
+      <div className="flex cursor-default items-center gap-2 rounded-lg border border-border bg-background p-2 shadow-sm">
         {cardBody}
       </div>
     );
   }
 
   return (
-    <Draggable draggableId={`pi-${item.draftKey}`} index={index}>
+    <Draggable draggableId={`pi-${item.draftKey}`} index={index} isDragDisabled={item.isPending}>
       {(dragProvided, snapshot) => (
         <div
           ref={dragProvided.innerRef}
           {...dragProvided.draggableProps}
           {...dragProvided.dragHandleProps}
           className={cn(
-            "flex items-stretch gap-3 rounded-xl border border-border bg-background p-3 shadow-sm",
+            "relative flex items-center gap-2 rounded-lg border border-border bg-background p-2 shadow-sm",
             snapshot.isDragging && "ring-2 ring-brand-faint30",
+            item.isPending && "border-brand/30",
           )}
         >
           {cardBody}
+          {item.isPending ? <PlaylistItemSavingOverlay /> : null}
         </div>
       )}
     </Draggable>

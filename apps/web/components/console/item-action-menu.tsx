@@ -111,16 +111,21 @@ export function ItemActionMenu({
       ref={menuRef}
       role="menu"
       style={menuStyle}
-      className="min-w-[12rem] w-max max-w-[min(100vw-1rem,24rem)] overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"
+      className="min-w-[12rem] w-max max-w-[min(100vw-1rem,24rem)] overflow-hidden rounded-lg border border-border bg-card shadow-lg"
     >
       {items.map((item, index) => {
+        const isFirst = index === 0;
+        const isLast = index === items.length - 1;
+
         const classNames = cn(
           "flex w-full gap-2 px-3 py-2 text-left text-sm transition-colors",
           item.description ? "items-start" : "items-center",
+          isFirst && "rounded-t-lg",
+          isLast && "rounded-b-lg",
           item.disabled
             ? "cursor-not-allowed text-muted-foreground/60"
             : item.destructive
-              ? "text-destructive hover:bg-destructive/10"
+              ? "text-red-600 hover:bg-red-600 hover:text-white hover:[&_svg]:stroke-white hover:[&_svg]:text-white"
               : "text-foreground hover:bg-muted",
         );
 

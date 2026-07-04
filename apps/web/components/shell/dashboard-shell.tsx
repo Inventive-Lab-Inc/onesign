@@ -11,7 +11,7 @@ import { AppLayout } from "./app-layout";
 import { DashboardRoutePrefetch } from "./dashboard-route-prefetch";
 import { NotificationsProvider } from "./notifications-context";
 import { SettingsProvider } from "./settings-context";
-import { getPageTitle, layoutConfig } from "@/lib/config/layout";
+import { getPageTitle, getPageIcon, layoutConfig } from "@/lib/config/layout";
 import { clearConsoleCachePersist } from "@/stores/console-data-store";
 import { clearStaffPortalChoice } from "@/lib/auth/staff-portal-choice";
 import type { AccountContext } from "@/lib/workspace/account-context";
@@ -58,6 +58,7 @@ function DashboardShellInner({
       {...layoutConfig}
       navItems={layoutConfig.navItems}
       getPageTitle={getPageTitle}
+      getPageIcon={getPageIcon}
       userName={displayName}
       profileSubtext={userEmail}
       onSignOut={() => void signOut()}

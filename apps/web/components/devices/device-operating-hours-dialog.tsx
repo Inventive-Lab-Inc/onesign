@@ -8,6 +8,7 @@ import { ConsoleCenterModal } from "@/components/devices/console-center-modal";
 import { WeeklyScheduleFields } from "@/components/devices/weekly-schedule-fields";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   createDefaultWeeklySchedule,
@@ -145,11 +146,13 @@ export function DeviceOperatingHoursDialog({
 export function DeviceHoursButton({
   device,
   canEdit = true,
+  compact = false,
   className,
   variant = "outline",
 }: {
   device: Device;
   canEdit?: boolean;
+  compact?: boolean;
   className?: string;
   variant?: "outline" | "ghost";
 }) {
@@ -157,16 +160,19 @@ export function DeviceHoursButton({
 
   return (
     <>
-      <Button
-        type="button"
-        variant={variant}
-        size="sm"
-        className={cn("shrink-0 gap-1.5", className)}
-        onClick={() => setOpen(true)}
-      >
-        <Clock className="h-4 w-4" strokeWidth={2} aria-hidden />
-        Hours
-      </Button>
+      <Tooltip label="Operating hours">
+        <Button
+          type="button"
+          variant={variant}
+          size="sm"
+          className={cn(compact ? "h-8 w-8 shrink-0 p-0" : "shrink-0 gap-1.5", className)}
+          onClick={() => setOpen(true)}
+          aria-label="Operating hours"
+        >
+          <Clock className="h-4 w-4" strokeWidth={2} aria-hidden />
+          {compact ? null : "Hours"}
+        </Button>
+      </Tooltip>
       <DeviceOperatingHoursDialog device={device} open={open} onClose={() => setOpen(false)} canEdit={canEdit} />
     </>
   );

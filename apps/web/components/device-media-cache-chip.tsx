@@ -14,11 +14,9 @@ const toneClass: Record<NonNullable<ReturnType<typeof deviceMediaCacheSummary>>[
 
 export function DeviceMediaCacheChip({
   device,
-  compact = false,
   className,
 }: {
   device: Device;
-  compact?: boolean;
   className?: string;
 }) {
   const summary = deviceMediaCacheSummary(device);
@@ -31,14 +29,11 @@ export function DeviceMediaCacheChip({
         toneClass[summary.tone],
         className,
       )}
-      title={[summary.label, summary.detail].filter(Boolean).join(" · ")}
-      aria-label={[summary.label, summary.detail].filter(Boolean).join(". ")}
+      title={summary.label}
+      aria-label={summary.label}
     >
       <HardDrive className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
       <span className="min-w-0 truncate font-medium">{summary.label}</span>
-      {!compact && summary.detail ? (
-        <span className="hidden min-w-0 truncate opacity-80 sm:inline">· {summary.detail}</span>
-      ) : null}
     </span>
   );
 }

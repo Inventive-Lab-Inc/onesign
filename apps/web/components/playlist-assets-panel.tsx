@@ -1,6 +1,7 @@
 "use client";
 
 import type { Media, Website } from "@signage/types";
+import type { DraggableProvided, DraggableStateSnapshot } from "@hello-pangea/dnd";
 import { Draggable, Droppable } from "@hello-pangea/dnd";
 import { FileImage, Globe, GripVertical, Images, Plus, Search, Upload } from "lucide-react";
 import Image from "next/image";
@@ -13,7 +14,7 @@ import { useMediaUpload } from "@/hooks/use-media-upload";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
 import { formatWebsiteMeta } from "@/lib/website-display";
 import { WebsitePreviewFrame } from "@/components/websites/website-preview-frame";
-import { ItemActionMenu } from "@/components/console/item-action-menu";
+import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
 import {
   formatMediaUploadLabel,
   MediaUploadProgressBar,
@@ -48,6 +49,183 @@ function WebsiteLibraryThumb({ website }: { website: Website }) {
         <Globe className="h-2.5 w-2.5" aria-hidden />
       </span>
     </div>
+  );
+}
+
+const libraryRowClassName =
+  "flex cursor-grab touch-none items-center gap-2.5 rounded-lg border border-border bg-background p-2 pr-2 shadow-sm active:cursor-grabbing";
+
+function MediaLibraryPlaceholder({
+  media,
+  mediaName,
+  showActionSpacer,
+}: {
+  media: Media;
+  mediaName: (media: Media) => string;
+  showActionSpacer: boolean;
+}) {
+  return (
+    <li className={libraryRowClassName} aria-hidden>
+      <span className="flex shrink-0 items-center self-stretch px-0.5 text-muted-foreground" aria-hidden>
+        <GripVertical className="h-4 w-4" />
+      </span>
+      <LibraryThumb media={media} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium">{mediaName(media)}</p>
+        <p className="text-[0.625rem] capitalize text-muted-foreground">{media.file_type}</p>
+      </div>
+      {showActionSpacer ? <div className="h-8 w-8 shrink-0" aria-hidden /> : null}
+      <div className="h-8 w-8 shrink-0" aria-hidden />
+    </li>
+  );
+}
+
+function WebsiteLibraryPlaceholder({ website }: { website: Website }) {
+  return (
+    <li className={libraryRowClassName} aria-hidden>
+      <span className="flex shrink-0 items-center self-stretch px-0.5 text-muted-foreground" aria-hidden>
+        <GripVertical className="h-4 w-4" />
+      </span>
+      <WebsiteLibraryThumb website={website} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium">{website.name}</p>
+        <p className="text-[0.625rem] text-muted-foreground">{formatWebsiteMeta(website)}</p>
+      </div>
+      <div className="h-8 w-8 shrink-0" aria-hidden />
+    </li>
+  );
+}
+
+function MediaLibraryRow({
+  media,
+  mediaName,
+  dragProvided,
+  snapshot,
+  interactive,
+  ownerId,
+  buildActionItems,
+  addDisabled,
+  addDisabledHint,
+  onAddMedia,
+}: {
+  media: Media;
+  mediaName: (media: Media) => string;
+  dragProvided: DraggableProvided;
+  snapshot: DraggableStateSnapshot;
+  interactive: boolean;
+  ownerId?: string;
+  buildActionItems: (item: Media) => ActionMenuItem[];
+  addDisabled: boolean;
+  addDisabledHint?: string;
+  onAddMedia: (mediaId: string) => void;
+}) {
+  const { style: draggableStyle, ...draggableProps } = dragProvided.draggableProps;
+
+  return (
+    <li
+      ref={dragProvided.innerRef}
+      {...draggableProps}
+      {...dragProvided.dragHandleProps}
+      style={{
+        ...draggableStyle,
+        ...(snapshot.isDropAnimating ? { visibility: "hidden" } : {}),
+      }}
+      aria-label={`Drag ${mediaName(media)} to playlist`}
+      className={cn(
+        libraryRowClassName,
+        snapshot.isDragging && "cursor-grabbing ring-2 ring-brand-faint30",
+      )}
+    >
+      <span className="flex shrink-0 items-center self-stretch px-0.5 text-muted-foreground" aria-hidden>
+        <GripVertical className="h-4 w-4" />
+      </span>
+      <LibraryThumb media={media} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium">{mediaName(media)}</p>
+        <p className="text-[0.625rem] capitalize text-muted-foreground">{media.file_type}</p>
+      </div>
+      {interactive && ownerId ? (
+        <ItemActionMenu
+          ariaLabel={`Actions for ${mediaName(media)}`}
+          items={buildActionItems(media)}
+          className="shrink-0 cursor-pointer"
+        />
+      ) : null}
+      {interactive ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className={cn(mediaLibraryAddButtonClassName, "h-8 w-8 cursor-pointer p-0")}
+          disabled={addDisabled}
+          title={addDisabled ? addDisabledHint : "Add to playlist"}
+          aria-label={addDisabled ? addDisabledHint : "Add to playlist"}
+          onClick={() => onAddMedia(media.id)}
+        >
+          <Plus className="h-3.5 w-3.5" aria-hidden />
+        </Button>
+      ) : null}
+    </li>
+  );
+}
+
+function WebsiteLibraryRow({
+  website,
+  dragProvided,
+  snapshot,
+  interactive,
+  addDisabled,
+  addDisabledHint,
+  onAddWebsite,
+}: {
+  website: Website;
+  dragProvided: DraggableProvided;
+  snapshot: DraggableStateSnapshot;
+  interactive: boolean;
+  addDisabled: boolean;
+  addDisabledHint?: string;
+  onAddWebsite: (websiteId: string) => void;
+}) {
+  const { style: draggableStyle, ...draggableProps } = dragProvided.draggableProps;
+
+  return (
+    <li
+      ref={dragProvided.innerRef}
+      {...draggableProps}
+      {...dragProvided.dragHandleProps}
+      style={{
+        ...draggableStyle,
+        ...(snapshot.isDropAnimating ? { visibility: "hidden" } : {}),
+      }}
+      aria-label={`Drag ${website.name} to playlist`}
+      className={cn(
+        libraryRowClassName,
+        snapshot.isDragging && "cursor-grabbing ring-2 ring-brand-faint30",
+      )}
+    >
+      <span className="flex shrink-0 items-center self-stretch px-0.5 text-muted-foreground" aria-hidden>
+        <GripVertical className="h-4 w-4" />
+      </span>
+      <WebsiteLibraryThumb website={website} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-medium">{website.name}</p>
+        <p className="text-[0.625rem] text-muted-foreground">{formatWebsiteMeta(website)}</p>
+      </div>
+      {interactive ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className={cn(mediaLibraryAddButtonClassName, "h-8 w-8 cursor-pointer p-0")}
+          disabled={addDisabled}
+          title={addDisabled ? addDisabledHint : "Add to playlist"}
+          aria-label={addDisabled ? addDisabledHint : "Add to playlist"}
+          onClick={() => onAddWebsite(website.id)}
+        >
+          <Plus className="h-3.5 w-3.5" aria-hidden />
+        </Button>
+      ) : null}
+    </li>
   );
 }
 
@@ -215,47 +393,27 @@ export function PlaylistAssetsPanel({
                     filteredLibrary.map((m, index) => (
                       <Draggable key={m.id} draggableId={`media-${m.id}`} index={index}>
                         {(dragProvided, snapshot) => (
-                          <li
-                            ref={dragProvided.innerRef}
-                            {...dragProvided.draggableProps}
-                            className={cn(
-                              "flex items-center gap-2.5 rounded-lg border border-border bg-background p-2 pr-2 shadow-sm",
-                              snapshot.isDragging && "opacity-90 ring-2 ring-brand-faint30",
-                            )}
-                          >
-                            <button
-                              type="button"
-                              className="flex shrink-0 cursor-grab touch-none items-center self-stretch px-0.5 text-muted-foreground hover:text-foreground active:cursor-grabbing"
-                              aria-label={`Drag ${m.original_filename ?? m.storage_path}`}
-                              {...dragProvided.dragHandleProps}
-                            >
-                              <GripVertical className="h-4 w-4" aria-hidden />
-                            </button>
-                            <LibraryThumb media={m} />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium">{mediaName(m)}</p>
-                              <p className="text-[0.625rem] capitalize text-muted-foreground">{m.file_type}</p>
-                            </div>
-                            {ownerId ? (
-                              <ItemActionMenu
-                                ariaLabel={`Actions for ${mediaName(m)}`}
-                                items={buildActionItems(m)}
-                                className="shrink-0"
+                          <>
+                            {snapshot.isDropAnimating ? (
+                              <MediaLibraryPlaceholder
+                                media={m}
+                                mediaName={mediaName}
+                                showActionSpacer={Boolean(ownerId)}
                               />
                             ) : null}
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="secondary"
-                              className={cn(mediaLibraryAddButtonClassName, "h-8 w-8 p-0")}
-                              disabled={addDisabled}
-                              title={addDisabled ? addDisabledHint : "Add to playlist"}
-                              aria-label={addDisabled ? addDisabledHint : "Add to playlist"}
-                              onClick={() => onAddMedia(m.id)}
-                            >
-                              <Plus className="h-3.5 w-3.5" aria-hidden />
-                            </Button>
-                          </li>
+                            <MediaLibraryRow
+                              media={m}
+                              mediaName={mediaName}
+                              dragProvided={dragProvided}
+                              snapshot={snapshot}
+                              interactive
+                              ownerId={ownerId}
+                              buildActionItems={buildActionItems}
+                              addDisabled={addDisabled}
+                              addDisabledHint={addDisabledHint}
+                              onAddMedia={onAddMedia}
+                            />
+                          </>
                         )}
                       </Draggable>
                     ))
@@ -278,40 +436,20 @@ export function PlaylistAssetsPanel({
                     filteredWebsites.map((website, index) => (
                       <Draggable key={website.id} draggableId={`website-${website.id}`} index={index}>
                         {(dragProvided, snapshot) => (
-                          <li
-                            ref={dragProvided.innerRef}
-                            {...dragProvided.draggableProps}
-                            className={cn(
-                              "flex items-center gap-2.5 rounded-lg border border-border bg-background p-2 pr-2 shadow-sm",
-                              snapshot.isDragging && "opacity-90 ring-2 ring-brand-faint30",
-                            )}
-                          >
-                            <button
-                              type="button"
-                              className="flex shrink-0 cursor-grab touch-none items-center self-stretch px-0.5 text-muted-foreground hover:text-foreground active:cursor-grabbing"
-                              aria-label={`Drag ${website.name}`}
-                              {...dragProvided.dragHandleProps}
-                            >
-                              <GripVertical className="h-4 w-4" aria-hidden />
-                            </button>
-                            <WebsiteLibraryThumb website={website} />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium">{website.name}</p>
-                              <p className="text-[0.625rem] text-muted-foreground">{formatWebsiteMeta(website)}</p>
-                            </div>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="secondary"
-                              className={cn(mediaLibraryAddButtonClassName, "h-8 w-8 p-0")}
-                              disabled={addDisabled}
-                              title={addDisabled ? addDisabledHint : "Add to playlist"}
-                              aria-label={addDisabled ? addDisabledHint : "Add to playlist"}
-                              onClick={() => onAddWebsite(website.id)}
-                            >
-                              <Plus className="h-3.5 w-3.5" aria-hidden />
-                            </Button>
-                          </li>
+                          <>
+                            {snapshot.isDropAnimating ? (
+                              <WebsiteLibraryPlaceholder website={website} />
+                            ) : null}
+                            <WebsiteLibraryRow
+                              website={website}
+                              dragProvided={dragProvided}
+                              snapshot={snapshot}
+                              interactive
+                              addDisabled={addDisabled}
+                              addDisabledHint={addDisabledHint}
+                              onAddWebsite={onAddWebsite}
+                            />
+                          </>
                         )}
                       </Draggable>
                     ))

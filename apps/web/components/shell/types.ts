@@ -29,6 +29,7 @@ export interface AppLayoutConfig {
   bottomNavItem?: NavItem;
   brand: BrandConfig;
   getPageTitle?: (pathname: string) => string;
+  getPageIcon?: (pathname: string) => LucideIcon | undefined;
   fullScreenPaths?: string[];
   fontFamily?: string;
   outerBg?: string;

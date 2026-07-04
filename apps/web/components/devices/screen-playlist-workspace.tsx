@@ -14,7 +14,13 @@ import { PlaylistItemPeriodicDialog } from "@/components/devices/playlist-item-p
 import { ScreenPlaylistItemCard } from "@/components/devices/screen-playlist-item-card";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { applyWebsiteSearchFilter } from "@/lib/website-display";
-import { draftItemSnapshot, toDraftItems, type DraftPlaylistItem } from "@/lib/persist-playlist-draft";
+import {
+  createPendingMediaItem,
+  createPendingWebsiteItem,
+  draftItemSnapshot,
+  toDraftItems,
+  type DraftPlaylistItem,
+} from "@/lib/persist-playlist-draft";
 import { buildPlaylistItemInsertRow, formatAbleSignPlaylistSummary } from "@/lib/playlist-timing";
 import { ensureMediaVideoDuration } from "@/lib/media";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -293,20 +299,35 @@ export function ScreenPlaylistWorkspace({
 
   const addMediaAtIndex = useCallback(
     async (mediaId: string, destIndex: number) => {
-      const workspaceResult = await ensureScreenPlaylistWorkspace(supabase, playlistId, workspaceId);
-      if (workspaceResult.error) {
-        toast.error(workspaceResult.error);
-        return;
-      }
-
-      const sortLen = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
       const mediaRow =
         allMedia.find((m) => m.id === mediaId) ??
         (useConsoleDataStore.getState().media as Media[]).find((m) => m.id === mediaId);
       if (!mediaRow) return;
+
+      const pending = createPendingMediaItem(mediaRow, destIndex);
+      pending.playlist_id = playlistId;
+      setDraftItems((current) => {
+        const next = [...current];
+        next.splice(destIndex, 0, pending);
+        return next;
+      });
+
+      const rollbackPending = (message: string) => {
+        setDraftItems((current) => current.filter((item) => item.draftKey !== pending.draftKey));
+        toast.error(message);
+      };
+
+      const workspaceResult = await ensureScreenPlaylistWorkspace(supabase, playlistId, workspaceId);
+      if (workspaceResult.error) {
+        rollbackPending(workspaceResult.error);
+        return;
+      }
+
       if (mediaRow.file_type === "video") {
         await ensureMediaVideoDuration(supabase, mediaRow);
       }
+
+      const sortLen = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
       const { data: row, error } = await supabase
         .from("playlist_items")
         .insert(
@@ -319,28 +340,66 @@ export function ScreenPlaylistWorkspace({
         )
         .select("id")
         .single();
-      if (error) {
-        toast.error(friendlySupabaseError(error.message));
+      if (error || !row) {
+        rollbackPending(friendlySupabaseError(error?.message ?? "Insert failed"));
         return;
       }
-      await reloadFromServer();
+
+      await syncNow();
       const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? EMPTY_PLAYLIST_ITEMS;
-      const fromIndex = fresh.findIndex((item) => item.id === row.id);
-      if (fromIndex < 0) return;
-      if (fromIndex !== destIndex) {
-        const reordered = reorder(toDraftItems(fresh), fromIndex, destIndex);
-        setDraftItems(reordered);
-        await persistOrder(reordered);
+      const serverItem = fresh.find((item) => item.id === row.id);
+      if (!serverItem) {
+        rollbackPending("Added item could not be loaded");
+        return;
+      }
+
+      const persistedDraft = toDraftItems([serverItem])[0]!;
+      let resolvedNext: DraftPlaylistItem[] = [];
+      setDraftItems((current) => {
+        let next = current.filter(
+          (item) => item.draftKey !== pending.draftKey && item.id !== row.id,
+        );
+        next.splice(destIndex, 0, persistedDraft);
+        const fromIndex = next.findIndex((item) => item.id === row.id);
+        if (fromIndex >= 0 && fromIndex !== destIndex) {
+          next = reorder(next, fromIndex, destIndex);
+        }
+        resolvedNext = next;
+        return next;
+      });
+      setBaselineItems(fresh);
+
+      const needsPersist = fresh.findIndex((item) => item.id === row.id) !== destIndex;
+      if (needsPersist) {
+        await persistOrder(resolvedNext);
       }
     },
-    [allMedia, playlistId, reloadFromServer, supabase, workspaceId],
+    [allMedia, persistOrder, playlistId, supabase, syncNow, workspaceId],
   );
 
   const addWebsiteAtIndex = useCallback(
     async (websiteId: string, destIndex: number) => {
+      const website =
+        allWebsites.find((entry) => entry.id === websiteId) ??
+        (useConsoleDataStore.getState().websites as Website[]).find((entry) => entry.id === websiteId);
+      if (!website) return;
+
+      const pending = createPendingWebsiteItem(website, destIndex);
+      pending.playlist_id = playlistId;
+      setDraftItems((current) => {
+        const next = [...current];
+        next.splice(destIndex, 0, pending);
+        return next;
+      });
+
+      const rollbackPending = (message: string) => {
+        setDraftItems((current) => current.filter((item) => item.draftKey !== pending.draftKey));
+        toast.error(message);
+      };
+
       const workspaceResult = await ensureScreenPlaylistWorkspace(supabase, playlistId, workspaceId);
       if (workspaceResult.error) {
-        toast.error(workspaceResult.error);
+        rollbackPending(workspaceResult.error);
         return;
       }
 
@@ -355,21 +414,41 @@ export function ScreenPlaylistWorkspace({
         })
         .select("id")
         .single();
-      if (error) {
-        toast.error(friendlySupabaseError(error.message));
+      if (error || !row) {
+        rollbackPending(friendlySupabaseError(error?.message ?? "Insert failed"));
         return;
       }
-      await reloadFromServer();
+
+      await syncNow();
       const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? EMPTY_PLAYLIST_ITEMS;
-      const fromIndex = fresh.findIndex((item) => item.id === row.id);
-      if (fromIndex < 0) return;
-      if (fromIndex !== destIndex) {
-        const reordered = reorder(toDraftItems(fresh), fromIndex, destIndex);
-        setDraftItems(reordered);
-        await persistOrder(reordered);
+      const serverItem = fresh.find((item) => item.id === row.id);
+      if (!serverItem) {
+        rollbackPending("Added item could not be loaded");
+        return;
+      }
+
+      const persistedDraft = toDraftItems([serverItem])[0]!;
+      let resolvedNext: DraftPlaylistItem[] = [];
+      setDraftItems((current) => {
+        let next = current.filter(
+          (item) => item.draftKey !== pending.draftKey && item.id !== row.id,
+        );
+        next.splice(destIndex, 0, persistedDraft);
+        const fromIndex = next.findIndex((item) => item.id === row.id);
+        if (fromIndex >= 0 && fromIndex !== destIndex) {
+          next = reorder(next, fromIndex, destIndex);
+        }
+        resolvedNext = next;
+        return next;
+      });
+      setBaselineItems(fresh);
+
+      const needsPersist = fresh.findIndex((item) => item.id === row.id) !== destIndex;
+      if (needsPersist) {
+        await persistOrder(resolvedNext);
       }
     },
-    [playlistId, reloadFromServer, supabase, workspaceId],
+    [allWebsites, persistOrder, playlistId, supabase, syncNow, workspaceId],
   );
 
   const handleDurationChange = useCallback(
@@ -509,13 +588,13 @@ export function ScreenPlaylistWorkspace({
             ) : null}
           </div>
         </div>
-        <div className="p-3 sm:p-4">
+        <div className="p-2 sm:p-3">
           {draftItems.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-muted/15 px-4 py-12 text-center text-sm text-muted-foreground">
               This playlist is empty.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-1.5">
               {draftItems.map((item, index) => (
                 <ScreenPlaylistItemCard
                   key={item.draftKey}
@@ -567,13 +646,13 @@ export function ScreenPlaylistWorkspace({
                 </div>
               </div>
 
-              <div className="p-3 sm:p-4">
+              <div className="p-2 sm:p-3">
                 <Droppable droppableId="screen-playlist">
                   {(dropProvided) => (
                     <div
                       ref={dropProvided.innerRef}
                       {...dropProvided.droppableProps}
-                      className="space-y-3"
+                      className="space-y-1.5"
                     >
                       {draftItems.length === 0 ? (
                         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/15 px-4 py-16 text-center">

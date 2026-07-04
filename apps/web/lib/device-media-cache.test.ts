@@ -46,24 +46,37 @@ describe("getDeviceMediaCache", () => {
 });
 
 describe("deviceMediaCacheSummary", () => {
-  it("shows preparing when warming and incomplete", () => {
+  it("shows compact caching label while warming", () => {
     const summary = deviceMediaCacheSummary(
-      deviceWithMediaCache({ items_total: 4, items_ready: 1, warming: true }),
+      deviceWithMediaCache({ items_total: 4, items_ready: 1, warming: true, cache_bytes_used: 1048576 }),
     );
-    expect(summary?.label).toBe("Downloading (1 of 4)");
+    expect(summary?.label).toBe("Caching 1/4 (1mb)");
     expect(summary?.tone).toBe("warming");
   });
 
-  it("shows ready when all items cached", () => {
+  it("shows compact cached label when all items are ready", () => {
     const summary = deviceMediaCacheSummary(
-      deviceWithMediaCache({ items_total: 2, items_ready: 2, warming: false }),
+      deviceWithMediaCache({ items_total: 2, items_ready: 2, warming: false, cache_bytes_used: 52428800 }),
     );
-    expect(summary?.label).toBe("All content saved on screen");
-    expect(summary?.detail).toBe("2 items");
+    expect(summary?.label).toBe("Cached 2/2 (50mb)");
+    expect(summary?.detail).toBeNull();
     expect(summary?.tone).toBe("ready");
   });
 
-  it("uses plain language for image-only playlists with storage", () => {
+  it("shows partial progress and used storage", () => {
+    const summary = deviceMediaCacheSummary(
+      deviceWithMediaCache({
+        items_total: 3,
+        items_ready: 1,
+        warming: false,
+        cache_bytes_used: 40370176,
+      }),
+    );
+    expect(summary?.label).toBe("Cached 1/3 (38.5mb)");
+    expect(summary?.tone).toBe("partial");
+  });
+
+  it("omits size when nothing is stored yet", () => {
     const summary = deviceMediaCacheSummary(
       deviceWithMediaCache({
         items_total: 3,
@@ -74,7 +87,7 @@ describe("deviceMediaCacheSummary", () => {
         cache_bytes_max: 1073741824,
       }),
     );
-    expect(summary?.label).toBe("All content saved on screen");
-    expect(summary?.detail).toBe("3 items · 1 GB available");
+    expect(summary?.label).toBe("Cached 3/3");
+    expect(summary?.tone).toBe("ready");
   });
 });

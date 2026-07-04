@@ -81,3 +81,9 @@ export function resolvePreviewFrameDimensions(
 export function defaultDeviceScreenOrientationFilters(): Set<DeviceScreenOrientation> {
   return new Set(DEVICE_SCREEN_ORIENTATIONS);
 }
+
+export function nextDeviceScreenOrientation(current: DeviceScreenOrientation): DeviceScreenOrientation {
+  const index = DEVICE_SCREEN_ORIENTATIONS.indexOf(current);
+  if (index < 0) return DEVICE_SCREEN_ORIENTATIONS[0];
+  return DEVICE_SCREEN_ORIENTATIONS[(index + 1) % DEVICE_SCREEN_ORIENTATIONS.length];
+}

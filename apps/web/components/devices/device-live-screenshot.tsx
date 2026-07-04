@@ -53,13 +53,13 @@ function DeviceOrientedScreenshot({
   );
 }
 
-export function DeviceLiveScreenshotTab({ device: deviceProp }: { device: Device }) {
+export function DeviceLiveScreenshotPanel({ device: deviceProp }: { device: Device }) {
   useStaleOnlineTick();
 
   const deviceFromStore = useConsoleDevice(deviceProp.id);
   const device = deviceFromStore ?? deviceProp;
   const ownerId = useConsoleOwnerId() ?? device.owner_id;
-  const patchDevice = useConsoleDataStore((s) => s.patchDevice);
+  const patchDevice = useConsoleDataStore((state) => state.patchDevice);
   const [requesting, setRequesting] = useState(false);
   const pollDeadlineRef = useRef<number | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);

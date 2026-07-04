@@ -7,6 +7,7 @@ import { TopBar, type ProfilePortalSwitch } from "./top-bar";
 import { SidebarNav } from "./top-nav";
 import { useBreakpoint } from "./use-breakpoint";
 import { useSettings } from "./settings-context";
+import type { LucideIcon } from "lucide-react";
 import type { AppLayoutConfig, NavItem } from "./types";
 import { assets, getBackgroundStyle } from "@/lib/config/assets";
 import { PageContainer } from "./page-container";
@@ -18,6 +19,7 @@ interface AppLayoutProps extends AppLayoutConfig {
   onSignOut?: () => void;
   portalSwitch?: ProfilePortalSwitch;
   getPageTitle?: (pathname: string) => string;
+  getPageIcon?: (pathname: string) => LucideIcon | undefined;
   topBarCenterSlot?: ReactNode;
   topBarRightSlot?: ReactNode;
   /** Shown immediately to the left of the profile button (e.g. workspace switcher). */
@@ -32,6 +34,7 @@ export function AppLayout({
   navItems,
   brand,
   getPageTitle = () => "",
+  getPageIcon,
   fullScreenPaths = [],
   fontFamily = 'var(--font-sans)',
   outerBg = "#1A3C6E",
@@ -72,7 +75,7 @@ export function AppLayout({
       return end ? displayPath === item.path : displayPath === item.path || displayPath.startsWith(`${item.path}/`);
     })
     .sort((a, b) => b.path.length - a.path.length)[0];
-  const titleIcon = currentNavItem?.icon;
+  const titleIcon = getPageIcon?.(displayPath) ?? currentNavItem?.icon;
 
   if (isFullScreen) {
     return (

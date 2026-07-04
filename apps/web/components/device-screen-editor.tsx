@@ -14,14 +14,17 @@ import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status
 import { getMediaPublicBaseUrl } from "@/lib/object-storage/urls";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { DeviceDisabledNotice, deviceDisabledPresentation } from "@/components/device-disabled-notice";
+import { DeviceDescriptionInlineEditor } from "@/components/devices/device-description-inline-editor";
+import { DeviceNameInlineEditor } from "@/components/devices/device-name-inline-editor";
 import { DeviceDetailsDrawer } from "@/components/devices/device-details-drawer";
-import { DeviceSettingsDrawerButton } from "@/components/devices/device-settings-drawer";
+import { DeviceLiveScreenshotButton } from "@/components/devices/device-live-screenshot-button";
+import { DeviceOrientationRotateButton } from "@/components/devices/device-orientation-rotate-button";
+import { DeviceTagsEditor } from "@/components/devices/device-tags-editor";
 import { DeviceHoursButton } from "@/components/devices/device-operating-hours-dialog";
 import { DeviceScreenOrientationIcon } from "@/components/devices/device-screen-orientation-icon";
 import { ScreenGroupMemberPanel } from "@/components/devices/screen-group-member-panel";
 import { ScreenPlaylistWorkspace } from "@/components/devices/screen-playlist-workspace";
 import {
-  deviceScreenBasics,
   getDeviceDisplayDimensionsPx,
 } from "@/components/device-telemetry-panel";
 import { DeviceAppUpdateNotice, DeviceAppVersionChip } from "@/components/device-app-version-chip";
@@ -38,7 +41,7 @@ import { ensureActivePlaylistForDevice } from "@/lib/screen-playlist";
 import { resolveDeviceScreenTimezone } from "@/lib/screen-timezone";
 import { detectBrowserTimezone } from "@/lib/weekly-schedule";
 import {
-  formatDeviceScreenOrientationSubtitle,
+  DEVICE_SCREEN_ORIENTATION_LABELS,
   normalizeDeviceScreenOrientation,
 } from "@/lib/device-screen-orientation";
 import { DevicePlaybackToggle } from "@/components/device-playback-toggle";
@@ -46,32 +49,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDevice } from "@/hooks/use-console-device";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Tooltip } from "@/components/ui/tooltip";
 
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
-
-function ScreenMetaChip({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: string;
-  className?: string;
-}) {
-  return (
-    <span
-      role="listitem"
-      className={cn(
-        "inline-flex max-w-full items-center gap-1 rounded-full border border-border/80 bg-muted/35 px-2.5 py-0.5 text-[0.6875rem] leading-tight",
-        className,
-      )}
-    >
-      <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className="min-w-0 truncate font-medium text-foreground">{value}</span>
-    </span>
-  );
-}
 
 interface DeviceScreenEditorProps {
   deviceId: string;
@@ -213,11 +193,6 @@ export function DeviceScreenEditor({
     [device],
   );
 
-  const screenHardwareBasics = useMemo(
-    () => (device ? deviceScreenBasics(device) : { brand: null, model: null, screenSize: null }),
-    [device],
-  );
-
   const screenOrientation = normalizeDeviceScreenOrientation(device?.screen_orientation);
 
   const lastPlaylistChangeAt = useMemo(() => {
@@ -272,7 +247,7 @@ export function DeviceScreenEditor({
       ) : null}
 
       <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
           <DeviceThumbnailPicker
             deviceId={device.id}
             ownerId={ownerId}
@@ -285,61 +260,77 @@ export function DeviceScreenEditor({
             }
           />
 
-          <div className="min-w-0 flex-1 space-y-3">
-            <div className="space-y-1">
-              <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight text-foreground leading-snug">
-                <span className="break-words [overflow-wrap:anywhere]">{device.name}</span>
-                <ScreenStatusBadge status={effectiveDeviceStatus(device)} />
+          <div className="min-w-0 flex-1 space-y-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="min-w-0 text-2xl font-semibold tracking-tight text-foreground leading-snug">
+                <DeviceNameInlineEditor
+                  deviceId={device.id}
+                  name={device.name}
+                  canEdit={canManageTvPlaylist}
+                  trailing={
+                    <span className="inline-flex items-center gap-2 self-center">
+                      <ScreenStatusBadge status={effectiveDeviceStatus(device)} />
+                      <span className="text-xs font-normal tabular-nums text-muted-foreground">
+                        {formatDeviceLastSeen(device.last_seen)}
+                      </span>
+                    </span>
+                  }
+                />
               </h1>
-              {device.description ? (
-                <p className="text-sm text-muted-foreground">{device.description}</p>
-              ) : null}
+
+              <div
+                role="toolbar"
+                aria-label="Screen actions"
+                className="flex shrink-0 items-center gap-1"
+              >
+                {canControlPlayback ? <DevicePlaybackToggle device={device} /> : null}
+                <DeviceLiveScreenshotButton device={device} compact />
+                <Tooltip label="Screen details">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 shrink-0 p-0"
+                    onClick={() => setDetailsOpen(true)}
+                    aria-label="Screen details"
+                  >
+                    <Info className="h-4 w-4" aria-hidden />
+                  </Button>
+                </Tooltip>
+                {canManageTvPlaylist ? (
+                  <>
+                    <DeviceHoursButton device={device} canEdit={canManageTvPlaylist} compact />
+                    <DeviceOrientationRotateButton device={device} canEdit={canManageTvPlaylist} compact />
+                  </>
+                ) : null}
+              </div>
             </div>
 
-            <p className="text-sm text-muted-foreground">
-              {formatDeviceLastSeen(device.last_seen)}
-              <span className="mx-2 text-border" aria-hidden>
-                ·
-              </span>
-              <span className="inline-flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              {(device.description?.trim() || canManageTvPlaylist) ? (
+                <>
+                  <DeviceDescriptionInlineEditor
+                    deviceId={device.id}
+                    description={device.description}
+                    canEdit={canManageTvPlaylist}
+                    inline
+                  />
+                  <span className="text-border" aria-hidden>
+                    ·
+                  </span>
+                </>
+              ) : null}
+              <span className="inline-flex items-center gap-1">
                 <DeviceScreenOrientationIcon orientation={screenOrientation} className="h-3.5 w-3.5" />
-                {formatDeviceScreenOrientationSubtitle(screenOrientation)}
+                {DEVICE_SCREEN_ORIENTATION_LABELS[screenOrientation]}
               </span>
-            </p>
+            </div>
 
-            <div className="flex flex-wrap items-center gap-1.5" role="list" aria-label="Screen telemetry">
+            <div className="flex flex-wrap items-center gap-1.5" role="list" aria-label="Screen status">
               <DeviceAppVersionChip device={device} activeRelease={activeAppRelease} />
               <DeviceMediaCacheChip device={device} />
-              {screenHardwareBasics.brand ? <ScreenMetaChip label="Brand" value={screenHardwareBasics.brand} /> : null}
-              {screenHardwareBasics.model ? <ScreenMetaChip label="Model" value={screenHardwareBasics.model} /> : null}
-              {screenHardwareBasics.screenSize ? (
-                <ScreenMetaChip label="Screen" value={screenHardwareBasics.screenSize} className="tabular-nums" />
-              ) : null}
+              <DeviceTagsEditor device={device} canEdit={canManageTvPlaylist} />
             </div>
-          </div>
-
-          <div
-            role="toolbar"
-            aria-label="Screen actions"
-            className="flex shrink-0 flex-wrap items-center justify-start gap-2 border-t border-border pt-4 lg:w-auto lg:justify-end lg:self-center lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"
-          >
-            {canControlPlayback ? <DevicePlaybackToggle device={device} /> : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="shrink-0 gap-1.5"
-              onClick={() => setDetailsOpen(true)}
-            >
-              <Info className="h-4 w-4" aria-hidden />
-              Details
-            </Button>
-            {canManageTvPlaylist ? (
-              <>
-                <DeviceHoursButton device={device} canEdit={canManageTvPlaylist} />
-                <DeviceSettingsDrawerButton device={device} canEdit={canManageTvPlaylist} />
-              </>
-            ) : null}
           </div>
         </div>
       </div>

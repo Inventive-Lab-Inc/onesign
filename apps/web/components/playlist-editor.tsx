@@ -30,8 +30,13 @@ import { getMediaPublicBaseUrl, mediaPublicUrl } from "@/lib/object-storage/urls
 import { buildPlaylistItemInsertRow, formatPlaylistClockLabel } from "@/lib/playlist-timing";
 import { cn } from "@/lib/utils";
 import { PlaylistAssetsPanel } from "@/components/playlist-assets-panel";
+import { PlaylistItemSavingOverlay } from "@/components/playlist/playlist-item-saving-overlay";
 import { WebsitePreviewFrame } from "@/components/websites/website-preview-frame";
 import { applyWebsiteSearchFilter } from "@/lib/website-display";
+import {
+  createPendingMediaItem,
+  createPendingWebsiteItem,
+} from "@/lib/persist-playlist-draft";
 import {
   formatPlaylistItemMeta,
   playlistItemIsWebsite,
@@ -47,6 +52,8 @@ import { useConsoleDataStore } from "@/stores/console-data-store";
 import { useWorkspaceOptional } from "@/components/workspace/workspace-provider";
 
 const EMPTY_PLAYLIST_ITEMS: PlaylistItemWithMedia[] = [];
+
+type EditorPlaylistItem = PlaylistItemWithMedia & { isPending?: boolean };
 
 function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {
   const result = Array.from(list);
@@ -106,7 +113,7 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
   const allMedia = useConsoleDataStore((s) => s.media) as Media[];
   const allWebsites = useConsoleDataStore((s) => s.websites) as Website[];
   const [name, setName] = useState(initialName);
-  const [items, setItems] = useState<PlaylistItemWithMedia[]>(cachedItems);
+  const [items, setItems] = useState<EditorPlaylistItem[]>(cachedItems);
   const [savingName, setSavingName] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [librarySearch, setLibrarySearch] = useState("");
@@ -117,7 +124,10 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
   }, [initialName]);
 
   useEffect(() => {
-    setItems(cachedItems);
+    setItems((current) => {
+      if (current.some((item) => item.isPending)) return current;
+      return cachedItems;
+    });
   }, [cachedItems]);
 
   const reloadFromServer = useCallback(async () => {
@@ -174,11 +184,13 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
   }, [initialName]);
 
   const persistOrder = useCallback(
-    async (next: PlaylistItemWithMedia[]) => {
+    async (next: EditorPlaylistItem[]) => {
       if (readOnly) return;
-      const updates = next.map((item, index) =>
+      const persisted = next.filter((item) => !item.isPending);
+      const updates = persisted.map((item, index) =>
         supabase.from("playlist_items").update({ sort_order: index }).eq("id", item.id),
       );
+      if (updates.length === 0) return;
       const results = await Promise.all(updates);
       const failed = results.find((r) => r.error);
       if (failed?.error) {
@@ -194,13 +206,31 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
   const addMediaAtIndex = useCallback(
     async (mediaId: string, destIndex: number) => {
       if (readOnly) return;
-      const sortLen = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
       const mediaRow =
         allMedia.find((m) => m.id === mediaId) ??
         (useConsoleDataStore.getState().media as Media[]).find((m) => m.id === mediaId);
-      if (mediaRow?.file_type === "video") {
+      if (!mediaRow) return;
+
+      const pendingDraft = createPendingMediaItem(mediaRow, destIndex);
+      pendingDraft.playlist_id = playlistId;
+      const pending: EditorPlaylistItem = { ...pendingDraft, isPending: true };
+
+      setItems((current) => {
+        const next = [...current];
+        next.splice(destIndex, 0, pending);
+        return next;
+      });
+
+      const rollbackPending = (message: string) => {
+        setItems((current) => current.filter((item) => item.id !== pending.id));
+        toast.error(message);
+      };
+
+      if (mediaRow.file_type === "video") {
         await ensureMediaVideoDuration(supabase, mediaRow);
       }
+
+      const sortLen = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
       const { data: row, error } = await supabase
         .from("playlist_items")
         .insert(
@@ -208,33 +238,67 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
             playlistId,
             mediaId,
             sortOrder: sortLen,
-            fileType: mediaRow?.file_type,
+            fileType: mediaRow.file_type,
           }),
         )
         .select("id")
         .single();
-      if (error) {
-        toast.error(error.message);
+      if (error || !row) {
+        rollbackPending(error?.message ?? "Insert failed");
         return;
       }
-      await reloadFromServer();
+
+      await syncNow();
       const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? [];
-      const fromIndex = fresh.findIndex((i) => i.id === row.id);
-      if (fromIndex < 0) return;
-      if (fromIndex !== destIndex) {
-        const reordered = reorder(fresh, fromIndex, destIndex);
-        setItems(reordered);
-        await persistOrder(reordered);
-      } else {
-        await persistOrder(fresh);
+      const serverItem = fresh.find((item) => item.id === row.id);
+      if (!serverItem) {
+        rollbackPending("Added item could not be loaded");
+        return;
+      }
+
+      let resolvedNext: EditorPlaylistItem[] = [];
+      setItems((current) => {
+        let next = current.filter((item) => item.id !== pending.id && item.id !== row.id);
+        next.splice(destIndex, 0, serverItem);
+        const fromIndex = next.findIndex((item) => item.id === row.id);
+        if (fromIndex >= 0 && fromIndex !== destIndex) {
+          next = reorder(next, fromIndex, destIndex);
+        }
+        resolvedNext = next;
+        return next;
+      });
+
+      const needsPersist = fresh.findIndex((item) => item.id === row.id) !== destIndex;
+      if (needsPersist) {
+        await persistOrder(resolvedNext);
       }
     },
-    [allMedia, persistOrder, playlistId, readOnly, reloadFromServer, supabase],
+    [allMedia, persistOrder, playlistId, readOnly, supabase, syncNow],
   );
 
   const addWebsiteAtIndex = useCallback(
     async (websiteId: string, destIndex: number) => {
       if (readOnly) return;
+      const website =
+        allWebsites.find((entry) => entry.id === websiteId) ??
+        (useConsoleDataStore.getState().websites as Website[]).find((entry) => entry.id === websiteId);
+      if (!website) return;
+
+      const pendingDraft = createPendingWebsiteItem(website, destIndex);
+      pendingDraft.playlist_id = playlistId;
+      const pending: EditorPlaylistItem = { ...pendingDraft, isPending: true };
+
+      setItems((current) => {
+        const next = [...current];
+        next.splice(destIndex, 0, pending);
+        return next;
+      });
+
+      const rollbackPending = (message: string) => {
+        setItems((current) => current.filter((item) => item.id !== pending.id));
+        toast.error(message);
+      };
+
       const sortLen = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId]?.length ?? 0;
       const { data: row, error } = await supabase
         .from("playlist_items")
@@ -246,28 +310,47 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
         })
         .select("id")
         .single();
-      if (error) {
-        toast.error(error.message);
+      if (error || !row) {
+        rollbackPending(error.message ?? "Insert failed");
         return;
       }
-      await reloadFromServer();
+
+      await syncNow();
       const fresh = useConsoleDataStore.getState().playlistItemsByPlaylistId[playlistId] ?? [];
-      const fromIndex = fresh.findIndex((i) => i.id === row.id);
-      if (fromIndex < 0) return;
-      if (fromIndex !== destIndex) {
-        const reordered = reorder(fresh, fromIndex, destIndex);
-        setItems(reordered);
-        await persistOrder(reordered);
-      } else {
-        await persistOrder(fresh);
+      const serverItem = fresh.find((item) => item.id === row.id);
+      if (!serverItem) {
+        rollbackPending("Added item could not be loaded");
+        return;
+      }
+
+      let resolvedNext: EditorPlaylistItem[] = [];
+      setItems((current) => {
+        let next = current.filter((item) => item.id !== pending.id && item.id !== row.id);
+        next.splice(destIndex, 0, serverItem);
+        const fromIndex = next.findIndex((item) => item.id === row.id);
+        if (fromIndex >= 0 && fromIndex !== destIndex) {
+          next = reorder(next, fromIndex, destIndex);
+        }
+        resolvedNext = next;
+        return next;
+      });
+
+      const needsPersist = fresh.findIndex((item) => item.id === row.id) !== destIndex;
+      if (needsPersist) {
+        await persistOrder(resolvedNext);
       }
     },
-    [persistOrder, playlistId, readOnly, reloadFromServer, supabase],
+    [allWebsites, persistOrder, playlistId, readOnly, supabase, syncNow],
   );
 
   const removeItem = useCallback(
     async (id: string) => {
       if (readOnly) return;
+      const target = items.find((item) => item.id === id);
+      if (target?.isPending) {
+        setItems((current) => current.filter((item) => item.id !== id));
+        return;
+      }
       const { error } = await supabase.from("playlist_items").delete().eq("id", id);
       if (error) {
         toast.error(error.message);
@@ -276,12 +359,14 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
       toast.success("Removed from playlist");
       await reloadFromServer();
     },
-    [readOnly, reloadFromServer, supabase],
+    [items, readOnly, reloadFromServer, supabase],
   );
 
   const updateDuration = useCallback(
     async (id: string, duration: number) => {
       if (readOnly) return;
+      const target = items.find((item) => item.id === id);
+      if (target?.isPending) return;
       const { error } = await supabase.from("playlist_items").update({ duration_seconds: duration }).eq("id", id);
       if (error) {
         toast.error(error.message);
@@ -289,7 +374,7 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
       }
       await reloadFromServer();
     },
-    [readOnly, reloadFromServer, supabase],
+    [items, readOnly, reloadFromServer, supabase],
   );
 
   const persistVideoMediaDuration = useCallback(
@@ -501,15 +586,21 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
                         </div>
                       ) : (
                         items.map((item, index) => (
-                          <Draggable key={item.id} draggableId={`clip-${item.id}`} index={index}>
+                          <Draggable
+                            key={item.id}
+                            draggableId={`clip-${item.id}`}
+                            index={index}
+                            isDragDisabled={item.isPending}
+                          >
                             {(dragProvided, snapshot) => (
                               <div
                                 ref={dragProvided.innerRef}
                                 {...dragProvided.draggableProps}
                                 role="row"
                                 className={cn(
-                                  "border-b border-border/80 py-2.5",
+                                  "relative border-b border-border/80 py-2.5",
                                   snapshot.isDragging && "rounded-lg bg-brand-softest ring-2 ring-brand-faint25",
+                                  item.isPending && "bg-brand-softest/40",
                                 )}
                               >
                                 <div
@@ -557,8 +648,8 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
                                           className="h-9 w-full min-w-0 text-sm tabular-nums"
                                           key={`d-${item.id}-${item.duration_seconds}`}
                                           defaultValue={item.duration_seconds ?? 10}
-                                          readOnly={readOnly}
-                                          disabled={readOnly}
+                                          readOnly={readOnly || item.isPending}
+                                          disabled={readOnly || item.isPending}
                                           onBlur={(e) => {
                                             if (readOnly) return;
                                             const raw = e.target.value.trim();
@@ -595,6 +686,7 @@ export function PlaylistEditor({ playlistId, initialName }: PlaylistEditorProps)
                                     ) : null}
                                   </div>
                                 </div>
+                                {item.isPending ? <PlaylistItemSavingOverlay /> : null}
                               </div>
                             )}
                           </Draggable>
