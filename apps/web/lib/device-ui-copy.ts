@@ -38,8 +38,8 @@ export const deviceUiTvCopy = {
     hint: "Resumes on schedule",
   },
   disabled: {
-    badge: "Playback disabled",
-    hint: "Enable in Screens",
+    badge: "Screen disabled",
+    hint: "Contact admin",
   },
   pausedQuota: {
     badge: "Paused by plan limit",

@@ -91,7 +91,7 @@ function ConsoleHealthChip({ health }: { health: DeviceHealthKind }) {
     off_hours: "Off-hours",
     pending: "Pending setup",
     paused: "Plan limit",
-    disabled: "Playback off",
+    disabled: "Screen disabled",
     suspended: "Account suspended",
   };
 

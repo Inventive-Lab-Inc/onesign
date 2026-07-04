@@ -48,13 +48,12 @@ export function DeviceDisabledNotice({
     >
       {canControlPlayback ? (
         <p>
-          This device has been disabled. Select <span className="font-medium">Enable Device</span> to turn it
-          back on.
+          This screen is disabled. Select <span className="font-medium">Enable Device</span> to turn
+          playback back on.
         </p>
       ) : (
         <p>
-          This device has been disabled by an administrator. Contact your administrator if you need it
-          restored.
+          This screen was disabled by an admin. Contact admin if you need it restored.
         </p>
       )}
     </div>
@@ -89,7 +88,7 @@ export function DeviceDisabledBadge({
 
   return (
     <span className={`${deviceStatusChipClass} bg-amber-500/15 text-amber-900 dark:text-amber-100`}>
-      Disabled
+      Screen disabled
     </span>
   );
 }

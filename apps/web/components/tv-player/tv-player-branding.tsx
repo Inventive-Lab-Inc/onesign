@@ -103,7 +103,8 @@ export function TvPlayerScreenShell({
 
 function resolveStandbyIcon(badge?: string, message?: string): LucideIcon {
   const haystack = `${badge?.toLowerCase() ?? ""} ${message?.toLowerCase() ?? ""}`.trim();
-  if (haystack.includes("playback disabled") || haystack === "off") return Power;
+  if (haystack.includes("screen disabled") || haystack.includes("playback disabled") || haystack === "off")
+    return Power;
   if (haystack.includes("plan limit") || haystack === "paused") return Pause;
   if (haystack.includes("account suspended") || haystack === "suspended") return ShieldAlert;
   if (haystack.includes("off-hours")) return Moon;

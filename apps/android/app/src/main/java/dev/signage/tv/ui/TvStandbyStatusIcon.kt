@@ -19,7 +19,7 @@ import androidx.compose.material3.Icon
 /** Matches web [resolveStandbyIcon] in tv-player-branding.tsx. */
 fun resolveTvStandbyIcon(badge: String): ImageVector {
     val haystack = badge.lowercase()
-    if (haystack.contains("playback disabled") || haystack == "off") {
+    if (haystack.contains("screen disabled") || haystack.contains("playback disabled") || haystack == "off") {
         return Icons.Outlined.PowerSettingsNew
     }
     if (haystack.contains("plan limit") || haystack == "paused") {

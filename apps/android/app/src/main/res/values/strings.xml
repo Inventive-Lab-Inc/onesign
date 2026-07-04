@@ -3,7 +3,7 @@
     <string name="brand_name">OneSign</string>
     <string name="brand_subtitle">TV</string>
     <string name="brand_trial_watermark">OneSign TV trial</string>
-    <string name="device_disabled_by_admin">Playback disabled</string>
+    <string name="device_disabled_by_admin">Screen disabled</string>
     <string name="standby_no_playlist">No playlist</string>
     <string name="standby_no_playlist_hint">Assign in Screens</string>
     <string name="standby_playlist_empty">Empty</string>
@@ -14,7 +14,7 @@
     <string name="standby_paused_hint">Check Billing</string>
     <string name="standby_suspended">Account suspended</string>
     <string name="standby_suspended_hint">Contact admin</string>
-    <string name="standby_playback_off_hint">Enable in Screens</string>
+    <string name="standby_playback_off_hint">Contact admin</string>
     <string name="slide_load_failed">Can\'t show slide</string>
     <string name="slide_load_skipping">Skipping…</string>
     <string name="loading_slide">Loading…</string>

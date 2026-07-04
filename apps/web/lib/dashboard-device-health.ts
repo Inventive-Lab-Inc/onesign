@@ -115,7 +115,7 @@ function healthPresentation(input: {
   }
 
   if (input.disabled.show) {
-    return { health: "disabled", healthLabel: "Playback off", healthDetail: "Screen disabled in console" };
+    return { health: "disabled", healthLabel: "Screen disabled", healthDetail: "Disabled by admin" };
   }
 
   if (input.status === "offline") {

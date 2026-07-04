@@ -150,8 +150,8 @@ export const deviceUiPhases: DeviceUiPhase[] = [
   {
     id: "disabled",
     group: "blocked",
-    title: "Playback disabled",
-    description: "Playback toggled off in the console.",
+    title: "Screen disabled by admin",
+    description: "Admin turned off playback for this screen.",
     consoleHealth: "disabled",
     tvBadge: copy.disabled.badge,
     tvDeviceName: deviceUiMockDeviceName,
