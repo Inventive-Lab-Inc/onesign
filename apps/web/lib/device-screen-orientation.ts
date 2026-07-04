@@ -84,6 +84,6 @@ export function defaultDeviceScreenOrientationFilters(): Set<DeviceScreenOrienta
 
 export function nextDeviceScreenOrientation(current: DeviceScreenOrientation): DeviceScreenOrientation {
   const index = DEVICE_SCREEN_ORIENTATIONS.indexOf(current);
-  if (index < 0) return DEVICE_SCREEN_ORIENTATIONS[0];
-  return DEVICE_SCREEN_ORIENTATIONS[(index + 1) % DEVICE_SCREEN_ORIENTATIONS.length];
+  const nextIndex = index < 0 ? 0 : (index + 1) % DEVICE_SCREEN_ORIENTATIONS.length;
+  return DEVICE_SCREEN_ORIENTATIONS[nextIndex] ?? "landscape";
 }
