@@ -157,6 +157,12 @@ export interface PlanTemplate {
   is_highlighted: boolean;
   is_active: boolean;
   sort_order: number;
+  /** Stripe Product id (USD catalog sync). */
+  stripe_product_id?: string | null;
+  /** Stripe Price id for monthly billing. */
+  stripe_price_monthly_id?: string | null;
+  /** Stripe Price id for annual billing. */
+  stripe_price_annual_id?: string | null;
   created_at: string;
   updated_at: string;
 }

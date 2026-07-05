@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { toast } from "sonner";
+import { Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getPlanDisplayPricing,
@@ -16,6 +17,10 @@ export type PlanPricingCardAction = {
   label: string;
   href?: string;
   disabled?: boolean;
+  checkout?: {
+    planId: string;
+    billingPeriod: BillingPeriod;
+  };
 };
 
 export function PlanPricingCard({
@@ -131,6 +136,8 @@ function PlanPricingCardActionButton({
   popular: boolean;
   action: PlanPricingCardAction;
 }) {
+  const [loading, setLoading] = useState(false);
+
   const className = cn(
     "mt-6 flex h-10 w-full items-center justify-center rounded-lg text-sm font-semibold transition-colors",
     action.disabled
@@ -140,7 +147,45 @@ function PlanPricingCardActionButton({
         : "plan-pricing-cta-default",
   );
 
-  if (action.disabled || !action.href) {
+  async function startCheckout() {
+    if (!action.checkout) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planTemplateId: action.checkout.planId,
+          billingPeriod: action.checkout.billingPeriod,
+        }),
+      });
+
+      const payload = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error || "Checkout failed");
+      }
+
+      window.location.href = payload.url;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Checkout failed");
+      setLoading(false);
+    }
+  }
+
+  if (action.disabled) {
+    return <span className={className}>{action.label}</span>;
+  }
+
+  if (action.checkout) {
+    return (
+      <button type="button" className={className} disabled={loading} onClick={() => void startCheckout()}>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : action.label}
+      </button>
+    );
+  }
+
+  if (!action.href) {
     return <span className={className}>{action.label}</span>;
   }
 

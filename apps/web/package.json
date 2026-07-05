@@ -14,7 +14,8 @@
     "test": "vitest run",
     "capture:device-view": "node scripts/capture-device-view-screenshots.mjs",
     "migrate:storage": "node scripts/migrate-supabase-storage-to-minio.mjs",
-    "test:minio-upload": "node scripts/test-minio-upload.mjs"
+    "test:minio-upload": "node scripts/test-minio-upload.mjs",
+    "sync:stripe": "tsx scripts/sync-stripe-catalog.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1062.0",
@@ -33,6 +34,7 @@
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.5",
     "sonner": "^1.7.1",
+    "stripe": "^22.3.0",
     "tailwind-merge": "^2.6.0",
     "zustand": "^5.0.3"
   },

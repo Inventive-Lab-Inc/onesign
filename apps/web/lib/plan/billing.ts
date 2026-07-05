@@ -1,14 +1,17 @@
 import type { PlanQuotaSnapshot } from "@/lib/plan-quota";
 import type { BillingPeriod, PlanViewModel } from "@/components/plans/plan-data";
 import { CUSTOM_PLAN } from "@/components/plans/plan-data";
+import { isStripeCheckoutAvailable } from "@/lib/stripe/config";
 import { isOnTrial } from "@/lib/trial";
 
-export type PlanActionKind = "current" | "upgrade" | "downgrade" | "contact";
+export type PlanActionKind = "current" | "upgrade" | "downgrade" | "contact" | "checkout";
 
 export interface PlanAction {
   kind: PlanActionKind;
   label: string;
   href?: string;
+  planId?: string;
+  billingPeriod?: BillingPeriod;
   disabled?: boolean;
 }
 
@@ -24,6 +27,32 @@ export function billingUpgradeMailto(planName: string, billingPeriod: BillingPer
 
 export function billingContactMailto(subject = "OneSign billing"): string {
   return `mailto:${BILLING_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`;
+}
+
+function paidPlanAction(
+  target: PlanViewModel,
+  billingPeriod: BillingPeriod,
+  kind: Exclude<PlanActionKind, "current">,
+  label: string,
+): PlanAction {
+  if (isStripeCheckoutEnabled() && !target.isFree) {
+    return {
+      kind: "checkout",
+      label,
+      planId: target.id,
+      billingPeriod,
+    };
+  }
+
+  return {
+    kind: "contact",
+    label,
+    href: billingUpgradeMailto(target.name, billingPeriod),
+  };
+}
+
+export function isStripeCheckoutEnabled(): boolean {
+  return isStripeCheckoutAvailable();
 }
 
 /** Maps account quota to the closest catalog tier (by screen limit). */
@@ -99,32 +128,16 @@ export function getPlanAction(
   }
 
   if (!current) {
-    return {
-      kind: "contact",
-      label: `Choose ${target.name}`,
-      href: billingUpgradeMailto(target.name, billingPeriod),
-    };
+    return paidPlanAction(target, billingPeriod, "contact", `Choose ${target.name}`);
   }
 
   if (target.deviceLimit > current.deviceLimit) {
-    return {
-      kind: "upgrade",
-      label: `Upgrade to ${target.name}`,
-      href: billingUpgradeMailto(target.name, billingPeriod),
-    };
+    return paidPlanAction(target, billingPeriod, "upgrade", `Upgrade to ${target.name}`);
   }
 
   if (target.deviceLimit < current.deviceLimit) {
-    return {
-      kind: "downgrade",
-      label: `Switch to ${target.name}`,
-      href: billingUpgradeMailto(target.name, billingPeriod),
-    };
+    return paidPlanAction(target, billingPeriod, "downgrade", `Switch to ${target.name}`);
   }
 
-  return {
-    kind: "contact",
-    label: `Choose ${target.name}`,
-    href: billingUpgradeMailto(target.name, billingPeriod),
-  };
+  return paidPlanAction(target, billingPeriod, "contact", `Choose ${target.name}`);
 }

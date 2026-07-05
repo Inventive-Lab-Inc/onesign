@@ -1,16 +1,21 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { HardDrive, Monitor } from "lucide-react";
+import { toast } from "sonner";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { type PlanViewModel } from "@/components/plans/plan-data";
 import { PlanPricingSection } from "@/components/plans/plan-pricing-section";
 import { type PlanPricingCardAction } from "@/components/plans/plan-pricing-card";
+import { Button } from "@/components/ui/button";
 import { planCurrencyFooter, type PlanCurrency } from "@/lib/plan-currency";
 import {
   billingContactMailto,
   billingUpgradeMailto,
   currentPlanLabel,
   getPlanAction,
+  isStripeCheckoutEnabled,
   matchCatalogPlan,
   type PlanAction,
 } from "@/lib/plan/billing";
@@ -30,6 +35,8 @@ const meterToneClasses: Record<"ok" | "warn" | "full", { fill: string; text: str
   full: { fill: "bg-red-500", text: "text-red-700 dark:text-red-400" },
 };
 
+const handledStripeCheckoutReturns = new Set<string>();
+
 export function BillingSettingsView({
   plans,
   currency = "USD",
@@ -38,6 +45,54 @@ export function BillingSettingsView({
   currency?: PlanCurrency;
 }) {
   const quota = usePlanQuota();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [portalLoading, setPortalLoading] = useState(false);
+  const stripeEnabled = isStripeCheckoutEnabled();
+
+  useEffect(() => {
+    const checkout = searchParams.get("checkout");
+    if (checkout !== "success" && checkout !== "cancel") return;
+
+    const sessionId = searchParams.get("session_id");
+    const handleKey = `${checkout}:${sessionId ?? "default"}`;
+    if (handledStripeCheckoutReturns.has(handleKey)) return;
+    handledStripeCheckoutReturns.add(handleKey);
+
+    void (async () => {
+      try {
+        if (checkout === "cancel") {
+          toast.message("Checkout canceled.");
+          return;
+        }
+
+        const response = await fetch("/api/stripe/sync-subscription", { method: "POST" });
+        const payload = (await response.json()) as { ok?: boolean; error?: string };
+
+        const toastKey = sessionId ? `onesign:checkout-toast:${sessionId}` : null;
+        const showSuccessToast = (message: string) => {
+          if (toastKey && sessionStorage.getItem(toastKey)) return;
+          if (toastKey) sessionStorage.setItem(toastKey, "1");
+          toast.success(message);
+        };
+
+        if (response.ok && payload.ok) {
+          showSuccessToast("Subscription active. Your plan limits have been updated.");
+        } else if (response.ok) {
+          showSuccessToast("Payment received. Your plan limits may take a moment to refresh.");
+        } else {
+          toast.error(payload.error || "Payment received, but plan sync failed. Try again or contact support.");
+        }
+      } catch {
+        toast.error("Payment received, but plan sync failed. Refresh the page or contact support.");
+      } finally {
+        router.replace("/account?tab=billing", { scroll: false });
+        if (checkout === "success") {
+          router.refresh();
+        }
+      }
+    })();
+  }, [searchParams, router]);
 
   if (!quota) {
     return (
@@ -53,6 +108,22 @@ export function BillingSettingsView({
   const onTrial = quota.isOnTrial ?? isOnTrial(quota);
   const trialRemaining = formatTrialRemaining(quota.trialEndsAt);
   const trialEnd = formatTrialEndDate(quota.trialEndsAt);
+  const showManageBilling = stripeEnabled && !onTrial;
+
+  async function openBillingPortal() {
+    setPortalLoading(true);
+    try {
+      const response = await fetch("/api/stripe/portal", { method: "POST" });
+      const payload = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error || "Could not open billing portal");
+      }
+      window.location.href = payload.url;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not open billing portal");
+      setPortalLoading(false);
+    }
+  }
 
   return (
     <div className="space-y-10">
@@ -67,6 +138,13 @@ export function BillingSettingsView({
         deviceLimit={quota.deviceLimit}
         storageUsedBytes={quota.storageUsedBytes}
         storageLimitBytes={quota.storageLimitBytes}
+        manageBilling={
+          showManageBilling ? (
+            <Button type="button" variant="outline" disabled={portalLoading} onClick={() => void openBillingPortal()}>
+              Manage billing
+            </Button>
+          ) : null
+        }
       />
 
       {catalog.length > 0 ? (
@@ -80,6 +158,11 @@ export function BillingSettingsView({
                 Start with a 14-day Solo trial, then pick the plan that matches your screen count. No setup
                 fees, cancel anytime.
               </p>
+              {stripeEnabled && currency !== "USD" ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Checkout is processed in USD. Displayed {currency} prices are approximate.
+                </p>
+              ) : null}
             </div>
           }
           isCurrentPlan={(plan) => currentPlan?.id === plan.id}
@@ -107,6 +190,16 @@ export function BillingSettingsView({
 }
 
 function toPricingAction(action: PlanAction): PlanPricingCardAction {
+  if (action.kind === "checkout" && action.planId) {
+    return {
+      label: action.label,
+      checkout: {
+        planId: action.planId,
+        billingPeriod: action.billingPeriod ?? "monthly",
+      },
+    };
+  }
+
   return {
     label: action.label,
     href: action.href,
@@ -125,6 +218,7 @@ function CurrentPlanSummary({
   deviceLimit,
   storageUsedBytes,
   storageLimitBytes,
+  manageBilling,
 }: {
   planName: string;
   planDescription: string;
@@ -136,6 +230,7 @@ function CurrentPlanSummary({
   deviceLimit: number;
   storageUsedBytes: number;
   storageLimitBytes: number;
+  manageBilling?: React.ReactNode;
 }) {
   const screenRatio = deviceUsageRatio(deviceCount, deviceLimit);
   const screenTone = deviceUsageTone(screenRatio);
@@ -154,12 +249,15 @@ function CurrentPlanSummary({
           <p className="mt-1.5 max-w-lg text-sm text-muted-foreground">{planDescription}</p>
         </div>
 
-        {onTrial && trialRemaining ? (
-          <div className="shrink-0 rounded-lg bg-amber-50 px-3.5 py-2 text-sm ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10">
-            <p className="font-medium text-amber-800 dark:text-amber-300">{trialRemaining}</p>
-            {trialEnd ? <p className="text-xs text-amber-700/80 dark:text-amber-400/70">Ends {trialEnd}</p> : null}
-          </div>
-        ) : null}
+        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+          {onTrial && trialRemaining ? (
+            <div className="rounded-lg bg-amber-50 px-3.5 py-2 text-sm ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10">
+              <p className="font-medium text-amber-800 dark:text-amber-300">{trialRemaining}</p>
+              {trialEnd ? <p className="text-xs text-amber-700/80 dark:text-amber-400/70">Ends {trialEnd}</p> : null}
+            </div>
+          ) : null}
+          {manageBilling}
+        </div>
       </div>
 
       <dl className="grid grid-cols-1 divide-y divide-border border-t border-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
