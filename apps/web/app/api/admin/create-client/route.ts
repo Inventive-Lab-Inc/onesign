@@ -4,11 +4,25 @@ import { getRouteHandlerStaffAuth } from "@/lib/auth/route-handler-staff";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { findAuthUserIdByEmail } from "@/lib/auth/find-user-by-email";
 import { sendPasswordSetupEmail } from "@/lib/auth/send-password-setup-email";
-import { DEFAULT_STORAGE_LIMIT_BYTES } from "@/lib/plan-quota";
+import {
+  type ClientProvisioningInput,
+  provisioningSummary,
+  resolveClientProvisioning,
+} from "@/lib/admin/client-provisioning";
+import type { PlanTemplate } from "@signage/types";
 
 export const runtime = "nodejs";
 
 const MIN_PASSWORD_LENGTH = 8;
+
+async function loadActivePlanCatalog(): Promise<PlanTemplate[]> {
+  const admin = getSupabaseAdminClient();
+  const { data, error } = await admin.rpc("list_active_plans");
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data as PlanTemplate[]) ?? [];
+}
 
 export async function POST(request: NextRequest) {
   const { user, staff } = await getRouteHandlerStaffAuth();
@@ -20,9 +34,11 @@ export async function POST(request: NextRequest) {
     email?: string;
     clientName?: string;
     password?: string;
+    sendSetupEmail?: boolean;
+    provisioning?: ClientProvisioningInput;
+    /** @deprecated Legacy clients — use provisioning instead. */
     deviceLimit?: number;
     storageLimitBytes?: number;
-    sendSetupEmail?: boolean;
   };
 
   try {
@@ -36,8 +52,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
-  // Default to the secure path: email the client a set-password link instead of
-  // an admin-chosen password. A password is only required for the manual path.
   const sendSetupEmail = body.sendSetupEmail !== false;
   const password = body.password ?? "";
   if (!sendSetupEmail && password.length < MIN_PASSWORD_LENGTH) {
@@ -47,16 +61,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const clientName = body.clientName?.trim() || undefined;
-  const deviceLimit =
-    typeof body.deviceLimit === "number" && body.deviceLimit >= 1
-      ? Math.floor(body.deviceLimit)
-      : 1;
-  const storageLimitBytes =
-    typeof body.storageLimitBytes === "number" && body.storageLimitBytes > 0
-      ? Math.floor(body.storageLimitBytes)
-      : DEFAULT_STORAGE_LIMIT_BYTES;
+  let provisioningInput = body.provisioning;
+  if (!provisioningInput) {
+    provisioningInput = {
+      mode: "custom",
+      deviceLimit:
+        typeof body.deviceLimit === "number" && body.deviceLimit >= 1
+          ? Math.floor(body.deviceLimit)
+          : 1,
+      storageLimitBytes:
+        typeof body.storageLimitBytes === "number" && body.storageLimitBytes > 0
+          ? Math.floor(body.storageLimitBytes)
+          : undefined,
+    };
+  }
 
+  let plans: PlanTemplate[];
+  try {
+    plans = await loadActivePlanCatalog();
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Could not load plan catalog" },
+      { status: 500 },
+    );
+  }
+
+  const provisioning = resolveClientProvisioning(plans, provisioningInput);
+  if ("error" in provisioning) {
+    return NextResponse.json({ error: provisioning.error }, { status: 400 });
+  }
+
+  const clientName = body.clientName?.trim() || undefined;
   const admin = getSupabaseAdminClient();
 
   const existingId = await findAuthUserIdByEmail(admin, email);
@@ -67,14 +102,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const userMetadata: Record<string, string | undefined> = {
+    full_name: clientName,
+  };
+  if (provisioning.skipTrial) {
+    userMetadata.skip_trial = "true";
+  }
+
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email,
     password: sendSetupEmail ? undefined : password,
     email_confirm: true,
-    user_metadata: {
-      full_name: clientName,
-      skip_trial: "true",
-    },
+    user_metadata: userMetadata,
   });
 
   if (createError || !created.user?.id) {
@@ -91,8 +130,10 @@ export async function POST(request: NextRequest) {
     .from("profiles")
     .update({
       client_name: resolvedClientName,
-      device_limit: deviceLimit,
-      storage_limit_bytes: storageLimitBytes,
+      device_limit: provisioning.deviceLimit,
+      storage_limit_bytes: provisioning.storageLimitBytes,
+      trial_ends_at: provisioning.trialEndsAt,
+      plan_kind: provisioning.planKind,
     })
     .eq("id", userId);
 
@@ -100,17 +141,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: profileError.message }, { status: 400 });
   }
 
+  const { error: syncError } = await admin.rpc("sync_user_app_metadata", { p_user_id: userId });
+  if (syncError) {
+    return NextResponse.json({ error: syncError.message }, { status: 500 });
+  }
+
+  const planLabel = provisioningSummary(provisioning);
+
   if (sendSetupEmail) {
     try {
       await sendPasswordSetupEmail(email);
     } catch {
-      // The account exists and is usable; only the email failed. Surface a soft
-      // warning so the admin can retry via "Forgot password" rather than failing.
       return NextResponse.json({
         ok: true,
         userId,
         emailSent: false,
-        message: `Account created for ${email}, but the set-password email could not be sent. Ask them to use “Forgot password”, or retry later.`,
+        provisioning,
+        message: `Account created for ${email} on ${planLabel}, but the set-password email could not be sent. Ask them to use “Forgot password”, or retry later.`,
       });
     }
   }
@@ -119,8 +166,9 @@ export async function POST(request: NextRequest) {
     ok: true,
     userId,
     emailSent: sendSetupEmail,
+    provisioning,
     message: sendSetupEmail
-      ? `Account created. A set-password email was sent to ${email}.`
-      : `Account created for ${email}.`,
+      ? `Account created on ${planLabel}. A set-password email was sent to ${email}.`
+      : `Account created for ${email} on ${planLabel}.`,
   });
 }

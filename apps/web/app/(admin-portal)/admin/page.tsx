@@ -1,4 +1,4 @@
-import type { AdminDirectoryStats, AdminUserDirectoryEntry } from "@signage/types";
+import type { AdminDirectoryStats, AdminUserDirectoryEntry, PlanTemplate } from "@signage/types";
 import { Clock3, Info, Monitor, Users } from "lucide-react";
 import { AdminOverviewSections } from "@/components/admin/admin-overview-sections";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,7 +68,7 @@ export default async function AdminOverviewPage({
   const search = searchParams.q?.trim() || null;
   const offset = (page - 1) * PAGE_SIZE;
 
-  const [statsResult, listResult] = await Promise.all([
+  const [statsResult, listResult, plansResult] = await Promise.all([
     ctx.supabase.rpc("admin_directory_stats"),
     ctx.supabase.rpc("admin_list_users", {
       p_limit: PAGE_SIZE,
@@ -76,6 +76,7 @@ export default async function AdminOverviewPage({
       p_search: search,
       p_status: status,
     }),
+    ctx.supabase.rpc("list_active_plans"),
   ]);
 
   if (statsResult.error) {
@@ -83,6 +84,9 @@ export default async function AdminOverviewPage({
   }
   if (listResult.error) {
     throw new Error(listResult.error.message);
+  }
+  if (plansResult.error) {
+    throw new Error(plansResult.error.message);
   }
 
   const statsRows = (statsResult.data as AdminDirectoryStats[]) ?? [];
@@ -97,6 +101,7 @@ export default async function AdminOverviewPage({
 
   const users = (listResult.data as AdminUserDirectoryEntry[]) ?? [];
   const totalCount = users[0]?.total_count ?? users.length;
+  const plans = (plansResult.data as PlanTemplate[]) ?? [];
 
   return (
     <div className="space-y-8">
@@ -191,6 +196,7 @@ export default async function AdminOverviewPage({
         totalCount={totalCount}
         initialQuery={search ?? ""}
         initialStatus={status}
+        plans={plans}
       />
     </div>
   );

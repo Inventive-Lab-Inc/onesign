@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdminUserDirectoryEntry } from "@signage/types";
+import type { AdminUserDirectoryEntry, PlanTemplate } from "@signage/types";
 import { AdminAddClientPanel } from "@/components/admin/admin-add-client-panel";
 import { AdminUsersTable } from "@/components/admin/admin-users-table";
 
@@ -11,6 +11,7 @@ interface AdminOverviewSectionsProps {
   totalCount: number;
   initialQuery: string;
   initialStatus: "all" | "active" | "disabled";
+  plans: PlanTemplate[];
 }
 
 export function AdminOverviewSections({
@@ -20,13 +21,14 @@ export function AdminOverviewSections({
   totalCount,
   initialQuery,
   initialStatus,
+  plans,
 }: AdminOverviewSectionsProps) {
   return (
     <div className="space-y-8">
       <section className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-sm font-semibold tracking-tight text-foreground">Client accounts</h2>
-          <AdminAddClientPanel />
+          <AdminAddClientPanel plans={plans} />
         </div>
         <AdminUsersTable
           users={users}
