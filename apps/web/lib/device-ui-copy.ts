@@ -14,12 +14,13 @@ export const deviceUiTvCopy = {
     continue: "Continue",
   },
   pairing: {
-    title: "Link this screen",
+    title: "Pairing Code",
     linkSteps: [
       "Sign in at app.onesigntv.com",
       "Open Screens",
       "Tap + Add screen and enter the code above",
     ] as const,
+    browserHint: "Or open player.onesigntv.com in any browser",
     waiting: "Waiting…",
   },
   playing: {

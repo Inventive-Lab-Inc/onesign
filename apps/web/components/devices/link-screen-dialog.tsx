@@ -124,7 +124,7 @@ export function LinkScreenDialog({
               Link a screen
             </h2>
             <p id={descId} className="mt-1 text-sm text-muted-foreground">
-              Enter the six-digit code shown on the TV.
+              Enter the six-digit code shown on your TV or at player.onesigntv.com.
             </p>
           </div>
           <button

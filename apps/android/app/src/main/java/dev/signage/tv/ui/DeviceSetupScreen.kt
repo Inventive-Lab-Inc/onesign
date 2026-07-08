@@ -45,43 +45,65 @@ fun DeviceSetupScreen(
     modifier: Modifier = Modifier,
 ) {
     TvBrandedScreenLayout(modifier = modifier) {
+        val metrics = LocalBrandedScreenMetrics.current
+        val scale = metrics.scale
+        val titleFontSize =
+            if (metrics.isShortViewport && !metrics.isCompact) {
+                20.sp * scale
+            } else {
+                32.sp * metrics.iconScale
+            }
+        val contentWidthFraction =
+            when {
+                metrics.isCompact -> 0.94f
+                metrics.isShortViewport -> 0.78f
+                else -> 0.56f
+            }
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth(0.56f),
+            modifier = Modifier.fillMaxWidth(contentWidthFraction),
         ) {
             Text(
                 text = stringResource(R.string.device_setup_title),
                 style = MaterialTheme.typography.headlineSmall.copy(
-                    fontSize = 32.sp,
+                    fontSize = titleFontSize,
                     fontWeight = FontWeight.SemiBold,
                 ),
                 color = SignageColors.ThemeForegroundOnDark,
                 textAlign = TextAlign.Center,
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(32.dp * scale))
             setupSteps.forEachIndexed { index, stepRes ->
                 if (index > 0) {
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(24.dp * scale))
                 }
-                SetupStepRow(number = index + 1, text = stringResource(stepRes), isActive = index == 0)
+                SetupStepRow(
+                    number = index + 1,
+                    text = stringResource(stepRes),
+                    isActive = index == 0,
+                    scale = metrics.iconScale,
+                )
             }
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(40.dp * scale))
             if (installPermissionGranted) {
                 Text(
                     text = stringResource(R.string.device_setup_permission_granted),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp * scale),
                     color = SignageColors.Theme,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(20.dp * scale))
                 DeviceSetupPrimaryButton(
                     label = stringResource(R.string.device_setup_continue),
                     onClick = onContinueClick,
+                    scale = scale,
                 )
             } else {
                 DeviceSetupPrimaryButton(
                     label = stringResource(R.string.device_setup_open_settings),
                     onClick = onOpenSettingsClick,
+                    scale = scale,
                 )
             }
         }
@@ -93,6 +115,7 @@ private fun SetupStepRow(
     number: Int,
     text: String,
     isActive: Boolean,
+    scale: Float,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -101,7 +124,7 @@ private fun SetupStepRow(
         Box(
             modifier =
                 Modifier
-                    .size(44.dp)
+                    .size(44.dp * scale)
                     .border(
                         width = 1.dp,
                         color =
@@ -120,14 +143,14 @@ private fun SetupStepRow(
         ) {
             Text(
                 text = number.toString(),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 16.sp * scale),
                 color = if (isActive) SignageColors.ThemeContrast else SignageColors.ThemeForegroundOnDark,
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(16.dp * scale))
         Text(
             text = text,
-            style = MaterialTheme.typography.titleLarge.copy(fontSize = 26.sp),
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 26.sp * scale),
             color =
                 if (isActive) {
                     SignageColors.ThemeForegroundOnDark
@@ -143,6 +166,7 @@ private fun SetupStepRow(
 private fun DeviceSetupPrimaryButton(
     label: String,
     onClick: () -> Unit,
+    scale: Float,
 ) {
     Button(
         onClick = onClick,
@@ -152,12 +176,12 @@ private fun DeviceSetupPrimaryButton(
                 containerColor = SignageColors.Theme,
                 contentColor = SignageColors.ThemeContrast,
             ),
-        modifier = Modifier.padding(horizontal = 40.dp),
+        modifier = Modifier.padding(horizontal = 40.dp * scale),
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 16.sp * scale),
+            modifier = Modifier.padding(horizontal = 24.dp * scale, vertical = 4.dp * scale),
         )
     }
 }

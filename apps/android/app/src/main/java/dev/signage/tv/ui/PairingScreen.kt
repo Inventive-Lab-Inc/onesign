@@ -44,84 +44,106 @@ fun PairingScreen(
     val (firstGroup, secondGroup) = formatPairingCodeGroups(pairingCode)
 
     TvBrandedScreenLayout(modifier = modifier) {
+        val metrics = LocalBrandedScreenMetrics.current
+        val scale = metrics.scale
+        val titleFontSize =
+            if (metrics.isShortViewport && !metrics.isCompact) {
+                20.sp * scale
+            } else {
+                32.sp * scale
+            }
+        val titleToCodeGap =
+            if (metrics.isShortViewport && !metrics.isCompact) {
+                24.dp * scale
+            } else {
+                40.dp * scale
+            }
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth(0.8f),
+            modifier = Modifier.fillMaxWidth(if (metrics.isCompact) 0.94f else 0.8f),
         ) {
             Text(
                 text = stringResource(R.string.pairing_title),
                 style = MaterialTheme.typography.headlineSmall.copy(
-                    fontSize = 32.sp,
+                    fontSize = titleFontSize,
                     fontWeight = FontWeight.Medium,
                 ),
                 color = Color.White,
                 textAlign = TextAlign.Center,
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(titleToCodeGap))
 
             Row(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
                     text = firstGroup,
                     style = MaterialTheme.typography.displayLarge.copy(
-                        fontSize = 88.sp,
+                        fontSize = 88.sp * scale,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 2.sp,
+                        letterSpacing = 2.sp * scale,
                     ),
                     color = Color.White,
+                    maxLines = 1,
+                    softWrap = false,
                 )
                 Text(
                     text = "·",
-                    modifier = Modifier.padding(horizontal = 24.dp),
+                    modifier = Modifier.padding(horizontal = 24.dp * scale),
                     style = MaterialTheme.typography.displayLarge.copy(
-                        fontSize = 64.sp,
+                        fontSize = 64.sp * scale,
                         fontWeight = FontWeight.Light,
                     ),
                     color = Color.White.copy(alpha = 0.25f),
+                    maxLines = 1,
+                    softWrap = false,
                 )
                 Text(
                     text = secondGroup,
                     style = MaterialTheme.typography.displayLarge.copy(
-                        fontSize = 88.sp,
+                        fontSize = 88.sp * scale,
                         fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 2.sp,
+                        letterSpacing = 2.sp * scale,
                     ),
                     color = Color.White,
+                    maxLines = 1,
+                    softWrap = false,
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(32.dp * scale))
 
             Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .padding(start = 24.dp * scale),
+                verticalArrangement = Arrangement.spacedBy(8.dp * scale),
             ) {
                 pairingLinkSteps.forEachIndexed { index, stepRes ->
-                    PairingLinkStep(number = index + 1, text = stringResource(stepRes))
+                    PairingLinkStep(number = index + 1, text = stringResource(stepRes), scale = scale)
                 }
             }
 
             if (showWaitingIndicator) {
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(32.dp * scale))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                 ) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(20.dp * scale),
                         color = Color.White.copy(alpha = 0.7f),
                         strokeWidth = 2.dp,
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(12.dp * scale))
                     Text(
                         text = stringResource(R.string.pairing_waiting),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp * scale),
                         color = Color.White.copy(alpha = 0.55f),
                     )
                 }
@@ -134,17 +156,26 @@ fun PairingScreen(
 private fun PairingLinkStep(
     number: Int,
     text: String,
+    scale: Float,
 ) {
     Row(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "$number.",
-            style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp),
+            style =
+                MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 20.sp * scale,
+                    lineHeight = 24.sp * scale,
+                ),
             color = Color.White.copy(alpha = 0.35f),
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(8.dp * scale))
         Text(
             text = text,
-            style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp),
+            style =
+                MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 20.sp * scale,
+                    lineHeight = 24.sp * scale,
+                ),
             color = Color.White.copy(alpha = 0.55f),
             textAlign = TextAlign.Start,
         )

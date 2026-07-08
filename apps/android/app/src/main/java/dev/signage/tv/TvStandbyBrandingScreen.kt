@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import dev.signage.tv.ui.LocalBrandedScreenMetrics
 import dev.signage.tv.ui.TvBrandedScreenLayout
 import dev.signage.tv.ui.TvStandbyStatusIcon
 import dev.signage.tv.ui.theme.SignageColors
@@ -37,40 +39,53 @@ fun TvStandbyBrandingScreen(
     footerContent: (@Composable () -> Unit)? = null,
 ) {
     TvBrandedScreenLayout {
+        val metrics = LocalBrandedScreenMetrics.current
+        val scale = metrics.iconScale
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth(if (metrics.isCompact) 0.94f else 0.8f),
         ) {
             Box(
                 modifier =
                     Modifier
-                        .size(80.dp)
+                        .size(80.dp * scale)
                         .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
                         .background(Color.White.copy(alpha = 0.04f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                TvStandbyStatusIcon(badge = badge)
+                TvStandbyStatusIcon(badge = badge, size = 40.dp * scale)
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(20.dp * scale))
 
             Text(
                 text = badge,
                 style = MaterialTheme.typography.headlineSmall.copy(
-                    fontSize = 28.sp,
+                    fontSize =
+                        if (metrics.isShortViewport && !metrics.isCompact) {
+                            22.sp * metrics.scale
+                        } else {
+                            28.sp * scale
+                        },
                     fontWeight = FontWeight.Medium,
-                    lineHeight = 34.sp,
+                    lineHeight =
+                        if (metrics.isShortViewport && !metrics.isCompact) {
+                            28.sp * metrics.scale
+                        } else {
+                            34.sp * scale
+                        },
                 ),
                 color = Color.White,
                 textAlign = TextAlign.Center,
             )
 
             if (hint != null) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp * scale))
                 Text(
                     text = hint,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp * scale),
                     color = Color.White.copy(alpha = 0.45f),
                     textAlign = TextAlign.Center,
                 )
@@ -87,9 +102,10 @@ fun TvStandbyPrimaryAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scale = LocalBrandedScreenMetrics.current.scale
     androidx.compose.material3.Button(
         onClick = onClick,
-        modifier = modifier.padding(top = 16.dp),
+        modifier = modifier.padding(top = 16.dp * scale),
         shape = RoundedCornerShape(8.dp),
         colors =
             androidx.compose.material3.ButtonDefaults.buttonColors(
@@ -99,7 +115,7 @@ fun TvStandbyPrimaryAction(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 16.sp * scale),
         )
     }
 }

@@ -61,6 +61,7 @@ import { DeviceDisabledBadge, deviceDisabledPresentation } from "@/components/de
 import { DevicePlaybackPowerButton } from "@/components/device-playback-toggle";
 import { useActiveAppRelease, type ActiveAppRelease } from "@/hooks/use-active-app-release";
 import { DeviceAddToFolderButton } from "@/components/devices/device-add-to-folder-button";
+import { DevicePlatformBadge } from "@/components/devices/device-platform-badge";
 import { ItemActionMenu } from "@/components/console/item-action-menu";
 
 function statusLabel(status: DeviceStatus): string {
@@ -594,7 +595,10 @@ function DeviceListRow({
           <Tv className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">{device.name}</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-sm font-semibold text-foreground">{device.name}</p>
+            <DevicePlatformBadge platform={device.platform} />
+          </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {formatDeviceLastSeen(device.last_seen)}
             {groups.length > 0 ? ` · ${groups.map((group) => group.name).join(", ")}` : ""}

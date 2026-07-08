@@ -16,7 +16,7 @@ import dev.signage.tv.R
 import dev.signage.tv.ui.theme.SignageTvTheme
 
 /** Matches web [Logo] viewBox aspect ratio. */
-private const val LOGO_ASPECT_RATIO = 1008f / 214f
+const val OneSignTvLogoAspectRatio = 1008f / 214f
 
 /**
  * OneSign TV brand lockup — same SVG art as web [Logo] (green tile + wordmark + TV).
@@ -41,14 +41,15 @@ fun OneSignTvLogo(
         modifier =
             modifier
                 .height(height)
-                .aspectRatio(LOGO_ASPECT_RATIO),
+                .aspectRatio(OneSignTvLogoAspectRatio),
     )
 }
 
 /** TV-scale lockup for pairing, standby, and setup screens — matches web full-scale logo height. */
 @Composable
 fun OneSignTvLogoHeader(modifier: Modifier = Modifier) {
-    OneSignTvLogo(height = 52.dp, modifier = modifier)
+    val logoHeight = LocalBrandedScreenMetrics.current.logoHeight
+    OneSignTvLogo(height = logoHeight, modifier = modifier)
 }
 
 @Preview(showBackground = true, widthDp = 960, heightDp = 120, backgroundColor = 0xFF012218)

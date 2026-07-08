@@ -1,16 +1,21 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { PlanTemplate } from "@signage/types";
+import { BrowserPlayerApp } from "@/components/browser-player/browser-player-app";
 import { LandingPage } from "@/components/landing/landing-page";
 import { buildStaticPlanViewModels, mapTemplateToViewModel } from "@/components/plans/plan-data";
 import { getServerAuth } from "@/lib/supabase/auth";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getRequestPlanCurrency } from "@/lib/plan-currency";
-import { appUrl, isMarketingHost, normalizeHost } from "@/lib/site-hosts";
+import { appUrl, isMarketingHost, isPlayerHost, normalizeHost } from "@/lib/site-hosts";
 
 export default async function HomePage() {
   const host = headers().get("host");
   const { user } = await getServerAuth();
+
+  if (isPlayerHost(host)) {
+    return <BrowserPlayerApp />;
+  }
 
   const showLanding =
     isMarketingHost(host) ||

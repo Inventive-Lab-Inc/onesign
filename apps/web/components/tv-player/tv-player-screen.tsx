@@ -196,6 +196,10 @@ function PairingScreen({
           ))}
         </ol>
 
+        {"browserHint" in copy.pairing && copy.pairing.browserHint ? (
+          <p className={cn("mt-6 text-white/45", stepClass)}>{copy.pairing.browserHint}</p>
+        ) : null}
+
         {showWaitingIndicator ? (
           <div className={cn("mt-8 inline-flex items-center gap-3 text-white/55", waitingClass)}>
             <Loader2 className={cn("animate-spin text-white/70", waitingIcon)} />

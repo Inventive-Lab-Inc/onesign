@@ -71,6 +71,9 @@ export interface AccountUser {
 
 export type DeviceStatus = "offline" | "online" | "pending_pairing";
 
+/** Screen client: Android TV APK or browser player. */
+export type DevicePlatform = "android" | "browser";
+
 /** Dashboard setting; Android applies via Activity.requestedOrientation while playback runs. */
 export type DeviceScreenOrientation =
   | "landscape"
@@ -295,6 +298,8 @@ export interface Device {
   blank_when_off_hours?: boolean;
   /** When true, screen is active outside configured hours (inverted schedule). */
   operating_hours_inverted?: boolean;
+  /** Client type; defaults to android for pre-migration rows. */
+  platform?: DevicePlatform;
 }
 
 export interface AppRelease {

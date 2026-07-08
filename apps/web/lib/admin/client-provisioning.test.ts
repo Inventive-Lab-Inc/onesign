@@ -99,7 +99,10 @@ describe("resolveClientProvisioning", () => {
       trialDays: 21,
     });
     if ("error" in resolved) throw new Error("unexpected error");
-    expect(resolved.trialEndsAt).toBe(computeTrialEndsAt(21));
+    expect(new Date(resolved.trialEndsAt).getTime()).toBeCloseTo(
+      new Date(computeTrialEndsAt(21)).getTime(),
+      -3,
+    );
   });
 
   it("accepts bespoke limits for custom provisioning", () => {

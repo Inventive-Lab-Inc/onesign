@@ -3,6 +3,8 @@ import {
   appUrl,
   isAppOnlyPath,
   isMarketingHost,
+  isPlayerHost,
+  playerUrl,
 } from "./site-hosts";
 
 describe("isMarketingHost", () => {
@@ -14,7 +16,15 @@ describe("isMarketingHost", () => {
 
   it("rejects app and local dev hosts", () => {
     expect(isMarketingHost("app.onesigntv.com")).toBe(false);
+    expect(isMarketingHost("player.onesigntv.com")).toBe(false);
     expect(isMarketingHost("localhost")).toBe(false);
+  });
+});
+
+describe("isPlayerHost", () => {
+  it("recognizes the browser player hostname", () => {
+    expect(isPlayerHost("player.onesigntv.com")).toBe(true);
+    expect(isPlayerHost("app.onesigntv.com")).toBe(false);
   });
 });
 
@@ -38,5 +48,16 @@ describe("appUrl", () => {
   it("builds absolute app URLs from env", () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.onesigntv.com");
     expect(appUrl("/login")).toBe("https://app.onesigntv.com/login");
+  });
+});
+
+describe("playerUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("builds absolute player URLs from env", () => {
+    vi.stubEnv("NEXT_PUBLIC_PLAYER_URL", "https://player.onesigntv.com");
+    expect(playerUrl()).toBe("https://player.onesigntv.com/");
   });
 });

@@ -16,6 +16,7 @@ import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { DeviceDisabledNotice, deviceDisabledPresentation } from "@/components/device-disabled-notice";
 import { DeviceDescriptionInlineEditor } from "@/components/devices/device-description-inline-editor";
 import { DeviceNameInlineEditor } from "@/components/devices/device-name-inline-editor";
+import { DevicePlatformBadge } from "@/components/devices/device-platform-badge";
 import { DeviceDetailsDrawer } from "@/components/devices/device-details-drawer";
 import { DeviceLiveScreenshotButton } from "@/components/devices/device-live-screenshot-button";
 import { DeviceOrientationRotateButton } from "@/components/devices/device-orientation-rotate-button";
@@ -269,6 +270,7 @@ export function DeviceScreenEditor({
                   canEdit={canManageTvPlaylist}
                   trailing={
                     <span className="inline-flex items-center gap-2 self-center">
+                      <DevicePlatformBadge platform={device.platform} />
                       <ScreenStatusBadge status={effectiveDeviceStatus(device)} />
                       <span className="text-xs font-normal tabular-nums text-muted-foreground">
                         {formatDeviceLastSeen(device.last_seen)}

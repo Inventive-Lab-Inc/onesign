@@ -21,7 +21,7 @@
     <string name="slide_loading_file">Loading %1$s</string>
     <string name="slide_loading_playlist_cache">Caching…</string>
     <string name="startup_loading">Starting…</string>
-    <string name="pairing_title">Link this screen</string>
+    <string name="pairing_title">Pairing Code</string>
     <string name="pairing_link_step_sign_in">Sign in at app.onesigntv.com</string>
     <string name="pairing_link_step_screens">Open Screens</string>
     <string name="pairing_link_step_add_screen">Tap + Add screen and enter the code above</string>

@@ -39,8 +39,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.compose.ui.unit.sp
 import dev.signage.tv.ui.AppUpdateOverlay
 import dev.signage.tv.ui.DeviceSetupScreen
+import dev.signage.tv.ui.LocalBrandedScreenMetrics
 import dev.signage.tv.ui.PairingScreen
 import dev.signage.tv.ui.SignageShellBackground
 import dev.signage.tv.ui.TvBrandedScreenLayout
@@ -271,14 +273,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun TvLoadingScreen(message: String) {
     TvBrandedScreenLayout {
+        val scale = LocalBrandedScreenMetrics.current.scale
         CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(48.dp * scale),
             color = SignageColors.Theme,
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(24.dp * scale))
         Text(
             text = message,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp * scale),
             color = SignageColors.ThemeForegroundOnDark,
             textAlign = TextAlign.Center,
         )
