@@ -29,6 +29,12 @@ export class PlaybackRealtimeCoordinator {
       () => onManifestMaybeStale(),
     );
 
+    channel.on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "devices", filter: `id=eq.${deviceId}` },
+      () => onManifestMaybeStale(),
+    );
+
     if (pid) {
       channel.on(
         "postgres_changes",

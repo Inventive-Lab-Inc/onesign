@@ -20,7 +20,8 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   trial_expired: "Your trial has expired. Upgrade your plan to continue.",
   device_limit_reached: "You've reached the screen limit for your plan.",
   invalid_pairing_code: "That pairing code is invalid or has expired.",
-  device_not_found_or_already_linked: "This screen is already linked or is no longer available.",
+  device_not_found_or_already_linked:
+    "That pairing code is invalid, expired, or already linked to another screen.",
   owner_not_found: "We couldn't find the account owner.",
 };
 

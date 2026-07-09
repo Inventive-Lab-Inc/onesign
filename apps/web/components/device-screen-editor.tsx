@@ -1,7 +1,7 @@
 "use client";
 
 import type { PlaylistTransitionStyle, PlaylistItemWithMedia } from "@signage/types";
-import { Info } from "lucide-react";
+import { Info, Link2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -10,7 +10,6 @@ import { devicesListPath, useAdminClientRoutes } from "@/components/admin/admin-
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import type { DeviceWithAssignments } from "@/lib/console-sync";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
-import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
 import { getMediaPublicBaseUrl } from "@/lib/object-storage/urls";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { DeviceDisabledNotice, deviceDisabledPresentation } from "@/components/device-disabled-notice";
@@ -18,6 +17,7 @@ import { DeviceDescriptionInlineEditor } from "@/components/devices/device-descr
 import { DeviceNameInlineEditor } from "@/components/devices/device-name-inline-editor";
 import { DevicePlatformBadge } from "@/components/devices/device-platform-badge";
 import { DeviceDetailsDrawer } from "@/components/devices/device-details-drawer";
+import { DeviceRePairDialog } from "@/components/devices/device-re-pair-dialog";
 import { DeviceLiveScreenshotButton } from "@/components/devices/device-live-screenshot-button";
 import { DeviceOrientationRotateButton } from "@/components/devices/device-orientation-rotate-button";
 import { DeviceTagsEditor } from "@/components/devices/device-tags-editor";
@@ -32,12 +32,15 @@ import { DeviceAppUpdateNotice, DeviceAppVersionChip } from "@/components/device
 import { DeviceMediaCacheChip } from "@/components/device-media-cache-chip";
 import { useActiveAppRelease } from "@/hooks/use-active-app-release";
 import { CopyPlaylistToScreensDialog } from "@/components/devices/copy-playlist-to-screens-dialog";
-import { DeviceThumbnailPicker, ScreenStatusBadge } from "@/components/devices/device-thumbnail-picker";
+import { DeviceThumbnailPicker } from "@/components/devices/device-thumbnail-picker";
+import { DeviceConnectionBanner } from "@/components/devices/device-connection-banner";
+import { DeviceConnectionIndicator } from "@/components/devices/device-connection-indicator";
 import { PlaylistTransitionsDialog } from "@/components/devices/playlist-transitions-dialog";
 import { copyPlaylistToDevices } from "@/lib/copy-device-playlist";
 import { isStorageFull } from "@/lib/plan-quota";
 import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
 import { findGroupContainingDevice } from "@/lib/group-playlist";
+import { resolveDeviceDisplayName } from "@/lib/device-information";
 import { ensureActivePlaylistForDevice } from "@/lib/screen-playlist";
 import { resolveDeviceScreenTimezone } from "@/lib/screen-timezone";
 import { detectBrowserTimezone } from "@/lib/weekly-schedule";
@@ -128,6 +131,7 @@ export function DeviceScreenEditor({
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [transitionsDialogOpen, setTransitionsDialogOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [rePairOpen, setRePairOpen] = useState(false);
 
   const reloadFromServer = useCallback(async () => {
     await syncNow();
@@ -210,6 +214,8 @@ export function DeviceScreenEditor({
     return null;
   }
 
+  const displayName = resolveDeviceDisplayName(device);
+
   if (!getMediaPublicBaseUrl()) {
     return (
       <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
@@ -234,7 +240,7 @@ export function DeviceScreenEditor({
           ) : null}
           <span className="text-muted-foreground/70">/</span>
           <span className="rounded-md bg-muted/80 px-2 py-0.5 text-xs font-normal text-foreground">
-            {device.name}
+            {displayName}
           </span>
         </div>
       </div>
@@ -247,8 +253,9 @@ export function DeviceScreenEditor({
         />
       ) : null}
 
-      <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="relative z-10 bg-card p-4 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
           <DeviceThumbnailPicker
             deviceId={device.id}
             ownerId={ownerId}
@@ -267,14 +274,12 @@ export function DeviceScreenEditor({
                 <DeviceNameInlineEditor
                   deviceId={device.id}
                   name={device.name}
+                  telemetry={device.telemetry}
                   canEdit={canManageTvPlaylist}
                   trailing={
                     <span className="inline-flex items-center gap-2 self-center">
                       <DevicePlatformBadge platform={device.platform} />
-                      <ScreenStatusBadge status={effectiveDeviceStatus(device)} />
-                      <span className="text-xs font-normal tabular-nums text-muted-foreground">
-                        {formatDeviceLastSeen(device.last_seen)}
-                      </span>
+                      <DeviceConnectionIndicator device={device} />
                     </span>
                   }
                 />
@@ -303,6 +308,18 @@ export function DeviceScreenEditor({
                   <>
                     <DeviceHoursButton device={device} canEdit={canManageTvPlaylist} compact />
                     <DeviceOrientationRotateButton device={device} canEdit={canManageTvPlaylist} compact />
+                    <Tooltip label="Reconnect player">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 shrink-0 p-0"
+                        onClick={() => setRePairOpen(true)}
+                        aria-label="Reconnect player"
+                      >
+                        <Link2 className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </Tooltip>
                   </>
                 ) : null}
               </div>
@@ -334,14 +351,19 @@ export function DeviceScreenEditor({
               <DeviceTagsEditor device={device} canEdit={canManageTvPlaylist} />
             </div>
           </div>
+          </div>
         </div>
+
+        {canManageTvPlaylist ? (
+          <DeviceConnectionBanner device={device} onReconnect={() => setRePairOpen(true)} />
+        ) : null}
       </div>
 
       <DeviceAppUpdateNotice device={device} activeRelease={activeAppRelease} />
 
       {playlistId ? (
         <ScreenPlaylistWorkspace
-          playlistName={device.name}
+          playlistName={displayName}
           screenTimezone={screenTimezone}
           ownerId={ownerId}
           workspaceId={device.workspace_id}
@@ -374,7 +396,7 @@ export function DeviceScreenEditor({
       <CopyPlaylistToScreensDialog
         open={copyDialogOpen}
         onClose={() => setCopyDialogOpen(false)}
-        sourceDeviceName={device.name}
+        sourceDeviceName={displayName}
         devices={otherDevices}
         onConfirm={handleCopyToScreens}
       />
@@ -392,6 +414,14 @@ export function DeviceScreenEditor({
         open={detailsOpen}
         onClose={() => setDetailsOpen(false)}
         lastPlaylistChangeAt={lastPlaylistChangeAt}
+      />
+
+      <DeviceRePairDialog
+        open={rePairOpen}
+        onClose={() => setRePairOpen(false)}
+        deviceId={device.id}
+        deviceName={displayName}
+        onRepaired={reloadFromServer}
       />
     </div>
   );

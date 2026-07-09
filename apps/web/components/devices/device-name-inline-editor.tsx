@@ -5,29 +5,31 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { toast } from "sonner";
 import { useConsoleSync } from "@/components/console/console-sync-provider";
 import { Button } from "@/components/ui/button";
+import { resolveDeviceDisplayName } from "@/lib/device-information";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { cn } from "@/lib/utils";
-
-function resolveDeviceDisplayName(name: string | null | undefined): string {
-  const trimmed = (name ?? "").trim();
-  return trimmed || "Screen";
-}
+import type { Device } from "@signage/types";
 
 export function DeviceNameInlineEditor({
   deviceId,
   name: deviceName,
+  telemetry,
   canEdit = true,
   trailing,
   className,
 }: {
   deviceId: string;
   name: string | null | undefined;
+  telemetry?: Device["telemetry"];
   canEdit?: boolean;
   trailing?: ReactNode;
   className?: string;
 }) {
-  const resolvedName = resolveDeviceDisplayName(deviceName);
+  const resolvedName = useMemo(
+    () => resolveDeviceDisplayName({ name: deviceName, telemetry }),
+    [deviceName, telemetry],
+  );
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const { syncNow } = useConsoleSync();
   const patchDevice = useConsoleDataStore((state) => state.patchDevice);

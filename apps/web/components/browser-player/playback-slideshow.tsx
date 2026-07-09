@@ -7,6 +7,7 @@ import {
   type MediaCacheProgress,
   type PlaybackManifest,
 } from "@/lib/browser-player/playback-types";
+import { browserPlayerViewportStyle } from "@/lib/browser-player/screen-orientation";
 import { TvPlayerTrialWatermark, TvPlayerLoadProgressOverlay } from "@/components/tv-player/tv-player-branding";
 import { ImageSlide } from "./image-slide";
 import { VideoSlide } from "./video-slide";
@@ -19,16 +20,7 @@ type PlaybackSlideshowProps = {
 };
 
 function orientationStyle(orientation: DeviceScreenOrientation): React.CSSProperties {
-  switch (orientation) {
-    case "portrait":
-      return { transform: "rotate(90deg)", width: "100vh", height: "100vw" };
-    case "reverse_portrait":
-      return { transform: "rotate(-90deg)", width: "100vh", height: "100vw" };
-    case "reverse_landscape":
-      return { transform: "rotate(180deg)" };
-    default:
-      return {};
-  }
+  return browserPlayerViewportStyle(orientation);
 }
 
 export function PlaybackSlideshow({ manifest, cacheProgress, onHealthy }: PlaybackSlideshowProps) {
@@ -102,11 +94,15 @@ export function PlaybackSlideshow({ manifest, cacheProgress, onHealthy }: Playba
       </div>
 
       {cacheProgress ? (
-        <TvPlayerLoadProgressOverlay
-          scale="full"
-          headline={cacheProgress.headline}
-          percent={cacheProgress.percent ?? undefined}
-        />
+        // The overlay has no positioning of its own; it expects a centering parent
+        // (matches TvPlayerScreenShell behavior).
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <TvPlayerLoadProgressOverlay
+            scale="full"
+            headline={cacheProgress.headline}
+            percent={cacheProgress.percent ?? undefined}
+          />
+        </div>
       ) : null}
 
       {manifest.showTrialWatermark ? <TvPlayerTrialWatermark scale="full" /> : null}

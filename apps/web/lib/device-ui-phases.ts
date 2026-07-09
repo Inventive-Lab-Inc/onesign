@@ -99,10 +99,9 @@ export const deviceUiPhases: DeviceUiPhase[] = [
     id: "pairing",
     group: "setup",
     title: "Pairing screen",
-    description: "Six-digit code and a waiting indicator.",
+    description: "Six-digit code and link steps.",
     consoleHealth: "pending",
     tvPairingCode: "378694",
-    tvShowWaitingIndicator: true,
   },
   {
     id: "playing",

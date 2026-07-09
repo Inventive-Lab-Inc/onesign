@@ -232,7 +232,9 @@ class SignageExoController(
     fun schedulePrioritizedVideoWarm(urls: List<String>) {
         val targetUrls =
             urls.filter { url ->
-                url.isNotBlank() && url != boundVideo?.url
+                url.isNotBlank() &&
+                    url != boundVideo?.url &&
+                    !PlaylistCacheStatus.isVideoFullyCached(app, url)
             }
         if (targetUrls.isEmpty()) {
             return
@@ -278,6 +280,11 @@ class SignageExoController(
             Log.d(log, "Skip full prefetch; url is actively playing: $url")
             return
         }
+        // Never spawn a job for media already on disk: even a no-op job flips
+        // isBackgroundVideoCachingActive() and flashes the caching overlay.
+        if (PlaylistCacheStatus.isVideoFullyCached(app, url)) {
+            return
+        }
         if (prefetchJobs[url]?.isActive == true) {
             return
         }
@@ -300,6 +307,9 @@ class SignageExoController(
         }
         if (url == boundVideo?.url) {
             Log.d(log, "Skip full prefetch; url is actively playing: $url")
+            return
+        }
+        if (PlaylistCacheStatus.isVideoFullyCached(app, url)) {
             return
         }
         withContext(Dispatchers.IO) {

@@ -177,10 +177,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         is MainUiState.AwaitingLink ->
-                            PairingScreen(
-                                pairingCode = ui.pairingCode,
-                                showWaitingIndicator = ui.showWaitingIndicator,
-                            )
+                            PairingScreen(pairingCode = ui.pairingCode)
 
                         is MainUiState.Playback -> Unit
                                 }

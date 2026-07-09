@@ -51,6 +51,7 @@ import {
   restoreIndividualPlaylistsForDevices,
 } from "@/lib/group-playlist";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
+import { resolveDeviceDisplayName } from "@/lib/device-information";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
 import { groupFilterLabel, parseGroupFilterFromSearchParam } from "@/lib/device-group-navigation";
 import { cn } from "@/lib/utils";
@@ -582,12 +583,14 @@ function DeviceListRow({
   const detailHref = deviceDetailPath(device.public_code, adminRoutes, returnGroupId);
   const status = effectiveDeviceStatus(device);
 
+  const displayName = resolveDeviceDisplayName(device);
+
   return (
     <li className="relative flex items-center gap-3 px-3 py-3 sm:gap-4 sm:px-4">
       <Link
         href={detailHref}
         className="absolute inset-0 z-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        aria-label={`Open screen: ${device.name}`}
+        aria-label={`Open screen: ${displayName}`}
       />
 
       <div className="relative z-[1] flex min-w-0 flex-1 items-center gap-3 pointer-events-none sm:gap-4">
@@ -596,7 +599,7 @@ function DeviceListRow({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate text-sm font-semibold text-foreground">{device.name}</p>
+            <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
             <DevicePlatformBadge platform={device.platform} />
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">

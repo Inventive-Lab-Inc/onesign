@@ -11,6 +11,7 @@ import { DeviceDisabledBadge, deviceDisabledPresentation } from "@/components/de
 import type { ActiveAppRelease } from "@/hooks/use-active-app-release";
 import type { DeviceGroupWithMembers, DeviceWithAssignments } from "@/lib/console-sync";
 import { effectiveDeviceStatus, formatDeviceLastSeen } from "@/lib/device-status";
+import { resolveDeviceDisplayName } from "@/lib/device-information";
 import { normalizeDeviceScreenOrientation } from "@/lib/device-screen-orientation";
 import { resolveGroupColor } from "@/lib/device-group-colors";
 import { mediaPublicUrl } from "@/lib/object-storage/urls";
@@ -72,6 +73,7 @@ export function DeviceScreenCard({
     ? mediaPublicUrl(device.thumbnail_storage_path)
     : null;
   const screenOrientation = normalizeDeviceScreenOrientation(device.screen_orientation);
+  const displayName = resolveDeviceDisplayName(device);
 
   const groupMenuItems =
     onAddToFolder && folders.length > 0
@@ -93,7 +95,7 @@ export function DeviceScreenCard({
       <Link
         href={detailHref}
         className="device-screen-card__link block overflow-hidden rounded-lg border border-border/80 bg-card shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        aria-label={`Open screen: ${device.name}`}
+        aria-label={`Open screen: ${displayName}`}
       >
         <div className="device-screen-card__preview relative aspect-[16/10] bg-muted/60">
           {thumbnailUrl ? (
@@ -135,8 +137,8 @@ export function DeviceScreenCard({
 
         <div className="flex items-start gap-1 border-t border-border/60 p-2">
           <div className="min-w-0 flex-1">
-            <p className="line-clamp-2 text-xs font-semibold leading-snug text-foreground" title={device.name}>
-              {device.name}
+            <p className="line-clamp-2 text-xs font-semibold leading-snug text-foreground" title={displayName}>
+              {displayName}
             </p>
             <p className="mt-0.5 text-[0.6875rem] leading-relaxed text-muted-foreground">
               {formatDeviceLastSeen(device.last_seen)}
@@ -148,7 +150,7 @@ export function DeviceScreenCard({
 
       <div className="absolute bottom-2 right-2 z-10">
         <ItemActionMenu
-          ariaLabel={`Actions for ${device.name}`}
+          ariaLabel={`Actions for ${displayName}`}
           items={[
             {
               label: "Open settings",

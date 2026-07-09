@@ -5,7 +5,11 @@ import { useMemo, useState } from "react";
 import { DeviceSideDrawer } from "@/components/devices/device-side-drawer";
 import { DeviceTelemetryPanelContent } from "@/components/device-telemetry-panel";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
-import { buildDeviceHistoryEvents, buildDeviceInformationRows } from "@/lib/device-information";
+import {
+  buildDeviceHistoryEvents,
+  buildDeviceInformationRows,
+  resolveDeviceDisplayName,
+} from "@/lib/device-information";
 import { useConsoleDevice } from "@/hooks/use-console-device";
 import { cn } from "@/lib/utils";
 
@@ -76,7 +80,7 @@ export function DeviceDetailsDrawer({
   );
 
   return (
-    <DeviceSideDrawer open={open} onClose={onClose} title="Screen details" subtitle={device.name}>
+    <DeviceSideDrawer open={open} onClose={onClose} title="Screen details" subtitle={resolveDeviceDisplayName(device)}>
       <div className="space-y-4">
         <div className="flex gap-1 border-b border-border">
           {TAB_OPTIONS.map((option) => (

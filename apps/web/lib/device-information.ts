@@ -42,6 +42,27 @@ export function buildDeviceNameFromTelemetry(telemetry: Device["telemetry"]): st
   return brand ?? model;
 }
 
+const GENERIC_DEVICE_NAMES = new Set(["", "TV Device"]);
+
+export function isGenericDeviceName(name: string | null | undefined): boolean {
+  const trimmed = (name ?? "").trim();
+  return trimmed.length === 0 || GENERIC_DEVICE_NAMES.has(trimmed);
+}
+
+/** User-facing screen name; falls back to telemetry hardware when unset. */
+export function resolveDeviceDisplayName(device: {
+  name?: string | null;
+  telemetry?: Device["telemetry"];
+}): string {
+  const trimmed = (device.name ?? "").trim();
+  if (trimmed && !isGenericDeviceName(trimmed)) {
+    return trimmed;
+  }
+  const fromTelemetry = buildDeviceNameFromTelemetry(device.telemetry);
+  if (fromTelemetry) return fromTelemetry;
+  return trimmed || "Screen";
+}
+
 function formatWhen(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {

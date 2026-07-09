@@ -15,13 +15,7 @@ export const deviceUiTvCopy = {
   },
   pairing: {
     title: "Pairing Code",
-    linkSteps: [
-      "Sign in at app.onesigntv.com",
-      "Open Screens",
-      "Tap + Add screen and enter the code above",
-    ] as const,
-    browserHint: "Or open player.onesigntv.com in any browser",
-    waiting: "Waiting…",
+    linkInstruction: "onesigntv.com → Sign in → Add Screen → Enter the code",
   },
   playing: {
     cacheHeadline: "Caching…",

@@ -70,6 +70,9 @@ import dev.signage.tv.ui.TrialWatermarkOverlay
 
 private const val LOG_TAG = "SignageTV"
 
+/** Playlist cache overlay only appears when warming persists longer than this. */
+private const val CACHE_BANNER_SHOW_DELAY_MS = 1_500L
+
 private object SignageTextureSurfaceHookApplied
 
 private object SignageSurfaceHookPending
@@ -383,13 +386,23 @@ fun PlaybackScreen(
         if (state.showTrialWatermark) {
             TrialWatermarkOverlay(modifier = Modifier.align(Alignment.BottomEnd))
         }
-        mediaCacheProgress?.let { progress ->
-            if (progress.isWarming && viewModel.isMediaCached(slide)) {
-                PlaylistCacheProgressBanner(
-                    progress = progress,
-                    modifier = Modifier.align(Alignment.Center),
-                )
+        val cacheBannerProgress =
+            mediaCacheProgress?.takeIf { it.isWarming && viewModel.isMediaCached(slide) }
+        // Grace delay so a warm pass that finishes quickly never flashes the overlay mid-playback.
+        var cacheBannerVisible by remember { mutableStateOf(false) }
+        LaunchedEffect(cacheBannerProgress != null) {
+            if (cacheBannerProgress != null) {
+                delay(CACHE_BANNER_SHOW_DELAY_MS)
+                cacheBannerVisible = true
+            } else {
+                cacheBannerVisible = false
             }
+        }
+        if (cacheBannerVisible && cacheBannerProgress != null) {
+            PlaylistCacheProgressBanner(
+                progress = cacheBannerProgress,
+                modifier = Modifier.align(Alignment.Center),
+            )
         }
     }
 }

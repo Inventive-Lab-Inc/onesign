@@ -87,11 +87,12 @@ export function TvPlayerScreenShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn("flex h-full flex-col px-[8%] py-[8%]", className)}>
-      <TvPlayerBrandHeader scale={scale} />
+    <div className={cn("flex h-full min-h-0 flex-col px-[6%] py-[3%] sm:px-[8%] sm:py-[5%]", className)}>
+      <TvPlayerBrandHeader scale={scale} className="mb-[1.5vh] shrink-0" />
       <div
         className={cn(
-          "flex min-h-0 flex-1 flex-col items-center justify-center text-center",
+          "flex min-h-0 flex-1 flex-col items-center overflow-hidden text-center",
+          "justify-center",
           contentClassName,
         )}
       >
@@ -264,24 +265,15 @@ export function TvPlayerPairingCode({
       <span
         className={cn(
           "font-semibold tabular-nums tracking-[0.08em]",
-          isFull ? "text-[5.5rem] leading-none" : "text-[1.35rem] leading-none",
+          isFull ? "text-[clamp(2rem,10vmin,4.5rem)] leading-none" : "text-[1.35rem] leading-none",
         )}
       >
         {groups[0]}
       </span>
       <span
         className={cn(
-          "font-light text-white/25",
-          isFull ? "text-[4rem] leading-none" : "text-[1rem] leading-none",
-        )}
-        aria-hidden
-      >
-        ·
-      </span>
-      <span
-        className={cn(
           "font-semibold tabular-nums tracking-[0.08em]",
-          isFull ? "text-[5.5rem] leading-none" : "text-[1.35rem] leading-none",
+          isFull ? "text-[clamp(2rem,10vmin,4.5rem)] leading-none" : "text-[1.35rem] leading-none",
         )}
       >
         {groups[1]}

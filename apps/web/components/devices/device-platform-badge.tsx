@@ -1,5 +1,6 @@
 import type { DevicePlatform } from "@signage/types";
-import { Globe, Tv } from "lucide-react";
+import { Globe } from "lucide-react";
+import { AndroidIcon } from "@/components/icons/android-icon";
 import { cn } from "@/lib/utils";
 
 export function DevicePlatformBadge({
@@ -24,7 +25,7 @@ export function DevicePlatformBadge({
       {isBrowser ? (
         <Globe className="h-3 w-3" aria-hidden />
       ) : (
-        <Tv className="h-3 w-3" aria-hidden />
+        <AndroidIcon />
       )}
       {isBrowser ? "Browser" : "Android"}
     </span>

@@ -151,61 +151,32 @@ function DeviceSetupScreen({ scale }: { scale: Scale }) {
 
 function PairingScreen({
   scale,
-  deviceName,
   pairingCode,
-  showWaitingIndicator,
 }: {
   scale: Scale;
-  deviceName?: string;
   pairingCode: string;
-  showWaitingIndicator?: boolean;
 }) {
   const isFull = scale === "full";
-  const title = isFull ? "text-[2rem] leading-tight" : "text-[0.72rem]";
-  const deviceClass = isFull ? "text-[1.125rem] leading-snug" : "text-[0.55rem]";
-  const stepClass = isFull ? "text-[1.25rem] leading-snug" : "text-[0.55rem] leading-snug";
-  const waitingClass = isFull ? "text-[1.125rem]" : "text-[0.55rem]";
-  const waitingIcon = isFull ? "h-5 w-5" : "h-2.5 w-2.5";
+  const title = isFull ? "text-[clamp(1.25rem,4vh,2rem)] leading-tight" : "text-[0.72rem]";
+  const stepClass = isFull ? "text-[clamp(0.875rem,2.2vh,1.25rem)] leading-snug" : "text-[0.55rem] leading-snug";
 
   return (
     <TvPlayerScreenShell scale={scale}>
-      <div className="mx-auto w-full max-w-[80%]">
-        <p className={cn("font-medium text-white", title)}>{copy.pairing.title}</p>
+      <div className="mx-auto w-full max-w-[min(80%,36rem)]">
+        <p className={cn("shrink-0 font-medium text-white", title)}>{copy.pairing.title}</p>
 
-        <div className={cn("mt-8 flex justify-center", isFull && "mt-10")}>
+        <div className={cn("flex shrink-0 justify-center", isFull ? "mt-[2vh]" : "mt-8")}>
           <TvPlayerPairingCode code={pairingCode} scale={scale} />
         </div>
 
-        <ol
+        <p
           className={cn(
-            "relative mx-auto mt-8 flex w-fit flex-col border-l border-white/15 text-left",
-            isFull ? "gap-4 pl-6" : "gap-2 pl-3",
+            "mx-auto mt-[2vh] max-w-full text-center text-white/55",
+            stepClass,
           )}
         >
-          {copy.pairing.linkSteps.map((step, index) => (
-            <li key={step} className={cn("relative text-white/55", stepClass)}>
-              <span
-                className={cn(
-                  "absolute top-1/2 -translate-y-1/2 rounded-full bg-white/80",
-                  isFull ? "-left-[1.625rem] size-2" : "-left-[0.8125rem] size-1",
-                )}
-                aria-hidden
-              />
-              <span className="text-white/35">{index + 1}.</span> {step}
-            </li>
-          ))}
-        </ol>
-
-        {"browserHint" in copy.pairing && copy.pairing.browserHint ? (
-          <p className={cn("mt-6 text-white/45", stepClass)}>{copy.pairing.browserHint}</p>
-        ) : null}
-
-        {showWaitingIndicator ? (
-          <div className={cn("mt-8 inline-flex items-center gap-3 text-white/55", waitingClass)}>
-            <Loader2 className={cn("animate-spin text-white/70", waitingIcon)} />
-            {copy.pairing.waiting}
-          </div>
-        ) : null}
+          {copy.pairing.linkInstruction}
+        </p>
       </div>
     </TvPlayerScreenShell>
   );
@@ -304,9 +275,7 @@ export function TvPlayerScreen({
       content = (
         <PairingScreen
           scale={scale}
-          deviceName={props.deviceName || undefined}
           pairingCode={props.pairingCode}
-          showWaitingIndicator={props.showWaitingIndicator}
         />
       );
       break;
@@ -350,9 +319,13 @@ export function TvPlayerScreen({
   return (
     <div
       id={id}
-      className={cn("relative overflow-hidden", className)}
+      className={cn(
+        "relative overflow-hidden",
+        scale === "full" ? "h-full w-full" : undefined,
+        className,
+      )}
       style={{
-        aspectRatio: className ? undefined : "16 / 9",
+        aspectRatio: scale === "full" || className ? undefined : "16 / 9",
         background: phaseId === "off-hours-blank" ? "#000" : TV_PLAYER_BG,
       }}
     >

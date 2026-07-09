@@ -12,7 +12,6 @@ sealed interface MainUiState {
     data class AwaitingLink(
         val pairingCode: String,
         val deviceId: String,
-        val showWaitingIndicator: Boolean = true,
     ) : MainUiState
 
     data class Playback(

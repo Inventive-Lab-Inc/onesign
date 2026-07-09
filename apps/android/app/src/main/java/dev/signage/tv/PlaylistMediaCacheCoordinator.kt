@@ -98,13 +98,19 @@ class PlaylistMediaCacheCoordinator(
 
     private fun restartImageWarm(imageUrls: List<String>) {
         imageWarmJob?.cancel()
-        if (imageUrls.isEmpty()) {
+        // Filter before launching: an active-but-no-op job flips isWarming() and
+        // flashes the caching overlay even when every image is already on disk.
+        val pendingUrls =
+            imageUrls.filter { url ->
+                url.isNotBlank() && !PlaylistCacheStatus.isImageDiskCached(app, url)
+            }
+        if (pendingUrls.isEmpty()) {
             imageWarmJob = null
             return
         }
         imageWarmJob =
             scope.launch(Dispatchers.IO) {
-                warmImagesParallel(imageUrls, MAX_CONCURRENT_IMAGE_PREFETCH)
+                warmImagesParallel(pendingUrls, MAX_CONCURRENT_IMAGE_PREFETCH)
             }
     }
 
@@ -177,7 +183,9 @@ class PlaylistMediaCacheCoordinator(
                         isImageReady = { url -> PlaylistCacheStatus.isImageDiskCached(app, url) },
                     )
                 val warming = isWarming()
-                if (!warming && counts.itemsReady >= counts.itemsTotal) {
+                // When every item is on disk there is nothing to report, even if a warm
+                // job is still winding down — publishing here flashes the overlay.
+                if (counts.itemsReady >= counts.itemsTotal) {
                     onProgressChanged(null)
                     return@Runnable
                 }

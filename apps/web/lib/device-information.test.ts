@@ -4,6 +4,7 @@ import {
   buildDeviceHistoryEvents,
   buildDeviceInformationRows,
   buildDeviceNameFromTelemetry,
+  resolveDeviceDisplayName,
 } from "./device-information";
 
 function makeDevice(overrides: Partial<Device> = {}): Device {
@@ -47,6 +48,35 @@ describe("buildDeviceNameFromTelemetry", () => {
   it("returns null when telemetry has no hardware info", () => {
     expect(buildDeviceNameFromTelemetry(null)).toBeNull();
     expect(buildDeviceNameFromTelemetry({})).toBeNull();
+  });
+});
+
+describe("resolveDeviceDisplayName", () => {
+  it("uses telemetry when the stored name is empty", () => {
+    expect(
+      resolveDeviceDisplayName({
+        name: null,
+        telemetry: { hardware: { manufacturer: "vivo", model: "XT123" } },
+      }),
+    ).toBe("vivo - XT123");
+  });
+
+  it("keeps a user-provided name over telemetry", () => {
+    expect(
+      resolveDeviceDisplayName({
+        name: "Lobby TV",
+        telemetry: { hardware: { manufacturer: "vivo", model: "XT123" } },
+      }),
+    ).toBe("Lobby TV");
+  });
+
+  it("replaces the generic TV Device default with telemetry", () => {
+    expect(
+      resolveDeviceDisplayName({
+        name: "TV Device",
+        telemetry: { hardware: { brand: "Sony", model: "BRAVIA" } },
+      }),
+    ).toBe("Sony - BRAVIA");
   });
 });
 

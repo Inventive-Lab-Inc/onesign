@@ -1047,7 +1047,6 @@ class MainViewModel(
                         MainUiState.AwaitingLink(
                             pairingCode = storedPairingCode,
                             deviceId = storedDeviceId,
-                            showWaitingIndicator = true,
                         )
                     startDeviceTelemetryLoop(storedDeviceId)
                     pollUntilLinked(storedDeviceId)
@@ -1332,7 +1331,6 @@ class MainViewModel(
             MainUiState.AwaitingLink(
                 pairingCode = result.pairingCode,
                 deviceId = result.deviceId,
-                showWaitingIndicator = true,
             )
 
         startDeviceTelemetryLoop(result.deviceId)

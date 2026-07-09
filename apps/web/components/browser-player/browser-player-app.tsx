@@ -5,6 +5,7 @@ import { TvPlayerScreen } from "@/components/tv-player/tv-player-screen";
 import { TV_PLAYER_BG } from "@/components/tv-player/tv-player-branding";
 import { deviceUiTvCopy as copy } from "@/lib/device-ui-copy";
 import { useBrowserPlayer } from "@/lib/browser-player/use-browser-player";
+import { lockBrowserScreenOrientation } from "@/lib/browser-player/screen-orientation";
 import { PlaybackSlideshow } from "./playback-slideshow";
 
 export function BrowserPlayerApp() {
@@ -21,6 +22,8 @@ export function BrowserPlayerApp() {
     requestFullscreen,
   } = useBrowserPlayer();
 
+  const showPlayback = phase === "playing" && manifest && manifest.slides.length > 0;
+
   useEffect(() => {
     void requestWakeLock();
   }, [requestWakeLock]);
@@ -35,7 +38,10 @@ export function BrowserPlayerApp() {
     return () => window.removeEventListener("pointerdown", onFirstInteraction);
   }, [requestFullscreen, requestWakeLock]);
 
-  const showPlayback = phase === "playing" && manifest && manifest.slides.length > 0;
+  useEffect(() => {
+    if (!showPlayback || !manifest?.screenOrientation) return;
+    void lockBrowserScreenOrientation(manifest.screenOrientation);
+  }, [showPlayback, manifest?.screenOrientation]);
 
   return (
     <div
@@ -55,7 +61,6 @@ export function BrowserPlayerApp() {
           phaseId={phase}
           pairingCode={pairingCode ?? undefined}
           deviceName={deviceName ?? undefined}
-          showWaitingIndicator={phase === "pairing"}
           statusLine={errorMessage ?? undefined}
           primaryAction={phase === "error-connection" ? copy.errorConnection.action : undefined}
         />

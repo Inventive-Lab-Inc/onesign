@@ -113,8 +113,13 @@ export function useBrowserPlayer(): BrowserPlayerState {
       const revisionChanged =
         revision.contentRevision !== current?.contentRevision ||
         revision.playlistId !== current?.playlistId;
+      const orientationChanged =
+        revision.screenOrientation !== current?.screenOrientation;
 
       if (!revisionChanged && current?.deviceId === deviceId) {
+        if (!orientationChanged && revision.deviceName?.trim() === current.deviceName) {
+          return;
+        }
         const patched: PlaybackManifest = {
           ...current,
           deviceName: revision.deviceName?.trim() || current.deviceName,
