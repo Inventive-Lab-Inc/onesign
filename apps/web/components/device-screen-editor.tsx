@@ -421,6 +421,7 @@ export function DeviceScreenEditor({
         onClose={() => setRePairOpen(false)}
         deviceId={device.id}
         deviceName={displayName}
+        devicePlatform={device.platform}
         onRepaired={reloadFromServer}
       />
     </div>

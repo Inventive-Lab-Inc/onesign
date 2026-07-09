@@ -1,5 +1,6 @@
 "use client";
 
+import type { DevicePlatform } from "@signage/types";
 import { X } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -9,20 +10,32 @@ import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  devicePlatformLabel,
+  devicePlatformPairingHint,
+  parseRebindPlatformMismatch,
+} from "@/lib/device-platform-copy";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { friendlyWorkspaceError } from "@/lib/workspace/error-messages";
+
+type PlatformMismatch = {
+  screenPlatform: DevicePlatform;
+  playerPlatform: DevicePlatform;
+};
 
 export function DeviceRePairDialog({
   open,
   onClose,
   deviceId,
   deviceName,
+  devicePlatform,
   onRepaired,
 }: {
   open: boolean;
   onClose: () => void;
   deviceId: string;
   deviceName: string;
+  devicePlatform?: DevicePlatform | null;
   onRepaired: () => void | Promise<void>;
 }) {
   const titleId = useId();
@@ -32,7 +45,10 @@ export function DeviceRePairDialog({
   const accountOwnerId = useConsoleOwnerId();
   const [pairingCode, setPairingCode] = useState("");
   const [rebinding, setRebinding] = useState(false);
+  const [platformMismatch, setPlatformMismatch] = useState<PlatformMismatch | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  const screenPlatform = devicePlatform ?? "android";
 
   useEffect(() => {
     setMounted(true);
@@ -41,6 +57,7 @@ export function DeviceRePairDialog({
   useEffect(() => {
     if (!open) return;
     setPairingCode("");
+    setPlatformMismatch(null);
   }, [open]);
 
   useEffect(() => {
@@ -52,7 +69,7 @@ export function DeviceRePairDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  async function rebindDevice() {
+  async function rebindDevice(allowPlatformChange: boolean) {
     const code = pairingCode.trim();
     if (!/^[0-9]{6}$/.test(code)) {
       toast.error("Pairing code must be exactly 6 digits.");
@@ -66,8 +83,14 @@ export function DeviceRePairDialog({
         p_device_id: deviceId,
         p_code: code,
         p_owner_id: ownerId,
+        p_allow_platform_change: allowPlatformChange,
       });
       if (error) {
+        const mismatch = parseRebindPlatformMismatch(error.message, error.hint ?? null);
+        if (mismatch && !allowPlatformChange) {
+          setPlatformMismatch(mismatch);
+          return;
+        }
         if (error.message.includes("trial_expired")) {
           toast.error("Your trial has ended. Contact us to upgrade and manage screens.");
         } else {
@@ -115,6 +138,11 @@ export function DeviceRePairDialog({
               <span className="font-medium text-foreground">{deviceName}</span>. Playlists and
               settings on this screen are kept.
             </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This screen uses the{" "}
+              <span className="font-medium text-foreground">{devicePlatformLabel(screenPlatform)}</span>
+              . {devicePlatformPairingHint(screenPlatform)}
+            </p>
           </div>
           <button
             type="button"
@@ -125,6 +153,36 @@ export function DeviceRePairDialog({
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
+
+        {platformMismatch ? (
+          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-100">
+            <p className="font-medium">Wrong player type</p>
+            <p className="mt-1">
+              This screen is set up for the{" "}
+              <span className="font-medium">{devicePlatformLabel(platformMismatch.screenPlatform)}</span>,
+              but that code came from the{" "}
+              <span className="font-medium">{devicePlatformLabel(platformMismatch.playerPlatform)}</span>.
+            </p>
+            <p className="mt-2 text-muted-foreground">
+              Browser player can run on Android hardware, but it still counts as a browser screen in
+              the console. Use the code from the matching player, or confirm below to switch this
+              screen to the other player type.
+            </p>
+            <div className="mt-3 flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setPlatformMismatch(null)}>
+                Use different code
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={rebinding}
+                onClick={() => void rebindDevice(true)}
+              >
+                Switch to {devicePlatformLabel(platformMismatch.playerPlatform)}
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-4 space-y-1.5">
           <Label htmlFor="re-pair-code">Pairing code</Label>
@@ -148,7 +206,7 @@ export function DeviceRePairDialog({
           <Button
             type="button"
             disabled={rebinding || pairingCode.length !== 6}
-            onClick={() => void rebindDevice()}
+            onClick={() => void rebindDevice(false)}
           >
             {rebinding ? "Reconnecting…" : "Reconnect"}
           </Button>

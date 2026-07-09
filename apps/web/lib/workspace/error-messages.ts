@@ -20,6 +20,8 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   trial_expired: "Your trial has expired. Upgrade your plan to continue.",
   device_limit_reached: "You've reached the screen limit for your plan.",
   invalid_pairing_code: "That pairing code is invalid or has expired.",
+  platform_mismatch:
+    "That pairing code is from a different player type. Use the code from the Android TV app or browser player that matches this screen.",
   device_not_found_or_already_linked:
     "That pairing code is invalid, expired, or already linked to another screen.",
   owner_not_found: "We couldn't find the account owner.",
