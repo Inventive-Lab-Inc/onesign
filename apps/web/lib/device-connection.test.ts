@@ -19,7 +19,7 @@ describe("device-connection", () => {
       last_seen: new Date().toISOString(),
     });
     expect(state).toBe("connected");
-    expect(deviceConnectionLabel(state)).toBe("Connected");
+    expect(deviceConnectionLabel(state)).toBe("Online");
   });
 
   it("returns never_connected when there is no last_seen", () => {

@@ -202,6 +202,9 @@ export function useBrowserPlayer(): BrowserPlayerState {
       heartbeatTimer = setInterval(() => void heartbeat(), HEARTBEAT_INTERVAL_MS);
       telemetryTimer = setInterval(() => void telemetry(), TELEMETRY_INTERVAL_MS);
 
+      let consecutivePollFailures = 0;
+      const maxConsecutivePollFailures = 3;
+
       try {
         while (!signal.aborted) {
           try {
@@ -214,6 +217,8 @@ export function useBrowserPlayer(): BrowserPlayerState {
               setBootToken((value) => value + 1);
               return;
             }
+
+            consecutivePollFailures = 0;
 
             realtimeRef.current?.update(supabase, deviceId, revision.playlistId, () => {
               pollFastRef.current = true;
@@ -233,6 +238,13 @@ export function useBrowserPlayer(): BrowserPlayerState {
               revision.deviceName?.trim() || initialName,
             );
           } catch {
+            consecutivePollFailures += 1;
+            if (consecutivePollFailures >= maxConsecutivePollFailures) {
+              clearPlayerRegistration();
+              resetLiveScreenshotState();
+              setBootToken((value) => value + 1);
+              return;
+            }
             if (!manifestRef.current) {
               setPhase("error-connection");
             }

@@ -317,10 +317,14 @@ class MainViewModel(
             override fun onStart(owner: LifecycleOwner) {
                 isPlaybackProcessForeground.set(true)
                 signalPlaybackHealthy()
+                resumeDeviceLivenessAfterForeground()
             }
 
             override fun onStop(owner: LifecycleOwner) {
                 isPlaybackProcessForeground.set(false)
+                // Stop heartbeats as soon as no activity is visible (home/recents). Without this,
+                // the process can stay alive and keep reporting online after the user leaves the app.
+                reportDeviceOffline()
             }
         }
 
@@ -1560,6 +1564,12 @@ class MainViewModel(
                 warming = playlistCacheCoordinator?.isWarming() == true,
             )
         }.getOrNull()
+    }
+
+    /** Resume heartbeat/telemetry after returning to foreground (see [playbackProcessLifecycleObserver]). */
+    private fun resumeDeviceLivenessAfterForeground() {
+        val deviceId = telemetryDeviceId?.takeIf { it.isNotBlank() } ?: return
+        startDeviceTelemetryLoop(deviceId)
     }
 
     private fun startDeviceTelemetryLoop(deviceId: String) {

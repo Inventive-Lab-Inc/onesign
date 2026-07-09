@@ -14,7 +14,7 @@ export function getDeviceConnectionState(
 export function deviceConnectionLabel(state: DeviceConnectionState): string {
   switch (state) {
     case "connected":
-      return "Connected";
+      return "Online";
     case "never_connected":
       return "Not connected";
     case "unreachable":
