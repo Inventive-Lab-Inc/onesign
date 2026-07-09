@@ -30,5 +30,10 @@ describe("parseRebindPlatformMismatch", () => {
 describe("devicePlatformPairingHint", () => {
   it("points browser screens at the web player", () => {
     expect(devicePlatformPairingHint("browser")).toContain("player.onesigntv.com");
+    expect(devicePlatformPairingHint("browser")).toContain("Android phones");
+  });
+
+  it("points android screens at the native TV app", () => {
+    expect(devicePlatformPairingHint("android")).toContain("OneSign TV app");
   });
 });

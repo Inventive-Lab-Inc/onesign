@@ -7,9 +7,9 @@ export function devicePlatformLabel(platform: DevicePlatform | null | undefined)
 
 export function devicePlatformPairingHint(platform: DevicePlatform | null | undefined): string {
   if (platform === "browser") {
-    return "Open the browser player (player.onesigntv.com) and enter the code shown there.";
+    return "Open the browser player at player.onesigntv.com — in any browser, including on Android phones. It shows as a Browser screen here, not the Android TV app.";
   }
-  return "Open the OneSign TV app on the screen and enter the code shown on that device.";
+  return "Open the OneSign TV app on the screen and enter the code shown on that device. Only the native app shows as Android in the console.";
 }
 
 export function parseRebindPlatformMismatch(
