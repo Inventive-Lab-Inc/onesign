@@ -1,10 +1,13 @@
 "use client";
 
-import type { AdminUserDirectoryEntry } from "@signage/types";
+import type { AdminUserDirectoryEntry, PlanTemplate } from "@signage/types";
 import { ChevronLeft, ChevronRight, Loader2, Mail, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { AdminClientActivateButton } from "@/components/admin/admin-client-activate-button";
+import { AdminClientDeleteButton } from "@/components/admin/admin-client-delete-button";
+import { AdminClientPlanBadge } from "@/components/admin/admin-client-plan-badge";
 import { ClientSettingsButton } from "@/components/admin/client-settings-button";
 import { AccountStatusBadge } from "@/components/admin/account-status-badge";
 import { AdminAccountActions } from "@/components/admin/admin-account-actions";
@@ -111,6 +114,7 @@ export function AdminUsersTable({
   totalCount,
   initialQuery,
   initialStatus,
+  plans,
 }: {
   users: AdminUserDirectoryEntry[];
   page: number;
@@ -118,6 +122,7 @@ export function AdminUsersTable({
   totalCount: number;
   initialQuery: string;
   initialStatus: StatusFilter;
+  plans: PlanTemplate[];
 }) {
   const router = useAppRouter();
   const searchParams = useSearchParams();
@@ -192,7 +197,7 @@ export function AdminUsersTable({
           <table className="w-full min-w-[48rem] text-left text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/20">
-                <th colSpan={7} className="px-4 py-3 font-normal">
+                <th colSpan={8} className="px-4 py-3 font-normal">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                       <div className="relative min-w-0 flex-1 sm:max-w-md">
@@ -257,6 +262,7 @@ export function AdminUsersTable({
               <tr className="border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3">Client</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Plan</th>
                 <th className="px-4 py-3">Screens</th>
                 <th className="px-4 py-3">Storage</th>
                 <th className="px-4 py-3">Online</th>
@@ -267,7 +273,7 @@ export function AdminUsersTable({
             <tbody>
               {visibleUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
+                  <td colSpan={8} className="px-4 py-12 text-center">
                     {isLocalSearch ? (
                       <p className="text-sm font-medium text-foreground">Searching all accounts…</p>
                     ) : (
@@ -310,6 +316,9 @@ export function AdminUsersTable({
                       />
                     </td>
                     <td className="px-4 py-3">
+                      <AdminClientPlanBadge row={row} plans={plans} />
+                    </td>
+                    <td className="px-4 py-3">
                       <PlanUsageMeter
                         variant="screens"
                         used={row.device_count}
@@ -336,6 +345,12 @@ export function AdminUsersTable({
                             {row.invitation_pending ? (
                               <ResendInviteButton email={row.email} />
                             ) : null}
+                            <AdminClientDeleteButton
+                              userId={row.id}
+                              email={row.email}
+                              clientName={row.client_name}
+                            />
+                            <AdminClientActivateButton client={row} plans={plans} />
                             <AdminAccountActions
                               userId={row.id}
                               email={row.email}

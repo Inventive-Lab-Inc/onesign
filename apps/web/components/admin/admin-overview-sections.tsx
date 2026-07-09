@@ -37,6 +37,7 @@ export function AdminOverviewSections({
           totalCount={totalCount}
           initialQuery={initialQuery}
           initialStatus={initialStatus}
+          plans={plans}
         />
       </section>
     </div>
