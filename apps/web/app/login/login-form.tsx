@@ -186,7 +186,7 @@ export function LoginForm() {
           <div key={step} className="login-step-in flex flex-col gap-5">
             {step === "email" ? (
               <>
-                <div>
+                <div className="text-center lg:text-left">
                   <h1 className="text-[1.75rem] font-extrabold tracking-tight text-neutral-900">
                     Welcome back
                   </h1>
@@ -243,7 +243,7 @@ export function LoginForm() {
                   Back
                 </button>
 
-                <div>
+                <div className="text-center lg:text-left">
                   <h1 className="text-[1.75rem] font-extrabold tracking-tight text-neutral-900">
                     Enter your password
                   </h1>

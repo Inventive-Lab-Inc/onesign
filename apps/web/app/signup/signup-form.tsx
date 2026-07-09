@@ -108,9 +108,11 @@ export function SignupForm() {
           <div key={view} className="login-step-in flex flex-col gap-5">
             {view === "form" ? (
               <>
-                <h1 className="text-[1.75rem] font-extrabold tracking-tight text-neutral-900">
-                  Create your account
-                </h1>
+                <div className="text-center lg:text-left">
+                  <h1 className="text-[1.75rem] font-extrabold tracking-tight text-neutral-900">
+                    Create your account
+                  </h1>
+                </div>
 
                 <GoogleSignInButton
                   nextPath={next}
@@ -201,9 +203,11 @@ export function SignupForm() {
               </>
             ) : (
               <>
-                <h1 className="text-[1.75rem] font-extrabold tracking-tight text-neutral-900">
-                  Check your email
-                </h1>
+                <div className="text-center lg:text-left">
+                  <h1 className="text-[1.75rem] font-extrabold tracking-tight text-neutral-900">
+                    Check your email
+                  </h1>
+                </div>
                 <div
                   role="status"
                   className="flex items-start gap-2.5 rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-3 text-[0.8125rem] leading-relaxed text-emerald-800"
