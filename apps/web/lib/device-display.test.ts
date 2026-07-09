@@ -59,4 +59,20 @@ describe("applyDeviceSearchFilter", () => {
     const filtered = applyDeviceSearchFilter(list, "lobby");
     expect(filtered).toHaveLength(1);
   });
+
+  it("does not throw when a screen name is null", () => {
+    const list = [makeDevice({ name: null as unknown as string }), makeDevice({ id: "2", name: "Kitchen" })];
+    expect(() => applyDeviceSearchFilter(list, "kitchen")).not.toThrow();
+    expect(applyDeviceSearchFilter(list, "kitchen")).toHaveLength(1);
+  });
+});
+
+describe("sortDeviceList with missing names", () => {
+  it("does not throw when sorting screens with null names", () => {
+    const list = [
+      makeDevice({ id: "1", name: null as unknown as string }),
+      makeDevice({ id: "2", name: "Alpha" }),
+    ];
+    expect(() => sortDeviceList(list, "name-asc")).not.toThrow();
+  });
 });

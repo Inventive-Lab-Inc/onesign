@@ -83,7 +83,7 @@ export async function ensureActivePlaylistForDevice(
     .from("playlists")
     .insert(
       scopedContentRow(ownerId, device.workspace_id, {
-        name: `${device.name} — screen`,
+        name: `${(device.name ?? "").trim() || "Screen"} — screen`,
       }),
     )
     .select("id")

@@ -9,6 +9,11 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useConsoleDataStore } from "@/stores/console-data-store";
 import { cn } from "@/lib/utils";
 
+function resolveDeviceDisplayName(name: string | null | undefined): string {
+  const trimmed = (name ?? "").trim();
+  return trimmed || "Screen";
+}
+
 export function DeviceNameInlineEditor({
   deviceId,
   name: deviceName,
@@ -17,26 +22,27 @@ export function DeviceNameInlineEditor({
   className,
 }: {
   deviceId: string;
-  name: string;
+  name: string | null | undefined;
   canEdit?: boolean;
   trailing?: ReactNode;
   className?: string;
 }) {
+  const resolvedName = resolveDeviceDisplayName(deviceName);
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const { syncNow } = useConsoleSync();
   const patchDevice = useConsoleDataStore((state) => state.patchDevice);
   const inputRef = useRef<HTMLInputElement>(null);
   const skipBlurSaveRef = useRef(false);
 
-  const [draftName, setDraftName] = useState(deviceName);
+  const [draftName, setDraftName] = useState(resolvedName);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!isEditing) {
-      setDraftName(deviceName);
+      setDraftName(resolvedName);
     }
-  }, [deviceName, isEditing]);
+  }, [resolvedName, isEditing]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -46,20 +52,20 @@ export function DeviceNameInlineEditor({
 
   const cancelEditing = useCallback(() => {
     skipBlurSaveRef.current = true;
-    setDraftName(deviceName);
+    setDraftName(resolvedName);
     setIsEditing(false);
-  }, [deviceName]);
+  }, [resolvedName]);
 
   const saveName = useCallback(async () => {
     if (!canEdit || !isEditing) return;
     const trimmed = draftName.trim();
     if (!trimmed) {
       toast.error("Enter a screen name.");
-      setDraftName(deviceName);
+      setDraftName(resolvedName);
       setIsEditing(false);
       return;
     }
-    if (trimmed === deviceName.trim()) {
+    if (trimmed === resolvedName) {
       setIsEditing(false);
       return;
     }
@@ -82,9 +88,9 @@ export function DeviceNameInlineEditor({
     } finally {
       setSaving(false);
     }
-  }, [canEdit, deviceId, deviceName, draftName, isEditing, patchDevice, supabase, syncNow]);
+  }, [canEdit, deviceId, draftName, isEditing, patchDevice, resolvedName, supabase, syncNow]);
 
-  const inputWidthCh = Math.max(draftName.length, deviceName.length, 3);
+  const inputWidthCh = Math.max(draftName.length, resolvedName.length, 3);
 
   return (
     <div className={cn("flex min-w-0 flex-wrap items-center gap-1.5", className)}>
@@ -119,7 +125,7 @@ export function DeviceNameInlineEditor({
         />
       ) : (
         <>
-          <span className="break-words [overflow-wrap:anywhere]">{deviceName}</span>
+          <span className="break-words [overflow-wrap:anywhere]">{resolvedName}</span>
           {canEdit ? (
             <Button
               type="button"
@@ -127,7 +133,7 @@ export function DeviceNameInlineEditor({
               size="sm"
               className="inline-flex h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
               onClick={() => {
-                setDraftName(deviceName);
+                setDraftName(resolvedName);
                 setIsEditing(true);
               }}
               aria-label="Edit screen name"

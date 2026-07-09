@@ -76,7 +76,7 @@ export function applyDeviceTagFilter(list: Device[], tagFilter: string): Device[
 export function applyDeviceSearchFilter<T extends Device>(list: T[], query: string): T[] {
   const q = query.trim().toLowerCase();
   if (!q) return list;
-  return list.filter((device) => device.name.toLowerCase().includes(q));
+  return list.filter((device) => (device.name ?? "").toLowerCase().includes(q));
 }
 
 export function applyDeviceFilters<T extends Device>(list: T[], filters: DeviceFiltersState): T[] {
@@ -95,9 +95,9 @@ export function sortDeviceList<T extends Device>(list: T[], sort: DeviceSort): T
     case "created-asc":
       return copy.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     case "name-asc":
-      return copy.sort((a, b) => a.name.localeCompare(b.name));
+      return copy.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
     case "name-desc":
-      return copy.sort((a, b) => b.name.localeCompare(a.name));
+      return copy.sort((a, b) => (b.name ?? "").localeCompare(a.name ?? ""));
     case "last-seen-desc":
       return copy.sort((a, b) => lastSeenSortKey(b) - lastSeenSortKey(a));
     case "last-seen-asc":
