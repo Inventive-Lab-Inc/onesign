@@ -194,7 +194,7 @@ export function AdminUsersTable({
     <div className="space-y-3">
       <div className="overflow-hidden rounded-xl border border-border/90 bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[48rem] text-left text-sm">
+          <table className="w-full min-w-[56rem] text-left text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/20">
                 <th colSpan={8} className="px-4 py-3 font-normal">
@@ -339,7 +339,7 @@ export function AdminUsersTable({
                       {formatDate(row.created_at)}
                     </td>
                     <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex min-w-[11.5rem] flex-nowrap items-center justify-end gap-2">
                         {!row.is_staff && canWrite ? (
                           <>
                             {row.invitation_pending ? (
@@ -351,12 +351,14 @@ export function AdminUsersTable({
                               clientName={row.client_name}
                             />
                             <AdminClientActivateButton client={row} plans={plans} />
-                            <AdminAccountActions
-                              userId={row.id}
-                              email={row.email}
-                              isDisabled={row.is_disabled}
-                            />
                           </>
+                        ) : null}
+                        {!row.is_staff && canWrite ? (
+                          <AdminAccountActions
+                            userId={row.id}
+                            email={row.email}
+                            isDisabled={row.is_disabled}
+                          />
                         ) : null}
                         <ClientSettingsButton userId={row.id} />
                       </div>
