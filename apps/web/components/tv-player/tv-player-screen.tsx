@@ -161,7 +161,7 @@ function PairingScreen({
   const stepClass = isFull ? "text-[clamp(0.875rem,2.2vh,1.25rem)] leading-snug" : "text-[0.55rem] leading-snug";
 
   return (
-    <TvPlayerScreenShell scale={scale}>
+    <TvPlayerScreenShell scale={scale} contentClassName="overflow-visible">
       <div className="mx-auto w-full max-w-[min(80%,36rem)]">
         <p className={cn("shrink-0 font-medium text-white", title)}>{copy.pairing.title}</p>
 

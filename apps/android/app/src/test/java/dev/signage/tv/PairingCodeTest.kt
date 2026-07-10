@@ -1,6 +1,7 @@
 package dev.signage.tv
 
 import dev.signage.tv.ui.formatPairingCodeGroups
+import dev.signage.tv.ui.normalizePairingCode
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -17,6 +18,12 @@ class PairingCodeTest {
     fun formatPairingCodeGroups_splitsIntoTwoThrees() {
         assertEquals("378" to "694", formatPairingCodeGroups("378694"))
         assertEquals("000" to "001", formatPairingCodeGroups("1"))
+    }
+
+    @Test
+    fun normalizePairingCode_padsToSixDigits() {
+        assertEquals("378694", normalizePairingCode("378694"))
+        assertEquals("000001", normalizePairingCode("1"))
     }
 
     @Test(expected = IllegalArgumentException::class)

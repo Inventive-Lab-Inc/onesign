@@ -232,55 +232,11 @@ export function TvPlayerBrandStandby({
   );
 }
 
-/** Formats a six-digit pairing code with a space for 10-foot readability. */
-export function formatTvPairingCode(code: string): string {
-  const digits = code.replace(/\D/g, "").slice(0, 6);
-  if (digits.length <= 3) return digits;
-  return `${digits.slice(0, 3)} ${digits.slice(3)}`;
-}
-
-function getPairingDigits(code: string): string[] {
-  return code.replace(/\D/g, "").slice(0, 6).padEnd(6, "0").split("");
-}
-
-export function TvPlayerPairingCode({
-  code,
-  scale = "card",
-  className,
-}: {
-  code: string;
-  scale?: Scale;
-  className?: string;
-}) {
-  const isFull = scale === "full";
-  const digits = getPairingDigits(code);
-  const groups = [digits.slice(0, 3).join(""), digits.slice(3, 6).join("")];
-
-  return (
-    <div
-      className={cn("inline-flex items-baseline text-white", isFull ? "gap-6" : "gap-2", className)}
-      role="group"
-      aria-label={`Pairing code ${formatTvPairingCode(code)}`}
-    >
-      <span
-        className={cn(
-          "font-semibold tabular-nums tracking-[0.08em]",
-          isFull ? "text-[clamp(2rem,10vmin,4.5rem)] leading-none" : "text-[1.35rem] leading-none",
-        )}
-      >
-        {groups[0]}
-      </span>
-      <span
-        className={cn(
-          "font-semibold tabular-nums tracking-[0.08em]",
-          isFull ? "text-[clamp(2rem,10vmin,4.5rem)] leading-none" : "text-[1.35rem] leading-none",
-        )}
-      >
-        {groups[1]}
-      </span>
-    </div>
-  );
-}
+export {
+  formatTvPairingCode,
+  normalizeTvPairingCode,
+  TvPlayerPairingCode,
+} from "@/components/tv-player/tv-player-pairing-code";
 
 export function TvPlayerTrialWatermark({ scale = "card" }: { scale?: Scale }) {
   const styles = scaleStyles[scale];

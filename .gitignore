@@ -10,6 +10,8 @@ build
 .env
 .env.local
 .cursor/deploy.local.env
+.cursor/mcp.json
+supabase/.temp/
 .vercel
 .DS_Store
 .idea

@@ -1,5 +1,10 @@
 package dev.signage.tv.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,7 +18,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,11 +35,22 @@ fun formatPairingCodeGroups(code: String): Pair<String, String> {
     return digits.take(3) to digits.drop(3)
 }
 
+fun normalizePairingCode(code: String): String =
+    code.filter { it.isDigit() }.take(6).padStart(6, '0')
+
+private fun copyPairingCodeToClipboard(context: Context, pairingCode: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboard.setPrimaryClip(ClipData.newPlainText("pairing_code", pairingCode))
+    Toast.makeText(context, context.getString(R.string.pairing_copied), Toast.LENGTH_SHORT).show()
+}
+
 @Composable
 fun PairingScreen(
     pairingCode: String,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val rawPairingCode = normalizePairingCode(pairingCode)
     val (firstGroup, secondGroup) = formatPairingCodeGroups(pairingCode)
 
     TvBrandedScreenLayout(modifier = modifier) {
@@ -68,7 +89,16 @@ fun PairingScreen(
             Row(
                 verticalAlignment = Alignment.Bottom,
                 horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            copyPairingCodeToClipboard(context, rawPairingCode)
+                        }
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "Pairing code $rawPairingCode"
+                        },
             ) {
                 Text(
                     text = firstGroup,
@@ -81,7 +111,7 @@ fun PairingScreen(
                     maxLines = 1,
                     softWrap = false,
                 )
-                Spacer(modifier = Modifier.width(48.dp * scale))
+                Spacer(modifier = Modifier.width(36.dp * scale))
                 Text(
                     text = secondGroup,
                     style = MaterialTheme.typography.displayLarge.copy(

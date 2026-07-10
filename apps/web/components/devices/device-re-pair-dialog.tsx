@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   devicePlatformLabel,
-  devicePlatformPairingHint,
+  deviceReconnectSteps,
   parseRebindPlatformMismatch,
 } from "@/lib/device-platform-copy";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -133,16 +133,26 @@ export function DeviceRePairDialog({
             <h2 id={titleId} className="text-lg font-semibold text-foreground">
               Reconnect player
             </h2>
-            <p id={descId} className="mt-1 text-sm text-muted-foreground">
-              Enter the six-digit code shown on the player to reconnect it to{" "}
-              <span className="font-medium text-foreground">{deviceName}</span>. Playlists and
-              settings on this screen are kept.
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              This screen uses the{" "}
-              <span className="font-medium text-foreground">{devicePlatformLabel(screenPlatform)}</span>
-              . {devicePlatformPairingHint(screenPlatform)}
-            </p>
+            <div id={descId}>
+              <p className="mt-1 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{deviceName}</span>
+                <span aria-hidden> · </span>
+                settings kept
+              </p>
+              <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
+                {deviceReconnectSteps(screenPlatform).map((step, index) => (
+                  <li key={step} className="flex items-center gap-2.5">
+                    <span
+                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[0.65rem] font-semibold tabular-nums text-foreground"
+                      aria-hidden
+                    >
+                      {index + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
           <button
             type="button"

@@ -12,6 +12,14 @@ export function devicePlatformPairingHint(platform: DevicePlatform | null | unde
   return "Open the OneSign TV app on the screen and enter the code shown on that device. Only the native app shows as Android in the console.";
 }
 
+/** Short reconnect steps for the console re-pair dialog. */
+export function deviceReconnectSteps(platform: DevicePlatform | null | undefined): readonly string[] {
+  if (platform === "browser") {
+    return ["Open browser player", "Copy pairing code", "Enter below"] as const;
+  }
+  return ["Open OneSign TV", "Copy pairing code", "Enter below"] as const;
+}
+
 export function parseRebindPlatformMismatch(
   message: string | null | undefined,
   hint: string | null | undefined,

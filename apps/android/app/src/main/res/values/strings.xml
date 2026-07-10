@@ -23,6 +23,7 @@
     <string name="startup_loading">Starting…</string>
     <string name="pairing_title">Pairing Code</string>
     <string name="pairing_link_instruction">onesigntv.com → Sign in → Add Screen → Enter the code</string>
+    <string name="pairing_copied">Copied</string>
     <string name="device_setup_title">Allow updates</string>
     <string name="device_setup_step_format">%1$d. %2$s</string>
     <string name="device_setup_step_open_settings">Open settings</string>

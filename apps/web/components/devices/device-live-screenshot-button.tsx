@@ -42,7 +42,7 @@ export function DeviceLiveScreenshotButton({
         icon={<Camera className="h-5 w-5" aria-hidden />}
         size="lg"
       >
-        <DeviceLiveScreenshotPanel device={device} />
+        <DeviceLiveScreenshotPanel device={device} active={open} />
       </ConsoleCenterModal>
     </>
   );

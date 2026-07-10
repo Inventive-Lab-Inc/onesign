@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   devicePlatformLabel,
-  devicePlatformPairingHint,
+  deviceReconnectSteps,
   parseRebindPlatformMismatch,
 } from "./device-platform-copy";
 
@@ -27,13 +27,20 @@ describe("parseRebindPlatformMismatch", () => {
   });
 });
 
-describe("devicePlatformPairingHint", () => {
-  it("points browser screens at the web player", () => {
-    expect(devicePlatformPairingHint("browser")).toContain("player.onesigntv.com");
-    expect(devicePlatformPairingHint("browser")).toContain("Android phones");
+describe("deviceReconnectSteps", () => {
+  it("returns short browser reconnect steps", () => {
+    expect(deviceReconnectSteps("browser")).toEqual([
+      "Open browser player",
+      "Copy pairing code",
+      "Enter below",
+    ]);
   });
 
-  it("points android screens at the native TV app", () => {
-    expect(devicePlatformPairingHint("android")).toContain("OneSign TV app");
+  it("returns short android reconnect steps", () => {
+    expect(deviceReconnectSteps("android")).toEqual([
+      "Open OneSign TV",
+      "Copy pairing code",
+      "Enter below",
+    ]);
   });
 });

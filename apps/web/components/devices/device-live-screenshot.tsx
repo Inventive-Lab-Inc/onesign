@@ -2,10 +2,9 @@
 
 import type { Device } from "@signage/types";
 import Image from "next/image";
-import { Camera, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { getDeviceDisplayDimensionsPx } from "@/components/device-telemetry-panel";
 import { useStaleOnlineTick } from "@/hooks/use-stale-online-tick";
 import { effectiveDeviceStatus } from "@/lib/device-status";
@@ -26,6 +25,25 @@ import { useConsoleOwnerId } from "@/components/console/console-sync-provider";
 
 const POLL_INTERVAL_MS = 2_000;
 const POLL_TIMEOUT_MS = 90_000;
+const OFFLINE_CAPTURE_MESSAGE = "The screen must be online to capture a live screenshot.";
+
+function formatCaptureTimestamp(iso: string): string {
+  const d = new Date(iso);
+  const date = d
+    .toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+    .replace(/\//g, "-");
+  const time = d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  return `${date}, ${time}`;
+}
 
 function DeviceOrientedScreenshot({
   device,
@@ -53,7 +71,13 @@ function DeviceOrientedScreenshot({
   );
 }
 
-export function DeviceLiveScreenshotPanel({ device: deviceProp }: { device: Device }) {
+export function DeviceLiveScreenshotPanel({
+  device: deviceProp,
+  active = false,
+}: {
+  device: Device;
+  active?: boolean;
+}) {
   useStaleOnlineTick();
 
   const deviceFromStore = useConsoleDevice(deviceProp.id);
@@ -61,6 +85,7 @@ export function DeviceLiveScreenshotPanel({ device: deviceProp }: { device: Devi
   const ownerId = useConsoleOwnerId() ?? device.owner_id;
   const patchDevice = useConsoleDataStore((state) => state.patchDevice);
   const [requesting, setRequesting] = useState(false);
+  const [offlineCaptureError, setOfflineCaptureError] = useState(false);
   const pollDeadlineRef = useRef<number | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -116,30 +141,42 @@ export function DeviceLiveScreenshotPanel({ device: deviceProp }: { device: Devi
     [device.id, patchDevice],
   );
 
-  const handleTakeScreenshot = useCallback(async () => {
-    if (requesting) return;
+  const handleTakeScreenshot = useCallback(async (isCancelled: () => boolean = () => false) => {
+    if (requesting || isCancelled()) return;
 
     if (ownerId) {
       try {
         const supabase = getSupabaseBrowserClient();
         const rows = await fetchDevicePresence(supabase, ownerId);
+        if (isCancelled()) return;
         applyDevicePresenceRows(rows);
       } catch {
         /* fall through — use cached liveness */
       }
     }
 
+    if (isCancelled()) return;
+
     const freshDevice = useConsoleDataStore.getState().devices.find((entry) => entry.id === device.id) ?? device;
     if (effectiveDeviceStatus(freshDevice) !== "online") {
-      toast.error("The screen must be online to capture a live screenshot.");
+      if (!isCancelled()) {
+        setOfflineCaptureError(true);
+        toast.error(OFFLINE_CAPTURE_MESSAGE, { id: `live-screenshot-offline-${device.id}` });
+      }
       return;
     }
+
+    if (isCancelled()) return;
 
     setRequesting(true);
     stopPolling();
 
     const requestedBefore = device.live_screenshot_at ?? null;
     const { error } = await requestDeviceLiveScreenshot(device.id);
+    if (isCancelled()) {
+      setRequesting(false);
+      return;
+    }
     if (error) {
       toast.error(error);
       setRequesting(false);
@@ -151,6 +188,12 @@ export function DeviceLiveScreenshotPanel({ device: deviceProp }: { device: Devi
 
     pollTimerRef.current = setInterval(() => {
       void (async () => {
+        if (isCancelled()) {
+          stopPolling();
+          setRequesting(false);
+          return;
+        }
+
         if (pollDeadlineRef.current != null && Date.now() > pollDeadlineRef.current) {
           stopPolling();
           setRequesting(false);
@@ -159,46 +202,84 @@ export function DeviceLiveScreenshotPanel({ device: deviceProp }: { device: Devi
         }
 
         const ready = await pollForScreenshot(requestedBefore);
+        if (isCancelled()) {
+          stopPolling();
+          setRequesting(false);
+          return;
+        }
         if (ready) {
           stopPolling();
           setRequesting(false);
-          toast.success("Live screenshot captured.");
         }
       })();
     }, POLL_INTERVAL_MS);
   }, [device, device.id, device.live_screenshot_at, ownerId, patchDevice, pollForScreenshot, requesting, stopPolling]);
 
+  const captureRef = useRef(handleTakeScreenshot);
+  captureRef.current = handleTakeScreenshot;
+
+  useEffect(() => {
+    if (!active) {
+      stopPolling();
+      setRequesting(false);
+      setOfflineCaptureError(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    void captureRef.current(() => cancelled);
+
+    return () => {
+      cancelled = true;
+      stopPolling();
+      setRequesting(false);
+    };
+  }, [active, stopPolling]);
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" disabled={requesting || !isOnline} onClick={() => void handleTakeScreenshot()}>
-          {requesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-          {requesting ? "Waiting for screen…" : "Take live screenshot"}
-        </Button>
-        {!isOnline ? (
-          <p className="text-xs text-muted-foreground">Screen must be online.</p>
-        ) : null}
-      </div>
+      {requesting ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+          <span>Waiting for screen…</span>
+        </div>
+      ) : offlineCaptureError || !isOnline ? (
+        <p className="text-sm text-muted-foreground">{OFFLINE_CAPTURE_MESSAGE}</p>
+      ) : null}
 
       {liveUrl ? (
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Latest live capture</p>
-          <div className="overflow-hidden">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {requesting ? "Previous capture" : "Latest live capture"}
+            </p>
+            {device.live_screenshot_at ? (
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {formatCaptureTimestamp(device.live_screenshot_at)}
+              </span>
+            ) : null}
+          </div>
+          <div className="relative overflow-hidden">
             <DeviceOrientedScreenshot
               device={device}
               src={liveUrl}
               alt="Latest live screenshot from this screen"
             />
+            {requesting ? (
+              <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
+              </div>
+            ) : null}
           </div>
-          {device.live_screenshot_at ? (
-            <p className="text-xs tabular-nums text-muted-foreground">
-              Captured {new Date(device.live_screenshot_at).toLocaleString()}
-            </p>
-          ) : null}
+        </div>
+      ) : requesting ? (
+        <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-border bg-muted/40">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No live screenshot yet. Press the button above while the screen is playing content.
+          No live screenshot yet. Open this dialog while the screen is playing content.
         </p>
       )}
 

@@ -16,6 +16,8 @@ export const deviceUiTvCopy = {
   pairing: {
     title: "Pairing Code",
     linkInstruction: "onesigntv.com → Sign in → Add Screen → Enter the code",
+    clickToCopy: "Click to copy",
+    copied: "Copied",
   },
   playing: {
     cacheHeadline: "Caching…",
