@@ -18,6 +18,7 @@ type AdminClientRoutes = {
   websitesPath: string;
   websitePath: (websiteId: string) => string;
   auditPath: string;
+  planPath: string;
 };
 
 const AdminClientRouteContext = createContext<AdminClientRoutes | null>(null);
@@ -47,6 +48,7 @@ export function AdminClientRouteProvider({
       websitesPath: `${basePath}/websites`,
       websitePath: (websiteId: string) => `${basePath}/websites/${websiteId}`,
       auditPath: `${basePath}/audit`,
+      planPath: `${basePath}/plan`,
     };
   }, [clientId]);
 

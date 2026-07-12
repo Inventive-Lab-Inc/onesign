@@ -6,6 +6,7 @@ import { useAppRouter } from "@/hooks/use-app-router";
 import { toast } from "sonner";
 import { ClientConsoleSyncProvider } from "@/components/console/client-console-sync-provider";
 import { TrialStrip } from "@/components/console/trial-status";
+import { LandingLiveChat } from "@/components/landing/landing-live-chat";
 import { WorkspaceSelector } from "@/components/workspace/workspace-selector";
 import { AppLayout } from "./app-layout";
 import { DashboardRoutePrefetch } from "./dashboard-route-prefetch";
@@ -77,6 +78,7 @@ function DashboardShellInner({
     >
       <DashboardRoutePrefetch paths={prefetchPaths} />
       {children}
+      <LandingLiveChat />
     </AppLayout>
   );
 }

@@ -22,7 +22,7 @@ async function loadActivePlanCatalog(): Promise<PlanTemplate[]> {
 }
 
 export async function POST(request: NextRequest) {
-  const { user, staff } = await getRouteHandlerStaffAuth();
+  const { user, staff, supabase } = await getRouteHandlerStaffAuth();
   if (!user || !staff || !isStaffWriter(staff)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -62,13 +62,50 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: provisioning.error }, { status: 400 });
   }
 
-  const admin = getSupabaseAdminClient();
+  // Prefer the staff-authenticated RPC when available (migration 00118).
+  const { error: provisionError } = await supabase.rpc("admin_provision_client", {
+    p_user_id: userId,
+    p_device_limit: provisioning.deviceLimit,
+    p_storage_limit_bytes: provisioning.storageLimitBytes,
+    p_trial_ends_at: provisioning.trialEndsAt,
+    p_plan_kind: provisioning.planKind,
+    p_plan_template_id: provisioning.planTemplateId,
+  });
 
+  if (!provisionError) {
+    return NextResponse.json({
+      ok: true,
+      provisioning,
+      message: `Plan updated to ${provisioningSummary(provisioning)}.`,
+    });
+  }
+
+  // Fallback before migration 00118: change limits via staff RPC (auth.uid() present),
+  // then set trial/plan fields with the service role (those columns are not staff-gated).
+  const missingRpc =
+    provisionError.message.includes("admin_provision_client") ||
+    provisionError.code === "PGRST202" ||
+    provisionError.code === "42883";
+
+  if (!missingRpc) {
+    return NextResponse.json({ error: provisionError.message }, { status: 400 });
+  }
+
+  const { error: limitsError } = await supabase.rpc("admin_update_plan", {
+    p_user_id: userId,
+    p_device_limit: provisioning.deviceLimit,
+    p_storage_limit_bytes: provisioning.storageLimitBytes,
+    p_active_device_ids: null,
+  });
+
+  if (limitsError) {
+    return NextResponse.json({ error: limitsError.message }, { status: 400 });
+  }
+
+  const admin = getSupabaseAdminClient();
   const { error: profileError } = await admin
     .from("profiles")
     .update({
-      device_limit: provisioning.deviceLimit,
-      storage_limit_bytes: provisioning.storageLimitBytes,
       trial_ends_at: provisioning.trialEndsAt,
       plan_kind: provisioning.planKind,
       plan_template_id: provisioning.planTemplateId,
@@ -77,17 +114,6 @@ export async function POST(request: NextRequest) {
 
   if (profileError) {
     return NextResponse.json({ error: profileError.message }, { status: 400 });
-  }
-
-  const { error: quotaError } = await admin.rpc("apply_device_quota", {
-    p_user_id: userId,
-    p_limit: provisioning.deviceLimit,
-    p_active_device_ids: null,
-    p_preserve_manual_disables: false,
-  });
-
-  if (quotaError) {
-    return NextResponse.json({ error: quotaError.message }, { status: 500 });
   }
 
   const { error: syncError } = await admin.rpc("sync_user_app_metadata", { p_user_id: userId });

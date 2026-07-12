@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { PlanTemplate } from "@signage/types";
 import { AdminPlanEditor } from "@/components/admin/admin-plan-editor";
 import { AdminClientOverview } from "@/components/admin/admin-client-shell";
 import { AdminDeleteClient } from "@/components/admin/admin-delete-client";
@@ -16,18 +17,27 @@ export default async function AdminClientOverviewPage({
   const client = await getAdminClientEntry(ctx.supabase, params.userId);
   if (!client) notFound();
 
-  const { data: devices, error: devicesError } = await ctx.supabase
-    .from("devices")
-    .select("id, name, status, last_seen, created_at, paused_by_quota")
-    .eq("owner_id", client.id)
-    .order("last_seen", { ascending: false, nullsFirst: false });
+  const [{ data: devices, error: devicesError }, { data: plansData, error: plansError }] =
+    await Promise.all([
+      ctx.supabase
+        .from("devices")
+        .select("id, name, status, last_seen, created_at, paused_by_quota")
+        .eq("owner_id", client.id)
+        .order("last_seen", { ascending: false, nullsFirst: false }),
+      ctx.supabase.rpc("list_active_plans"),
+    ]);
 
   if (devicesError) {
     throw new Error(devicesError.message);
   }
+  if (plansError) {
+    throw new Error(plansError.message);
+  }
+
+  const plans = (plansData as PlanTemplate[]) ?? [];
 
   return (
-    <AdminClientOverview client={client}>
+    <AdminClientOverview client={client} plans={plans}>
       <AdminPlanEditor
         userId={client.id}
         deviceLimit={client.device_limit}

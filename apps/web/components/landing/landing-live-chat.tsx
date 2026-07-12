@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, Tv, X } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { layoutConfig } from "@/lib/config/layout";
+import "./landing-chat.css";
 
 interface ChatPreset {
   id: string;

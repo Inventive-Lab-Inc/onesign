@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { HardDrive, Monitor } from "lucide-react";
+import { Check, HardDrive, Minus, Monitor } from "lucide-react";
 import { toast } from "sonner";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
 import { type PlanViewModel } from "@/components/plans/plan-data";
@@ -19,6 +19,11 @@ import {
   matchCatalogPlan,
   type PlanAction,
 } from "@/lib/plan/billing";
+import {
+  describePlanEntitlements,
+  emptyPlanEntitlements,
+  type PlanEntitlements,
+} from "@/lib/plan/plan-entitlements";
 import {
   deviceUsageRatio,
   deviceUsageTone,
@@ -138,6 +143,7 @@ export function BillingSettingsView({
         deviceLimit={quota.deviceLimit}
         storageUsedBytes={quota.storageUsedBytes}
         storageLimitBytes={quota.storageLimitBytes}
+        entitlements={currentPlan?.entitlements ?? emptyPlanEntitlements()}
         manageBilling={
           showManageBilling ? (
             <Button type="button" variant="outline" disabled={portalLoading} onClick={() => void openBillingPortal()}>
@@ -218,6 +224,7 @@ function CurrentPlanSummary({
   deviceLimit,
   storageUsedBytes,
   storageLimitBytes,
+  entitlements,
   manageBilling,
 }: {
   planName: string;
@@ -230,12 +237,14 @@ function CurrentPlanSummary({
   deviceLimit: number;
   storageUsedBytes: number;
   storageLimitBytes: number;
+  entitlements: PlanEntitlements;
   manageBilling?: React.ReactNode;
 }) {
   const screenRatio = deviceUsageRatio(deviceCount, deviceLimit);
   const screenTone = deviceUsageTone(screenRatio);
   const storageRatio = storageUsageRatio(storageUsedBytes, storageLimitBytes);
   const storageTone = storageUsageTone(storageRatio);
+  const entitlementRows = describePlanEntitlements(entitlements);
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -276,6 +285,32 @@ function CurrentPlanSummary({
           tone={storageTone}
         />
       </dl>
+
+      <div className="border-t border-border px-6 py-5 sm:px-8">
+        <p className="text-sm font-medium text-foreground">Included with this plan</p>
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+          {entitlementRows.map((row) => (
+            <li key={row.id} className="flex items-start gap-2 text-sm">
+              <span
+                className={cn(
+                  "mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+                  row.enabled
+                    ? "bg-brand-soft text-brand-badge"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {row.enabled ? <Check className="h-3 w-3" aria-hidden /> : <Minus className="h-3 w-3" aria-hidden />}
+              </span>
+              <span>
+                <span className="font-medium text-foreground">{row.label}</span>
+                {row.detail ? (
+                  <span className="block text-xs text-muted-foreground">{row.detail}</span>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       {screenTone === "full" ? (
         <p className="border-t border-red-600/15 bg-red-50 px-6 py-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-400 sm:px-8">

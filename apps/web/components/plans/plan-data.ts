@@ -8,6 +8,11 @@ import {
   minorToDisplayAmount,
   type PlanCurrency,
 } from "@/lib/plan-currency";
+import {
+  emptyPlanEntitlements,
+  parsePlanEntitlements,
+  type PlanEntitlements,
+} from "@/lib/plan/plan-entitlements";
 import { type SignupPlanSlug } from "@/lib/plan/signup-link";
 
 export type BillingPeriod = "monthly" | "annual";
@@ -129,6 +134,7 @@ export interface PlanViewModel {
   deviceLimit: number;
   screens: string;
   features: string[];
+  entitlements: PlanEntitlements;
   ctaLabel: string;
   highlighted: boolean;
   badge: string | null;
@@ -236,6 +242,7 @@ export function mapTemplateToViewModel(template: PlanTemplate, currency: PlanCur
   const annualMonthlyPrice = resolveAnnualMonthlyPrice(slug, annualMinor, currency, isFree);
   const annualOriginalPrice =
     annualOriginalMinor == null || isFree ? null : minorToDisplayAmount(annualOriginalMinor, currency);
+  const { entitlements, marketingFeatures } = parsePlanEntitlements(template.features);
 
   return {
     id: template.id,
@@ -263,7 +270,8 @@ export function mapTemplateToViewModel(template: PlanTemplate, currency: PlanCur
         : perScreenLabel(annualMonthlyPrice, template.device_limit, currency, isFree),
     deviceLimit: template.device_limit,
     screens: formatScreensLabel(template.device_limit),
-    features: template.features,
+    features: marketingFeatures,
+    entitlements,
     ctaLabel: template.cta_label,
     highlighted: template.is_highlighted,
     badge: template.badge,
@@ -303,6 +311,7 @@ export function buildStaticPlanViewModels(currency: PlanCurrency = "USD"): PlanV
       deviceLimit: plan.deviceLimit,
       screens: formatScreensLabel(plan.deviceLimit),
       features: plan.features.map((feature) => feature.label),
+      entitlements: emptyPlanEntitlements(),
       ctaLabel: plan.ctaLabel,
       highlighted: plan.highlighted ?? false,
       badge: plan.badge ?? null,

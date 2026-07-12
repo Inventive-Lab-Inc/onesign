@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HardDrive, Layers, LayoutGrid, Monitor, ScrollText, Tv, UserRound } from "lucide-react";
-import type { AdminUserDirectoryEntry } from "@signage/types";
+import { CreditCard, HardDrive, Layers, LayoutGrid, Monitor, ScrollText, Tv, UserRound } from "lucide-react";
+import type { AdminUserDirectoryEntry, PlanTemplate } from "@signage/types";
 import { useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { AdminAccountActions } from "@/components/admin/admin-account-actions";
 import { AccountStatusBadge } from "@/components/admin/account-status-badge";
+import { AdminClientEditDetails } from "@/components/admin/admin-client-edit-details";
 import { AdminTrialActions } from "@/components/admin/admin-trial-actions";
 import { BackNavLink } from "@/components/back-nav-link";
 import { formatStorageBytes } from "@/lib/plan-quota";
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { segment: "groups", label: "Groups", icon: Tv, match: (path: string, base: string) => path.startsWith(`${base}/groups`) },
   { segment: "content", label: "Content", icon: Layers, match: (path: string, base: string) => path.startsWith(`${base}/content`) || path.startsWith(`${base}/playlists`) || path.startsWith(`${base}/media`) },
   { segment: "audit", label: "Audit log", icon: ScrollText, match: (path: string, base: string) => path.startsWith(`${base}/audit`) },
+  { segment: "plan", label: "Plan", icon: CreditCard, match: (path: string, base: string) => path.startsWith(`${base}/plan`) },
 ] as const;
 
 function navHref(basePath: string, segment: (typeof NAV_ITEMS)[number]["segment"]) {
@@ -108,17 +110,26 @@ export function AdminClientShell({
 
 export function AdminClientOverview({
   client,
+  plans,
   children,
 }: {
   client: AdminUserDirectoryEntry;
+  plans: PlanTemplate[];
   children?: React.ReactNode;
 }) {
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-border/90 bg-card p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2">
-          <LayoutGrid className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <h2 className="text-sm font-semibold text-foreground">Account details</h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <LayoutGrid className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <h2 className="text-sm font-semibold text-foreground">Account details</h2>
+          </div>
+          <AdminClientEditDetails
+            userId={client.id}
+            email={client.email}
+            clientName={client.client_name}
+          />
         </div>
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
@@ -139,20 +150,18 @@ export function AdminClientOverview({
               })}
             </dd>
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <dt className="text-xs font-medium text-muted-foreground">Status</dt>
-            <dd className="mt-1">
+            <dd className="mt-1 flex flex-wrap items-center gap-2">
               <AccountStatusBadge
                 isDisabled={client.is_disabled}
                 trialEndsAt={client.trial_ends_at}
                 trialExpired={client.trial_expired}
               />
+              <AdminTrialActions client={client} plans={plans} />
             </dd>
           </div>
         </dl>
-        <div className="mt-4">
-          <AdminTrialActions client={client} />
-        </div>
       </div>
 
       {children}

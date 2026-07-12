@@ -30,6 +30,12 @@ import {
   formatStorageBytes,
   parseStorageInput,
 } from "@/lib/plan-quota";
+import {
+  emptyPlanEntitlements,
+  parsePlanEntitlements,
+  serializePlanFeatures,
+  type PlanEntitlements,
+} from "@/lib/plan/plan-entitlements";
 import { cn } from "@/lib/utils";
 
 type CurrencyPriceFields = {
@@ -49,6 +55,9 @@ type PlanFormState = {
   storageValue: string;
   storageUnit: StorageUnit;
   features: string;
+  entitlements: PlanEntitlements;
+  workspaceLimit: string;
+  userLimit: string;
   badge: string;
   isHighlighted: boolean;
   isActive: boolean;
@@ -75,6 +84,9 @@ function emptyForm(): PlanFormState {
     storageValue: "1",
     storageUnit: "GB",
     features: "",
+    entitlements: emptyPlanEntitlements(),
+    workspaceLimit: "1",
+    userLimit: "1",
     badge: "",
     isHighlighted: false,
     isActive: true,
@@ -97,6 +109,7 @@ function planToForm(plan: PlanTemplate): PlanFormState {
   const useGb = plan.storage_limit_bytes >= 1024 ** 3;
   const unit: StorageUnit = useGb ? "GB" : "MB";
   const storageValue = bytesToStorageUnit(plan.storage_limit_bytes, unit);
+  const { entitlements, marketingFeatures } = parsePlanEntitlements(plan.features);
   return {
     id: plan.id,
     name: plan.name,
@@ -146,7 +159,10 @@ function planToForm(plan: PlanTemplate): PlanFormState {
     deviceLimit: String(plan.device_limit),
     storageValue: useGb ? storageValue.toFixed(storageValue % 1 === 0 ? 0 : 1) : String(Math.round(storageValue)),
     storageUnit: unit,
-    features: plan.features.join("\n"),
+    features: marketingFeatures.join("\n"),
+    entitlements,
+    workspaceLimit: String(entitlements.workspaceLimit ?? 1),
+    userLimit: String(entitlements.userLimit ?? 1),
     badge: plan.badge ?? "",
     isHighlighted: plan.is_highlighted,
     isActive: plan.is_active,
@@ -599,10 +615,38 @@ function PlanEditorModal({
       }
     }
 
-    const features = form.features
+    const marketingFeatures = form.features
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
+
+    const entitlements: PlanEntitlements = {
+      ...form.entitlements,
+      workspaceLimit: form.entitlements.workspaces
+        ? Math.max(1, Number.parseInt(form.workspaceLimit, 10) || 1)
+        : null,
+      userLimit: form.entitlements.userLimitEnabled
+        ? Math.max(1, Number.parseInt(form.userLimit, 10) || 1)
+        : null,
+    };
+
+    if (entitlements.workspaces) {
+      const parsedWorkspaceLimit = Number.parseInt(form.workspaceLimit, 10);
+      if (!Number.isFinite(parsedWorkspaceLimit) || parsedWorkspaceLimit < 1) {
+        toast.error("Workspace limit must be at least 1");
+        return;
+      }
+    }
+
+    if (entitlements.userLimitEnabled) {
+      const parsedUserLimit = Number.parseInt(form.userLimit, 10);
+      if (!Number.isFinite(parsedUserLimit) || parsedUserLimit < 1) {
+        toast.error("User limit must be at least 1");
+        return;
+      }
+    }
+
+    const features = serializePlanFeatures(entitlements, marketingFeatures);
 
     setSaving(true);
     try {
@@ -793,8 +837,124 @@ function PlanEditorModal({
             </div>
           </div>
 
+          <div className="space-y-3 rounded-lg border border-border/80 bg-muted/20 p-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">Plan features</p>
+              <p className="text-xs text-muted-foreground">
+                Tick which capabilities apply when a customer activates this plan.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex items-start gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.entitlements.watermark}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      entitlements: { ...prev.entitlements, watermark: event.target.checked },
+                    }))
+                  }
+                  className="mt-0.5 h-4 w-4 rounded border-input"
+                />
+                <span>
+                  <span className="font-medium">Watermark</span>
+                  <span className="block text-xs text-muted-foreground">Show OneSign watermark on playback</span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.entitlements.apiKeys}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      entitlements: { ...prev.entitlements, apiKeys: event.target.checked },
+                    }))
+                  }
+                  className="mt-0.5 h-4 w-4 rounded border-input"
+                />
+                <span>
+                  <span className="font-medium">API keys</span>
+                  <span className="block text-xs text-muted-foreground">Allow programmatic API access</span>
+                </span>
+              </label>
+
+              <div className="space-y-2">
+                <label className="flex items-start gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={form.entitlements.workspaces}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        entitlements: { ...prev.entitlements, workspaces: event.target.checked },
+                      }))
+                    }
+                    className="mt-0.5 h-4 w-4 rounded border-input"
+                  />
+                  <span>
+                    <span className="font-medium">Workspaces</span>
+                    <span className="block text-xs text-muted-foreground">Enable workspaces with a custom limit</span>
+                  </span>
+                </label>
+                {form.entitlements.workspaces ? (
+                  <div className="ml-6 space-y-1">
+                    <Label htmlFor="plan-workspace-limit">Workspace limit</Label>
+                    <Input
+                      id="plan-workspace-limit"
+                      type="number"
+                      min={1}
+                      value={form.workspaceLimit}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, workspaceLimit: event.target.value.replace(/[^\d]/g, "") }))
+                      }
+                      className="max-w-[10rem]"
+                    />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-start gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={form.entitlements.userLimitEnabled}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        entitlements: { ...prev.entitlements, userLimitEnabled: event.target.checked },
+                      }))
+                    }
+                    className="mt-0.5 h-4 w-4 rounded border-input"
+                  />
+                  <span>
+                    <span className="font-medium">User adding limitation</span>
+                    <span className="block text-xs text-muted-foreground">Cap how many users can be invited</span>
+                  </span>
+                </label>
+                {form.entitlements.userLimitEnabled ? (
+                  <div className="ml-6 space-y-1">
+                    <Label htmlFor="plan-user-limit">User limit</Label>
+                    <Input
+                      id="plan-user-limit"
+                      type="number"
+                      min={1}
+                      value={form.userLimit}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, userLimit: event.target.value.replace(/[^\d]/g, "") }))
+                      }
+                      className="max-w-[10rem]"
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
-            <Label htmlFor="plan-features">Features (one per line)</Label>
+            <Label htmlFor="plan-features">Marketing bullets (one per line)</Label>
             <textarea
               id="plan-features"
               value={form.features}
