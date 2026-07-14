@@ -145,8 +145,11 @@ class _BillingPageState extends ConsumerState<BillingPage>
     required AccountProfile? profile,
   }) {
     final onTrial = profile?.isOnTrial == true;
+    // Same catalog tier on trial is not a paid plan — still let them subscribe.
+    if (onTrial && current?.id == target.id) {
+      return 'Subscribe to ${target.name}';
+    }
     if (!onTrial && current?.id == target.id) return 'Current plan';
-    if (onTrial && current?.id == target.id) return 'Current trial';
     if (current == null) return 'Choose ${target.name}';
     if (target.deviceLimit > current.deviceLimit) {
       return 'Upgrade to ${target.name}';
@@ -155,6 +158,15 @@ class _BillingPageState extends ConsumerState<BillingPage>
       return 'Switch to ${target.name}';
     }
     return 'Choose ${target.name}';
+  }
+
+  bool _isPaidCurrentPlan({
+    required PlanTemplateInfo target,
+    required PlanTemplateInfo? current,
+    required AccountProfile? profile,
+  }) {
+    if (profile?.isOnTrial == true) return false;
+    return current?.id == target.id;
   }
 
   Future<void> _openCheckout(PlanTemplateInfo plan) async {
@@ -427,7 +439,11 @@ class _BillingPageState extends ConsumerState<BillingPage>
                               current: matched,
                               profile: profile,
                             );
-                            final isCurrent = action.startsWith('Current');
+                            final isPaidCurrent = _isPaidCurrentPlan(
+                              target: plan,
+                              current: matched,
+                              profile: profile,
+                            );
                             final busy = _busyPlanId == plan.id;
                             final priceCents = _billingPeriod == 'annual' &&
                                     plan.annualMonthlyPriceCents > 0
@@ -526,7 +542,7 @@ class _BillingPageState extends ConsumerState<BillingPage>
                                         width: double.infinity,
                                         child: FilledButton(
                                           onPressed: !canManage ||
-                                                  isCurrent ||
+                                                  isPaidCurrent ||
                                                   busy ||
                                                   !plan.isBillable
                                               ? null

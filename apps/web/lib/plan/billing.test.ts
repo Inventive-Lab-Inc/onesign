@@ -63,13 +63,14 @@ describe("getPlanAction with Stripe checkout", () => {
     });
   });
 
-  it("marks the current trial tier as current", () => {
+  it("offers checkout to convert the current trial tier to paid", () => {
     const action = getPlanAction(solo, solo, trialQuota, "monthly");
 
     expect(action).toEqual({
-      kind: "current",
-      label: "Current trial",
-      disabled: true,
+      kind: "checkout",
+      label: "Subscribe to Solo",
+      planId: "solo-id",
+      billingPeriod: "monthly",
     });
   });
 });

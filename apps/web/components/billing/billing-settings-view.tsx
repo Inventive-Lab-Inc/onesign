@@ -171,7 +171,7 @@ export function BillingSettingsView({
               ) : null}
             </div>
           }
-          isCurrentPlan={(plan) => currentPlan?.id === plan.id}
+          isCurrentPlan={(plan) => !onTrial && currentPlan?.id === plan.id}
           getAction={(plan, _index, billingPeriod) =>
             toPricingAction(getPlanAction(currentPlan, plan, quota, billingPeriod))
           }

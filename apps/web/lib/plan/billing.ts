@@ -119,8 +119,14 @@ export function getPlanAction(
 ): PlanAction {
   const onTrial = quota.isOnTrial ?? isOnTrial(quota);
 
+  // Trial of this tier is not a paid subscription — still offer Checkout for the same plan.
   if (onTrial && current?.id === target.id) {
-    return { kind: "current", label: "Current trial", disabled: true };
+    return paidPlanAction(
+      target,
+      billingPeriod,
+      "checkout",
+      `Subscribe to ${target.name}`,
+    );
   }
 
   if (!onTrial && current?.id === target.id) {
