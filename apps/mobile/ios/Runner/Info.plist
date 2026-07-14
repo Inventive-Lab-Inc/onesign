@@ -68,6 +68,32 @@
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>OneSign needs photo access to upload media to your screens.</string>
+	<!-- Google Sign-In (filled via ios/Flutter/GoogleSignIn.xcconfig from apps/mobile/.env) -->
+	<key>GIDClientID</key>
+	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
+	<key>GIDServerClientID</key>
+	<string>$(GOOGLE_SERVER_CLIENT_ID)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GOOGLE_IOS_URL_SCHEME)</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>tv.onesign.onesignConsole.billing</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>onesign</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array/>
 </dict>

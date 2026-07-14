@@ -121,6 +121,100 @@ class AppApiClient {
     }
   }
 
+  Map<String, String> _authHeaders(String token) => {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'X-Onesign-Client': 'mobile',
+      };
+
+  /// Starts Checkout (first purchase) or in-place upgrade (existing subscriber).
+  Future<CheckoutStartResult> startCheckout({
+    required String planTemplateId,
+    required String billingPeriod,
+  }) async {
+    final token = await _accessToken();
+    final response = await http.post(
+      Uri.parse('${AppEnv.appUrl}/api/stripe/checkout'),
+      headers: _authHeaders(token),
+      body: jsonEncode({
+        'planTemplateId': planTemplateId,
+        'billingPeriod': billingPeriod,
+      }),
+    );
+    final body = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_stripeApiMessage(body, response.statusCode, 'Checkout failed'));
+    }
+
+    if (body['upgraded'] == true) {
+      return const CheckoutStartResult.upgraded();
+    }
+
+    final url = body['url']?.toString();
+    if (url == null || url.isEmpty) {
+      throw Exception('Checkout URL missing');
+    }
+    return CheckoutStartResult.checkout(Uri.parse(url));
+  }
+
+  Future<Uri> createBillingPortalUrl() async {
+    final token = await _accessToken();
+    final response = await http.post(
+      Uri.parse('${AppEnv.appUrl}/api/stripe/portal'),
+      headers: _authHeaders(token),
+      body: '{}',
+    );
+    final body = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        _stripeApiMessage(body, response.statusCode, 'Billing portal failed'),
+      );
+    }
+    final url = body['url']?.toString();
+    if (url == null || url.isEmpty) {
+      throw Exception('Billing portal URL missing');
+    }
+    return Uri.parse(url);
+  }
+
+  Future<void> syncSubscription({String? checkoutSessionId}) async {
+    final token = await _accessToken();
+    final response = await http.post(
+      Uri.parse('${AppEnv.appUrl}/api/stripe/sync-subscription'),
+      headers: _authHeaders(token),
+      body: jsonEncode({
+        if (checkoutSessionId != null && checkoutSessionId.isNotEmpty)
+          'checkoutSessionId': checkoutSessionId,
+      }),
+    );
+    final body = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        _stripeApiMessage(body, response.statusCode, 'Subscription sync failed'),
+      );
+    }
+  }
+
+  String _stripeApiMessage(
+    Map<String, dynamic> body,
+    int statusCode,
+    String fallback,
+  ) {
+    final err = body['error']?.toString().trim() ?? '';
+    if (err.isNotEmpty &&
+        err.length <= 200 &&
+        !err.toLowerCase().contains('<html') &&
+        !err.startsWith('{')) {
+      return err;
+    }
+    return switch (statusCode) {
+      401 || 403 => 'Unauthorized',
+      404 => 'Plan not found',
+      503 => 'Stripe is not configured',
+      _ => fallback,
+    };
+  }
+
   Map<String, dynamic> _decode(String raw) {
     if (raw.isEmpty) return {};
     try {
@@ -132,4 +226,21 @@ class AppApiClient {
       return {'error': raw};
     }
   }
+}
+
+/// Result of POST /api/stripe/checkout.
+class CheckoutStartResult {
+  const CheckoutStartResult._({this.checkoutUrl, required this.upgraded});
+
+  const CheckoutStartResult.checkout(Uri url)
+      : this._(checkoutUrl: url, upgraded: false);
+
+  const CheckoutStartResult.upgraded()
+      : this._(checkoutUrl: null, upgraded: true);
+
+  /// Stripe Hosted Checkout URL for first-time subscribers.
+  final Uri? checkoutUrl;
+
+  /// True when an existing Stripe subscription was updated in place.
+  final bool upgraded;
 }

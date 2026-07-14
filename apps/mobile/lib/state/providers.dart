@@ -13,6 +13,11 @@ final consoleRepositoryProvider = Provider((ref) => ConsoleRepository());
 final appApiClientProvider = Provider((ref) => AppApiClient());
 final googleAuthServiceProvider = Provider((ref) => GoogleAuthService());
 
+final activePlansProvider =
+    FutureProvider.autoDispose<List<PlanTemplateInfo>>((ref) async {
+  return ref.read(consoleRepositoryProvider).listActivePlans();
+});
+
 final authStateProvider = StreamProvider<AuthState>((ref) {
   return supabase.auth.onAuthStateChange;
 });

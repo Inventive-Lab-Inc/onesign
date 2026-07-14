@@ -1,3 +1,5 @@
+import 'package:onesign_console/core/workspace_name.dart';
+
 class WorkspaceInfo {
   WorkspaceInfo({
     required this.id,
@@ -17,7 +19,7 @@ class WorkspaceInfo {
     final perms = json['permissions'];
     return WorkspaceInfo(
       id: json['id'] as String,
-      name: (json['name'] as String?) ?? 'Workspace',
+      name: displayWorkspaceName(json['name'] as String?),
       isDefault: json['is_default'] == true,
       role: (json['role'] as String?) ?? 'standard',
       permissions: perms is List
@@ -478,6 +480,9 @@ class AccountProfile {
     this.trialEndsAt,
     this.planKind,
     this.isDisabled = false,
+    this.planTemplateId,
+    this.stripeCustomerId,
+    this.subscriptionStatus,
   });
 
   final String id;
@@ -488,6 +493,19 @@ class AccountProfile {
   final DateTime? trialEndsAt;
   final String? planKind;
   final bool isDisabled;
+  final String? planTemplateId;
+  final String? stripeCustomerId;
+  final String? subscriptionStatus;
+
+  bool get isOnTrial {
+    if (planKind != 'trial') return false;
+    final ends = trialEndsAt;
+    if (ends == null) return true;
+    return ends.isAfter(DateTime.now());
+  }
+
+  bool get hasStripeCustomer =>
+      stripeCustomerId != null && stripeCustomerId!.trim().isNotEmpty;
 
   factory AccountProfile.fromJson(Map<String, dynamic> json) {
     return AccountProfile(
@@ -501,6 +519,80 @@ class AccountProfile {
           : null,
       planKind: json['plan_kind'] as String?,
       isDisabled: json['is_disabled'] == true,
+      planTemplateId: json['plan_template_id'] as String?,
+      stripeCustomerId: json['stripe_customer_id'] as String?,
+      subscriptionStatus: json['subscription_status'] as String?,
+    );
+  }
+}
+
+class PlanTemplateInfo {
+  PlanTemplateInfo({
+    required this.id,
+    required this.name,
+    required this.tagline,
+    required this.deviceLimit,
+    required this.storageLimitBytes,
+    required this.monthlyPriceCents,
+    required this.annualMonthlyPriceCents,
+    required this.ctaLabel,
+    required this.features,
+    required this.isHighlighted,
+    this.badge,
+    this.originalPriceCents,
+    this.stripePriceMonthlyId,
+    this.stripePriceAnnualId,
+  });
+
+  final String id;
+  final String name;
+  final String tagline;
+  final int deviceLimit;
+  final int storageLimitBytes;
+  final int monthlyPriceCents;
+  final int annualMonthlyPriceCents;
+  final int? originalPriceCents;
+  final String ctaLabel;
+  final List<String> features;
+  final String? badge;
+  final bool isHighlighted;
+  final String? stripePriceMonthlyId;
+  final String? stripePriceAnnualId;
+
+  bool get isBillable => monthlyPriceCents > 0;
+
+  bool get hasStripePrice =>
+      (stripePriceMonthlyId != null && stripePriceMonthlyId!.isNotEmpty) ||
+      (stripePriceAnnualId != null && stripePriceAnnualId!.isNotEmpty);
+
+  List<String> get marketingFeatures => features
+      .where((f) => !f.trim().toLowerCase().startsWith('entitlement:'))
+      .toList(growable: false);
+
+  factory PlanTemplateInfo.fromJson(Map<String, dynamic> json) {
+    final features = json['features'];
+    return PlanTemplateInfo(
+      id: json['id'] as String,
+      name: (json['name'] as String?)?.trim().isNotEmpty == true
+          ? (json['name'] as String).trim()
+          : 'Plan',
+      tagline: (json['tagline'] as String?) ?? '',
+      deviceLimit: (json['device_limit'] as num?)?.toInt() ?? 1,
+      storageLimitBytes: (json['storage_limit_bytes'] as num?)?.toInt() ?? 0,
+      monthlyPriceCents: (json['monthly_price_cents'] as num?)?.toInt() ?? 0,
+      annualMonthlyPriceCents:
+          (json['annual_monthly_price_cents'] as num?)?.toInt() ?? 0,
+      originalPriceCents: (json['original_price_cents'] as num?)?.toInt(),
+      ctaLabel: (json['cta_label'] as String?)?.trim().isNotEmpty == true
+          ? (json['cta_label'] as String).trim()
+          : 'Choose plan',
+      features: features is List
+          ? features.map((e) => e.toString()).toList(growable: false)
+          : const <String>[],
+      badge: json['badge'] as String?,
+      isHighlighted: json['is_highlighted'] == true,
+      stripePriceMonthlyId: json['stripe_price_monthly_id'] as String?,
+      stripePriceAnnualId: json['stripe_price_annual_id'] as String?,
     );
   }
 }

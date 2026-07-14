@@ -3,6 +3,11 @@ import type { BillingPeriod } from "@/components/plans/plan-data";
 import type { PlanTemplate } from "@signage/types";
 import { getStripeAppOrigin } from "@/lib/stripe/config";
 import { getStripeClient } from "@/lib/stripe/client";
+import {
+  cancelOtherActiveSubscriptions,
+  changeSubscriptionPrice,
+  findLiveSubscription,
+} from "@/lib/stripe/change-subscription";
 import { resolveStripePriceId } from "@/lib/stripe/plan-template";
 import { requireStripeAccountAdmin } from "@/lib/stripe/route-auth";
 import { fetchAuthEmail, getSupabaseAdminForStripe } from "@/lib/stripe/subscription-handlers";
@@ -67,7 +72,7 @@ export async function POST(request: NextRequest) {
 
   const { data: profile, error: profileError } = await admin
     .from("profiles")
-    .select("stripe_customer_id, client_name")
+    .select("stripe_customer_id, stripe_subscription_id, client_name")
     .eq("id", accountOwnerId)
     .maybeSingle();
 
@@ -103,37 +108,76 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const successUrl = auth.isMobileClient
-    ? `${origin}/mobile/billing-return?checkout=success&session_id={CHECKOUT_SESSION_ID}`
-    : `${origin}/account?tab=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = auth.isMobileClient
-    ? `${origin}/mobile/billing-return?checkout=cancel`
-    : `${origin}/account?tab=billing&checkout=cancel`;
+  const successPath = auth.isMobileClient
+    ? `/mobile/billing-return?checkout=success`
+    : `/account?tab=billing&checkout=success`;
+  const cancelPath = auth.isMobileClient
+    ? `/mobile/billing-return?checkout=cancel`
+    : `/account?tab=billing&checkout=cancel`;
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer: customerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    client_reference_id: accountOwnerId,
-    subscription_data: {
+  try {
+    // Existing subscriber → update the live subscription in place (prorated).
+    const live = await findLiveSubscription(
+      stripe,
+      customerId,
+      profile?.stripe_subscription_id,
+    );
+
+    if (live) {
+      const updated = await changeSubscriptionPrice({
+        stripe,
+        admin,
+        userId: accountOwnerId,
+        customerId,
+        subscription: live,
+        priceId,
+        planTemplateId,
+      });
+      await cancelOtherActiveSubscriptions({
+        stripe,
+        customerId,
+        keepSubscriptionId: updated.id,
+        userId: accountOwnerId,
+      });
+
+      return NextResponse.json({
+        upgraded: true,
+        redirectUrl: `${origin}${successPath}`,
+        subscriptionId: updated.id,
+        status: updated.status,
+      });
+    }
+
+    // First paid plan → Stripe Checkout.
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${origin}${successPath}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}${cancelPath}`,
+      client_reference_id: accountOwnerId,
+      subscription_data: {
+        metadata: {
+          onesign_user_id: accountOwnerId,
+          plan_template_id: planTemplateId,
+        },
+      },
       metadata: {
         onesign_user_id: accountOwnerId,
         plan_template_id: planTemplateId,
+        billing_period: billingPeriod,
       },
-    },
-    metadata: {
-      onesign_user_id: accountOwnerId,
-      plan_template_id: planTemplateId,
-      billing_period: billingPeriod,
-    },
-    allow_promotion_codes: true,
-  });
+      allow_promotion_codes: true,
+    });
 
-  if (!session.url) {
-    return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
+    if (!session.url) {
+      return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
+    }
+
+    return NextResponse.json({ url: session.url });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to create checkout session";
+    console.error("[stripe/checkout]", message);
+    return NextResponse.json({ error: message }, { status: 502 });
   }
-
-  return NextResponse.json({ url: session.url });
 }

@@ -36,12 +36,20 @@ class ConsoleRepository {
     final row = await _client
         .from('profiles')
         .select(
-          'id, client_name, device_limit, storage_limit_bytes, storage_used_bytes, trial_ends_at, plan_kind, is_disabled',
+          'id, client_name, device_limit, storage_limit_bytes, storage_used_bytes, trial_ends_at, plan_kind, is_disabled, plan_template_id, stripe_customer_id, subscription_status',
         )
         .eq('id', ownerId)
         .maybeSingle();
     if (row == null) return null;
     return AccountProfile.fromJson(Map<String, dynamic>.from(row));
+  }
+
+  Future<List<PlanTemplateInfo>> listActivePlans() async {
+    final result = await _client.rpc('list_active_plans');
+    return (result as List)
+        .whereType<Map>()
+        .map((row) => PlanTemplateInfo.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
   }
 
   Future<int> accountDeviceCount(String ownerId) async {

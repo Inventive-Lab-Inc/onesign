@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
+import {
+  cancelOtherActiveSubscriptions,
+  findLiveSubscription,
+} from "@/lib/stripe/change-subscription";
 import { getStripeWebhookSecret } from "@/lib/stripe/config";
 import { getStripeClient } from "@/lib/stripe/client";
 import {
@@ -95,27 +99,53 @@ export async function POST(request: NextRequest) {
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         await syncSubscriptionForUser(stripe, admin, userId, customerId, subscription);
+        // Deduplicate: Checkout must never leave multiple active Onesign subs.
+        await cancelOtherActiveSubscriptions({
+          stripe,
+          customerId,
+          keepSubscriptionId: subscription.id,
+          userId,
+        });
         break;
       }
 
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted": {
+      case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = readCustomerId(subscription.customer);
         if (!customerId) break;
 
-        let userId =
+        const userId =
           subscription.metadata?.onesign_user_id?.trim() ||
           (await findUserIdByStripeSubscriptionId(admin, subscription.id)) ||
           (await findUserIdByStripeCustomerId(admin, customerId));
 
         if (!userId) break;
 
-        if (event.type === "customer.subscription.deleted") {
-          await revokeSubscriptionFromProfile(admin, userId);
-        } else {
-          await syncSubscriptionForUser(stripe, admin, userId, customerId, subscription);
+        await syncSubscriptionForUser(stripe, admin, userId, customerId, subscription);
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = readCustomerId(subscription.customer);
+        if (!customerId) break;
+
+        const userId =
+          subscription.metadata?.onesign_user_id?.trim() ||
+          (await findUserIdByStripeSubscriptionId(admin, subscription.id)) ||
+          (await findUserIdByStripeCustomerId(admin, customerId));
+
+        if (!userId) break;
+
+        // Never revoke just because we canceled a duplicate. If another live
+        // subscription remains, keep that plan on the profile.
+        const remaining = await findLiveSubscription(stripe, customerId, null);
+        if (remaining) {
+          await syncSubscriptionForUser(stripe, admin, userId, customerId, remaining);
+          break;
         }
+
+        await revokeSubscriptionFromProfile(admin, userId);
         break;
       }
 

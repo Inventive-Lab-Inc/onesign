@@ -21,6 +21,12 @@ dependencies:
   cached_network_image: ^3.4.1
   url_launcher: ^6.3.2
   google_sign_in: ^7.2.0
+  flutter_svg: ^2.3.0
+  app_links: ^7.2.1
+  webview_flutter: ^4.14.1
+  webview_flutter_android: ^4.13.0
+  webview_flutter_wkwebview: ^3.26.0
+  webview_flutter_platform_interface: ^2.15.1
 
 dev_dependencies:
   flutter_test:
@@ -31,3 +37,19 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/images/onesign_tv_lockup.svg
+    - assets/images/onesign_mark.svg
+    - assets/images/google_g.svg
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.otf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.otf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.otf
+          weight: 700
+        - asset: assets/fonts/Inter-ExtraBold.otf
+          weight: 800

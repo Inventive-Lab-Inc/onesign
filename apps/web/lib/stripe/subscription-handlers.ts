@@ -14,22 +14,45 @@ function planTemplateIdFromPrice(price: Stripe.Price | string | null | undefined
   return fromMetadata || null;
 }
 
+async function planTemplateIdFromPriceLookup(
+  admin: SupabaseClient,
+  priceId: string,
+): Promise<string | null> {
+  const { data, error } = await admin
+    .from("plan_templates")
+    .select("id")
+    .or(`stripe_price_monthly_id.eq.${priceId},stripe_price_annual_id.eq.${priceId}`)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[stripe] plan lookup by price", error.message);
+    return null;
+  }
+
+  return typeof data?.id === "string" ? data.id : null;
+}
+
 async function resolvePlanTemplateId(
   stripe: Stripe,
+  admin: SupabaseClient,
   subscription: Stripe.Subscription,
 ): Promise<string | null> {
+  const fromSubscriptionMeta = subscription.metadata?.plan_template_id?.trim();
+  if (fromSubscriptionMeta) return fromSubscriptionMeta;
+
   const item = subscription.items.data[0];
   if (!item?.price) return null;
 
   const direct = planTemplateIdFromPrice(item.price);
   if (direct) return direct;
 
-  if (typeof item.price === "string") {
-    const price = await stripe.prices.retrieve(item.price);
-    return planTemplateIdFromPrice(price);
-  }
+  const priceId = typeof item.price === "string" ? item.price : item.price.id;
+  const price = await stripe.prices.retrieve(priceId);
+  const refreshed = planTemplateIdFromPrice(price);
+  if (refreshed) return refreshed;
 
-  return null;
+  return planTemplateIdFromPriceLookup(admin, priceId);
 }
 
 export async function applySubscriptionToProfile(
@@ -39,7 +62,7 @@ export async function applySubscriptionToProfile(
   customerId: string,
   subscription: Stripe.Subscription,
 ): Promise<void> {
-  const planTemplateId = await resolvePlanTemplateId(stripe, subscription);
+  const planTemplateId = await resolvePlanTemplateId(stripe, admin, subscription);
   if (!planTemplateId) {
     throw new Error("Missing plan_template_id on Stripe price metadata");
   }

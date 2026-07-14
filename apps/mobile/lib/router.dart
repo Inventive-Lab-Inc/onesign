@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:onesign_console/core/auth/auth_refresh.dart';
 import 'package:onesign_console/core/supabase/supabase_bootstrap.dart';
 import 'package:onesign_console/features/account/account_page.dart';
+import 'package:onesign_console/features/account/billing_page.dart';
 import 'package:onesign_console/features/auth/login_page.dart';
 import 'package:onesign_console/features/content/content_page.dart';
 import 'package:onesign_console/features/dashboard/dashboard_page.dart';
@@ -98,6 +99,12 @@ GoRouter createAppRouter() {
       GoRoute(
         path: '/account',
         builder: (context, state) => const AccountPage(),
+      ),
+      GoRoute(
+        path: '/billing',
+        builder: (context, state) => BillingPage(
+          checkoutResult: state.uri.queryParameters['checkout'],
+        ),
       ),
       GoRoute(
         path: '/schedule',
