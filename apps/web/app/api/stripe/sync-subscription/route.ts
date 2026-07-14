@@ -1,8 +1,7 @@
-import { NextResponse } from "next/server";
-import { fetchAccountContext } from "@/lib/workspace/account-context";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { isStripeConfigured } from "@/lib/stripe/config";
 import { getStripeClient } from "@/lib/stripe/client";
+import { requireStripeAccountAdmin } from "@/lib/stripe/route-auth";
 import {
   getSupabaseAdminForStripe,
   syncSubscriptionForUser,
@@ -11,31 +10,19 @@ import {
 export const runtime = "nodejs";
 
 /** Fallback when webhooks are unavailable — sync active Stripe subscription to the account profile. */
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const auth = await requireStripeAccountAdmin(request);
+  if (auth instanceof NextResponse) return auth;
+
   if (!isStripeConfigured()) {
     return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
-  }
-
-  const supabase = getSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const account = await fetchAccountContext(supabase, user.id);
-  if (!account.canAdminAccount) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const admin = getSupabaseAdminForStripe();
   const { data: profile, error: profileError } = await admin
     .from("profiles")
     .select("stripe_customer_id")
-    .eq("id", account.accountOwnerId)
+    .eq("id", auth.account.accountOwnerId)
     .maybeSingle();
 
   if (profileError) {
@@ -59,10 +46,16 @@ export async function POST() {
     subscriptions.data.find((sub) => sub.status === "past_due");
 
   if (!active) {
-    return NextResponse.json({ error: "No active subscription found in Stripe" }, { status: 404 });
+    return NextResponse.json({ ok: true, subscriptionId: null, status: "none" });
   }
 
-  await syncSubscriptionForUser(stripe, admin, account.accountOwnerId, customerId, active);
+  await syncSubscriptionForUser(
+    stripe,
+    admin,
+    auth.account.accountOwnerId,
+    customerId,
+    active,
+  );
 
   return NextResponse.json({
     ok: true,

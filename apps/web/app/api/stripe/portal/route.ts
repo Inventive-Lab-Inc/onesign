@@ -1,37 +1,20 @@
-import { NextResponse } from "next/server";
-import { fetchAccountContext } from "@/lib/workspace/account-context";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getStripeAppOrigin, isStripeConfigured } from "@/lib/stripe/config";
+import { NextResponse, type NextRequest } from "next/server";
+import { getStripeAppOrigin } from "@/lib/stripe/config";
 import { getStripeClient } from "@/lib/stripe/client";
+import { requireStripeAccountAdmin } from "@/lib/stripe/route-auth";
 import { getSupabaseAdminForStripe } from "@/lib/stripe/subscription-handlers";
 
 export const runtime = "nodejs";
 
-export async function POST() {
-  if (!isStripeConfigured()) {
-    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
-  }
-
-  const supabase = getSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const account = await fetchAccountContext(supabase, user.id);
-  if (!account.canAdminAccount) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+export async function POST(request: NextRequest) {
+  const auth = await requireStripeAccountAdmin(request);
+  if (auth instanceof NextResponse) return auth;
 
   const admin = getSupabaseAdminForStripe();
   const { data: profile, error: profileError } = await admin
     .from("profiles")
     .select("stripe_customer_id")
-    .eq("id", account.accountOwnerId)
+    .eq("id", auth.account.accountOwnerId)
     .maybeSingle();
 
   if (profileError) {
@@ -45,10 +28,13 @@ export async function POST() {
 
   const stripe = getStripeClient();
   const origin = getStripeAppOrigin();
+  const returnUrl = auth.isMobileClient
+    ? `${origin}/mobile/billing-return?checkout=portal`
+    : `${origin}/account?tab=billing`;
 
   const session = await stripe.billingPortal.sessions.create({
     customer: customerId,
-    return_url: `${origin}/account?tab=billing`,
+    return_url: returnUrl,
   });
 
   return NextResponse.json({ url: session.url });

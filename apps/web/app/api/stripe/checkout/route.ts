@@ -1,12 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { BillingPeriod } from "@/components/plans/plan-data";
-import { fetchAccountContext } from "@/lib/workspace/account-context";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getStripeAppOrigin, isStripeConfigured } from "@/lib/stripe/config";
+import type { PlanTemplate } from "@signage/types";
+import { getStripeAppOrigin } from "@/lib/stripe/config";
 import { getStripeClient } from "@/lib/stripe/client";
 import { resolveStripePriceId } from "@/lib/stripe/plan-template";
+import { requireStripeAccountAdmin } from "@/lib/stripe/route-auth";
 import { fetchAuthEmail, getSupabaseAdminForStripe } from "@/lib/stripe/subscription-handlers";
-import type { PlanTemplate } from "@signage/types";
 
 export const runtime = "nodejs";
 
@@ -16,24 +15,8 @@ type CheckoutBody = {
 };
 
 export async function POST(request: NextRequest) {
-  if (!isStripeConfigured()) {
-    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
-  }
-
-  const supabase = getSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const account = await fetchAccountContext(supabase, user.id);
-  if (!account.canAdminAccount) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireStripeAccountAdmin(request);
+  if (auth instanceof NextResponse) return auth;
 
   let body: CheckoutBody;
   try {
@@ -49,7 +32,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "planTemplateId is required" }, { status: 400 });
   }
 
-  const { data: plan, error: planError } = await supabase
+  const { data: plan, error: planError } = await auth.supabase
     .from("plan_templates")
     .select("*")
     .eq("id", planTemplateId)
@@ -77,7 +60,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const accountOwnerId = account.accountOwnerId;
+  const accountOwnerId = auth.account.accountOwnerId;
   const admin = getSupabaseAdminForStripe();
   const stripe = getStripeClient();
   const origin = getStripeAppOrigin();
@@ -120,12 +103,19 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const successUrl = auth.isMobileClient
+    ? `${origin}/mobile/billing-return?checkout=success&session_id={CHECKOUT_SESSION_ID}`
+    : `${origin}/account?tab=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = auth.isMobileClient
+    ? `${origin}/mobile/billing-return?checkout=cancel`
+    : `${origin}/account?tab=billing&checkout=cancel`;
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${origin}/account?tab=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/account?tab=billing&checkout=cancel`,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
     client_reference_id: accountOwnerId,
     subscription_data: {
       metadata: {

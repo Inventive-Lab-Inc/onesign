@@ -22,10 +22,11 @@ export async function getRouteHandlerBearerAuth(
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
 
+  // Pass the JWT explicitly — more reliable than relying on global headers alone.
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser(token);
   if (error || !user) {
     return { error: "Unauthorized", status: 401 };
   }
