@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { Website, WebsiteSourceType } from "@signage/types";
-import { getRouteHandlerStaffAuth } from "@/lib/auth/route-handler-staff";
+import { getRouteHandlerClientAuth } from "@/lib/auth/route-handler-client";
 import { resolveDataOwnerId } from "@/lib/auth/resolve-data-owner";
 import { buildWebsitePlaybackUrl, normalizeWebsiteUrl } from "@/lib/website-playback";
 
@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 
 type WebsiteCreateBody = {
   ownerId?: string;
+  workspaceId?: string;
   name?: string;
   sourceType?: WebsiteSourceType;
   url?: string;
@@ -15,7 +16,7 @@ type WebsiteCreateBody = {
 };
 
 export async function POST(request: NextRequest) {
-  const ctx = await getRouteHandlerStaffAuth();
+  const ctx = await getRouteHandlerClientAuth(request);
   if (!ctx.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
     .insert({
       id: websiteId,
       owner_id: ownerId,
+      workspace_id: body.workspaceId?.trim() || null,
       name,
       source_type: sourceType,
       url,

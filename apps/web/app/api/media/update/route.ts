@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { Media } from "@signage/types";
-import { getRouteHandlerStaffAuth } from "@/lib/auth/route-handler-staff";
+import { getRouteHandlerClientAuth } from "@/lib/auth/route-handler-client";
 import { resolveDataOwnerId } from "@/lib/auth/resolve-data-owner";
 import { fetchAccountOwnerId } from "@/lib/workspace/account-context";
 
@@ -43,7 +43,7 @@ function parseOptionalTimestamp(value: unknown): string | null | undefined {
 }
 
 export async function PATCH(request: NextRequest) {
-  const ctx = await getRouteHandlerStaffAuth();
+  const ctx = await getRouteHandlerClientAuth(request);
   if (!ctx.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

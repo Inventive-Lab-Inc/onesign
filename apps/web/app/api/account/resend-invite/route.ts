@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getRouteHandlerAccountAdminAuth } from "@/lib/auth/route-handler-account-admin";
+import { getRouteHandlerAccountAdminClientAuth } from "@/lib/auth/route-handler-account-admin-client";
 import { sendAccountMemberInviteEmail } from "@/lib/auth/send-account-invite-email";
 import { InviteUserError } from "@/lib/auth/invite-user";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  const { user, canAdminAccount } = await getRouteHandlerAccountAdminAuth();
+  const { user, canAdminAccount } = await getRouteHandlerAccountAdminClientAuth(request);
   if (!user || !canAdminAccount) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

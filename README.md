@@ -7,7 +7,8 @@ AbleSign-style digital signage: **Next.js web dashboard**, **Android TV player**
 | Path | Description |
 |------|-------------|
 | `apps/web` | Next.js 14 (App Router), Tailwind, shadcn-style UI, Zustand, Supabase |
-| `apps/android` | Kotlin, Jetpack Compose, Media3 ExoPlayer, Retrofit, Room |
+| `apps/android` | Kotlin TV **player** (Jetpack Compose, Media3 ExoPlayer) |
+| `apps/mobile` | Flutter **client console** (iOS + Android) — no admin |
 | `packages/types` | Shared domain types |
 | `packages/database` | SQL migrations + Supabase notes |
 
@@ -34,9 +35,20 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Quick start (Android)
+## Quick start (Android TV player)
 
 See `apps/android/README.md`. Use **Supabase Anonymous Auth** on the TV so Row Level Security and Realtime work without embedding a service role key.
+
+## Quick start (Flutter client console)
+
+Client-only mobile console (`apps/mobile`). First allow macOS Gatekeeper for the Homebrew Dart SDK, then:
+
+```bash
+./scripts/bootstrap-mobile.sh
+cd apps/mobile && flutter run
+```
+
+See `apps/mobile/README.md`.
 
 ## Pairing model (MVP)
 

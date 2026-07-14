@@ -3,7 +3,7 @@ import type { Media } from "@signage/types";
 import { MAX_UPLOAD_FILE_BYTES } from "@/lib/plan-quota";
 import { inferMediaFileType, isAcceptedSignageMime, readVideoFileDurationSeconds } from "@/lib/media";
 import { deleteMediaObject, putMediaObject } from "@/lib/object-storage/server";
-import { getRouteHandlerStaffAuth } from "@/lib/auth/route-handler-staff";
+import { getRouteHandlerClientAuth } from "@/lib/auth/route-handler-client";
 import { resolveDataOwnerId } from "@/lib/auth/resolve-data-owner";
 import { fetchAccountOwnerId } from "@/lib/workspace/account-context";
 import { isTrialExpired } from "@/lib/trial";
@@ -16,7 +16,7 @@ const REPLACE_RATE_LIMIT = 30;
 const REPLACE_RATE_WINDOW_MS = 60_000;
 
 export async function POST(request: NextRequest) {
-  const ctx = await getRouteHandlerStaffAuth();
+  const ctx = await getRouteHandlerClientAuth(request);
   if (!ctx.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

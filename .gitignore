@@ -24,3 +24,10 @@ captures
 *.apk
 *.aab
 *.tsbuildinfo
+
+# Flutter (apps/mobile)
+**/Doc/flutter/
+**/.dart_tool/
+**/ios/Pods/
+**/ios/.symlinks/
+**/android/local.properties

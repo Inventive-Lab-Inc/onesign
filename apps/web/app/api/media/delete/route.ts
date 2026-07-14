@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { deleteMediaObject } from "@/lib/object-storage/server";
-import { getRouteHandlerStaffAuth } from "@/lib/auth/route-handler-staff";
+import { getRouteHandlerClientAuth } from "@/lib/auth/route-handler-client";
 import { resolveDataOwnerId } from "@/lib/auth/resolve-data-owner";
 import { fetchAccountOwnerId } from "@/lib/workspace/account-context";
 import { isTrialExpired } from "@/lib/trial";
@@ -8,7 +8,7 @@ import { isTrialExpired } from "@/lib/trial";
 export const runtime = "nodejs";
 
 export async function DELETE(request: NextRequest) {
-  const ctx = await getRouteHandlerStaffAuth();
+  const ctx = await getRouteHandlerClientAuth(request);
   if (!ctx.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

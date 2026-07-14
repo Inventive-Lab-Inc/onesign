@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { Website } from "@signage/types";
-import { getRouteHandlerStaffAuth } from "@/lib/auth/route-handler-staff";
+import { getRouteHandlerClientAuth } from "@/lib/auth/route-handler-client";
 import { resolveDataOwnerId } from "@/lib/auth/resolve-data-owner";
 import { putMediaObject } from "@/lib/object-storage/server";
 import { buildWebsitePlaybackUrl } from "@/lib/website-playback";
@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 const MAX_HTML_FILE_BYTES = 5 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
-  const ctx = await getRouteHandlerStaffAuth();
+  const ctx = await getRouteHandlerClientAuth(request);
   if (!ctx.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

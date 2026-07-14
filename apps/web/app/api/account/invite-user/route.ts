@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { WorkspacePermission, WorkspaceRole } from "@signage/types";
-import { getRouteHandlerAccountAdminAuth } from "@/lib/auth/route-handler-account-admin";
+import { getRouteHandlerAccountAdminClientAuth } from "@/lib/auth/route-handler-account-admin-client";
 import { sendAccountMemberInviteEmail } from "@/lib/auth/send-account-invite-email";
 import { InviteUserError } from "@/lib/auth/invite-user";
 import { friendlyWorkspaceError } from "@/lib/workspace/error-messages";
@@ -14,7 +14,7 @@ type WorkspaceRolePayload = {
 };
 
 export async function POST(request: NextRequest) {
-  const { supabase, user, canAdminAccount } = await getRouteHandlerAccountAdminAuth();
+  const { supabase, user, canAdminAccount } = await getRouteHandlerAccountAdminClientAuth(request);
   if (!user || !canAdminAccount) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
