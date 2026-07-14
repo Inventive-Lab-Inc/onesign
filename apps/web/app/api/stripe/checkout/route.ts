@@ -104,10 +104,10 @@ export async function POST(request: NextRequest) {
   }
 
   const successUrl = auth.isMobileClient
-    ? `onesign://billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`
+    ? `${origin}/mobile/billing-return?checkout=success&session_id={CHECKOUT_SESSION_ID}`
     : `${origin}/account?tab=billing&checkout=success&session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = auth.isMobileClient
-    ? `onesign://billing?checkout=cancel`
+    ? `${origin}/mobile/billing-return?checkout=cancel`
     : `${origin}/account?tab=billing&checkout=cancel`;
 
   const session = await stripe.checkout.sessions.create({

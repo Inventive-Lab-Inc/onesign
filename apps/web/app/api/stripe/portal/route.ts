@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   const stripe = getStripeClient();
   const origin = getStripeAppOrigin();
   const returnUrl = auth.isMobileClient
-    ? `onesign://billing?checkout=portal`
+    ? `${origin}/mobile/billing-return?checkout=portal`
     : `${origin}/account?tab=billing`;
 
   const session = await stripe.billingPortal.sessions.create({
