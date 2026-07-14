@@ -179,7 +179,7 @@ class _BillingPageState extends ConsumerState<BillingPage>
       if (!mounted) return;
 
       // Existing subscriber: plan already changed server-side (prorated).
-      if (start.upgraded) {
+      if (start.upgraded || _isImmediateBillingReturn(start.checkoutUrl)) {
         _handledCheckoutToast = false;
         await _syncAfterReturn();
         if (!mounted) return;
@@ -189,7 +189,7 @@ class _BillingPageState extends ConsumerState<BillingPage>
 
       final checkoutUrl = start.checkoutUrl;
       if (checkoutUrl == null) {
-        throw Exception('Checkout URL missing');
+        throw Exception('Could not start plan change');
       }
 
       final result = await openBillingSession(context, checkoutUrl);
@@ -207,6 +207,13 @@ class _BillingPageState extends ConsumerState<BillingPage>
     } finally {
       if (mounted) setState(() => _busyPlanId = '');
     }
+  }
+
+  bool _isImmediateBillingReturn(Uri? url) {
+    if (url == null) return false;
+    return url.path.contains('/mobile/billing-return') ||
+        (url.path.contains('/account') &&
+            url.queryParameters['checkout'] == 'success');
   }
 
   Future<void> _openPortal() async {

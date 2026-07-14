@@ -142,6 +142,9 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         upgraded: true,
+        // Also provide `url` so older mobile builds still open the return page
+        // instead of failing with "Checkout URL missing".
+        url: `${origin}${successPath}`,
         redirectUrl: `${origin}${successPath}`,
         subscriptionId: updated.id,
         status: updated.status,

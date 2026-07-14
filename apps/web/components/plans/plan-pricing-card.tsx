@@ -173,12 +173,21 @@ function PlanPricingCardActionButton({
 
       // Existing subscriber: plan changed in Stripe (prorated), no Checkout page.
       if (payload.upgraded) {
-        window.location.href = payload.redirectUrl || "/account?tab=billing&checkout=success";
+        window.location.href = payload.redirectUrl || payload.url || "/account?tab=billing&checkout=success";
         return;
       }
 
       if (!payload.url) {
         throw new Error(payload.error || "Checkout failed");
+      }
+
+      // In-place switch may return our billing-return URL instead of Stripe Checkout.
+      if (
+        payload.url.includes("/mobile/billing-return") ||
+        (payload.url.includes("/account") && payload.url.includes("checkout=success"))
+      ) {
+        window.location.href = payload.url;
+        return;
       }
 
       window.location.href = payload.url;

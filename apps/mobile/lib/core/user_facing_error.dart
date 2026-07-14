@@ -149,8 +149,9 @@ String _fromText(String raw, String fallback) {
   if (text.contains('checkout failed') ||
       text.contains('billing portal failed') ||
       text.contains('checkout url missing') ||
-      text.contains('billing portal url missing')) {
-    return 'Couldn’t open billing. Please try again.';
+      text.contains('billing portal url missing') ||
+      text.contains('could not start plan change')) {
+    return 'Couldn’t change your plan. Please try again.';
   }
   if (text.contains('permission') ||
       text.contains('unauthorized') ||

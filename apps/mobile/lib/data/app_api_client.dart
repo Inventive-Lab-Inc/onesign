@@ -146,13 +146,21 @@ class AppApiClient {
       throw Exception(_stripeApiMessage(body, response.statusCode, 'Checkout failed'));
     }
 
-    if (body['upgraded'] == true) {
+    final upgraded = body['upgraded'] == true || body['upgraded']?.toString() == 'true';
+    if (upgraded) {
       return const CheckoutStartResult.upgraded();
     }
 
     final url = body['url']?.toString();
     if (url == null || url.isEmpty) {
-      throw Exception('Checkout URL missing');
+      // In-place upgrade responses may only include redirectUrl.
+      final redirect = body['redirectUrl']?.toString();
+      if (redirect != null && redirect.isNotEmpty) {
+        return const CheckoutStartResult.upgraded();
+      }
+      throw Exception(
+        _stripeApiMessage(body, response.statusCode, 'Could not start plan change'),
+      );
     }
     return CheckoutStartResult.checkout(Uri.parse(url));
   }

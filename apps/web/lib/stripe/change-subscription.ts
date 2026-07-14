@@ -49,6 +49,9 @@ export async function findLiveSubscription(
 /**
  * Change an existing subscription to a new catalog price (prorated).
  * Preferred path for upgrades/downgrades — avoids a second Checkout subscription.
+ *
+ * Stripe is updated first. Profile sync is best-effort afterward so a transient
+ * DB error does not leave the client thinking Checkout failed after Stripe already moved.
  */
 export async function changeSubscriptionPrice(params: {
   stripe: Stripe;
@@ -66,23 +69,36 @@ export async function changeSubscriptionPrice(params: {
   }
 
   const currentPriceId = typeof item.price === "string" ? item.price : item.price?.id;
-  if (currentPriceId === priceId) {
-    await syncSubscriptionForUser(stripe, admin, userId, customerId, subscription);
-    return subscription;
+  let updated = subscription;
+
+  if (currentPriceId !== priceId) {
+    updated = await stripe.subscriptions.update(subscription.id, {
+      items: [{ id: item.id, price: priceId }],
+      proration_behavior: "create_prorations",
+      cancel_at_period_end: false,
+      metadata: {
+        ...(subscription.metadata ?? {}),
+        onesign_user_id: userId,
+        plan_template_id: planTemplateId,
+      },
+    });
+  } else {
+    updated = await stripe.subscriptions.update(subscription.id, {
+      cancel_at_period_end: false,
+      metadata: {
+        ...(subscription.metadata ?? {}),
+        onesign_user_id: userId,
+        plan_template_id: planTemplateId,
+      },
+    });
   }
 
-  const updated = await stripe.subscriptions.update(subscription.id, {
-    items: [{ id: item.id, price: priceId }],
-    proration_behavior: "create_prorations",
-    cancel_at_period_end: false,
-    metadata: {
-      ...(subscription.metadata ?? {}),
-      onesign_user_id: userId,
-      plan_template_id: planTemplateId,
-    },
-  });
+  try {
+    await syncSubscriptionForUser(stripe, admin, userId, customerId, updated);
+  } catch (error) {
+    console.error("[stripe] profile sync after plan change", error);
+  }
 
-  await syncSubscriptionForUser(stripe, admin, userId, customerId, updated);
   return updated;
 }
 
