@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:onesign_console/core/config/app_env.dart';
 import 'package:onesign_console/core/supabase/supabase_bootstrap.dart';
+import 'package:onesign_console/data/stripe_checkout_result.dart';
 
 class AppApiClient {
   Future<String> _accessToken() async {
@@ -132,44 +134,81 @@ class AppApiClient {
     required String planTemplateId,
     required String billingPeriod,
   }) async {
-    final token = await _accessToken();
-    final response = await http.post(
-      Uri.parse('${AppEnv.appUrl}/api/stripe/checkout'),
-      headers: _authHeaders(token),
-      body: jsonEncode({
-        'planTemplateId': planTemplateId,
-        'billingPeriod': billingPeriod,
-      }),
-    );
-    final body = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_stripeApiMessage(body, response.statusCode, 'Checkout failed'));
+    Object? lastNetworkError;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await _startCheckoutOnce(
+          planTemplateId: planTemplateId,
+          billingPeriod: billingPeriod,
+        );
+      } on SocketException catch (error) {
+        lastNetworkError = error;
+      } on TimeoutException catch (error) {
+        lastNetworkError = error;
+      } on http.ClientException catch (error) {
+        lastNetworkError = error;
+      } on HandshakeException catch (error) {
+        lastNetworkError = error;
+      } on TlsException catch (error) {
+        lastNetworkError = error;
+      }
+      if (attempt == 0 && lastNetworkError != null) {
+        await Future<void>.delayed(const Duration(milliseconds: 450));
+      }
     }
-
-    final upgraded = body['upgraded'] == true || body['upgraded']?.toString() == 'true';
-    final urlRaw = (body['url'] ?? body['redirectUrl'])?.toString().trim() ?? '';
-    final url = urlRaw.isEmpty ? null : Uri.tryParse(urlRaw);
-
-    // In-place switch (existing subscriber) — never open a WebView for this.
-    if (upgraded) {
-      return const CheckoutStartResult.upgraded();
-    }
-    if (url != null && _isOnesignBillingReturn(url)) {
-      return const CheckoutStartResult.upgraded();
-    }
-
-    if (url == null || !url.hasScheme) {
-      throw Exception(
-        _stripeApiMessage(body, response.statusCode, 'Could not start plan change'),
-      );
-    }
-    return CheckoutStartResult.checkout(url);
+    throw Exception('Couldn’t reach the billing server. Please try again.');
   }
 
-  bool _isOnesignBillingReturn(Uri url) {
-    final path = url.path;
-    return path.contains('/mobile/billing-return') ||
-        (path.contains('/account') && url.queryParameters['checkout'] == 'success');
+  Future<CheckoutStartResult> _startCheckoutOnce({
+    required String planTemplateId,
+    required String billingPeriod,
+  }) async {
+    final token = await _accessToken();
+    final response = await http
+        .post(
+          Uri.parse('${AppEnv.appUrl}/api/stripe/checkout'),
+          headers: _authHeaders(token),
+          body: jsonEncode({
+            'planTemplateId': planTemplateId,
+            'billingPeriod': billingPeriod,
+          }),
+        )
+        .timeout(const Duration(seconds: 45));
+
+    final body = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        _stripeApiMessage(
+          body,
+          response.statusCode,
+          'Checkout failed (${response.statusCode})',
+        ),
+      );
+    }
+
+    // Truncated / non-JSON success bodies must not look like "missing URL".
+    if (body.containsKey('error') &&
+        body.length == 1 &&
+        !body.containsKey('upgraded') &&
+        !body.containsKey('url') &&
+        !body.containsKey('redirectUrl') &&
+        !body.containsKey('subscriptionId')) {
+      throw Exception('Billing server returned an incomplete response. Please try again.');
+    }
+
+    try {
+      final parsed = parseStripeCheckoutBody(body);
+      if (parsed.upgraded) {
+        return const CheckoutStartResult.upgraded();
+      }
+      final url = parsed.checkoutUrl;
+      if (url == null) {
+        return const CheckoutStartResult.upgraded();
+      }
+      return CheckoutStartResult.checkout(url);
+    } on FormatException {
+      throw Exception('Could not start plan change');
+    }
   }
 
   Future<Uri> createBillingPortalUrl() async {

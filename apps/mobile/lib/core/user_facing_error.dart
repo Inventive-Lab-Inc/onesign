@@ -81,11 +81,56 @@ void showErrorSnackBar(BuildContext context, Object error) {
 /// Billing / plan-change UI — never collapse to the generic "Something went wrong".
 void showBillingErrorSnackBar(BuildContext context, Object error) {
   if (isUserCanceledAction(error) || !context.mounted) return;
-  final message = userFacingError(
+  final message = billingFacingError(error);
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+
+/// Prefer the real billing/API failure over the generic fallback.
+String billingFacingError(Object error) {
+  final cleaned = error
+      .toString()
+      .replaceFirst(RegExp(r'^Exception:\s*'), '')
+      .replaceFirst(RegExp(r'^Bad state:\s*'), '')
+      .replaceFirst(RegExp(r'^StateError:\s*'), '')
+      .replaceFirst(RegExp(r'^FormatException:\s*'), '')
+      .replaceFirst(RegExp(r'^ClientException:\s*'), '')
+      .replaceFirst(RegExp(r'^SocketException:\s*'), '')
+      .replaceFirst(RegExp(r'^HandshakeException:\s*'), '')
+      .replaceFirst(RegExp(r'^TlsException:\s*'), '')
+      .replaceFirst(RegExp(r'^TimeoutException:\s*'), '')
+      .replaceFirst(RegExp(r'^HttpException:\s*'), '')
+      .trim();
+  final text = cleaned.toLowerCase();
+
+  if (text.contains('socket') ||
+      text.contains('failed host lookup') ||
+      text.contains('network is unreachable') ||
+      text.contains('connection refused') ||
+      text.contains('connection closed') ||
+      text.contains('connection reset') ||
+      text.contains('software caused connection abort') ||
+      text.contains('handshake') ||
+      text.contains('certificate') ||
+      text.contains('timed out') ||
+      text.contains('timeout') ||
+      text.contains('couldn’t reach the billing server') ||
+      text.contains('could not reach the billing server')) {
+    return 'Couldn’t reach the billing server. Please try again.';
+  }
+
+  if (cleaned.isNotEmpty &&
+      cleaned.length <= 160 &&
+      !cleaned.contains('package:') &&
+      !cleaned.contains('.dart') &&
+      !text.contains('stacktrace') &&
+      !text.startsWith('{')) {
+    return cleaned;
+  }
+
+  return userFacingError(
     error,
     fallback: 'Couldn’t change your plan. Please try again.',
   );
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
 String _authMessage(AuthException error) {

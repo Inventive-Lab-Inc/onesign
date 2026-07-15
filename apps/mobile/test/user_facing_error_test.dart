@@ -61,4 +61,20 @@ void main() {
     expect(message, 'Couldn’t change your plan. Please try again.');
     expect(message.contains('Something went wrong'), isFalse);
   });
+
+  test('billingFacingError maps connection failures clearly', () {
+    expect(
+      billingFacingError(
+        Exception('ClientException: Connection closed before full header was received'),
+      ),
+      'Couldn’t reach the billing server. Please try again.',
+    );
+  });
+
+  test('billingFacingError keeps short API errors', () {
+    expect(
+      billingFacingError(Exception('No such payment method')),
+      'No such payment method',
+    );
+  });
 }

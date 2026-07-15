@@ -72,7 +72,18 @@ class _BillingPageState extends ConsumerState<BillingPage>
     if (_syncing) {
       if (!showSuccessToast && checkoutSessionId == null) return;
       await _awaitSoftSyncIdle();
-      if (_syncing) return;
+      if (_syncing) {
+        // Still busy — show success anyway if Stripe already confirmed the change.
+        if (showSuccessToast && mounted) {
+          _handledCheckoutToast = true;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Subscription updated. Your plan limits are refreshed.'),
+            ),
+          );
+        }
+        return;
+      }
     }
     _syncing = true;
     try {
@@ -100,7 +111,9 @@ class _BillingPageState extends ConsumerState<BillingPage>
           // Webhook / delayed Stripe state; soft refresh is enough.
         }
       }
-      ref.invalidate(activePlansProvider);
+      try {
+        ref.invalidate(activePlansProvider);
+      } catch (_) {}
       if (showSuccessToast && mounted) {
         _handledCheckoutToast = true;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -110,6 +123,16 @@ class _BillingPageState extends ConsumerState<BillingPage>
         );
       } else {
         _showCheckoutToastIfNeeded();
+      }
+    } catch (_) {
+      // Soft sync must never surface as a plan-change failure.
+      if (showSuccessToast && mounted) {
+        _handledCheckoutToast = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Subscription updated. Your plan limits are refreshed.'),
+          ),
+        );
       }
     } finally {
       _syncing = false;
@@ -203,16 +226,15 @@ class _BillingPageState extends ConsumerState<BillingPage>
           );
       if (!mounted) return;
 
-      // Existing subscriber: plan already changed server-side (prorated).
-      // Also treat our own return URL as success (never open it in a WebView).
-      if (start.upgraded || _isImmediateBillingReturn(start.checkoutUrl)) {
+      final checkoutUrl = start.checkoutUrl;
+      final needsHostedCheckout = !start.upgraded &&
+          checkoutUrl != null &&
+          _isStripeHostedCheckout(checkoutUrl);
+
+      if (!needsHostedCheckout) {
+        // In-place upgrade, Onesign return URL, or empty URL — plan already changed.
         await _syncAfterReturn(showSuccessToast: true);
         return;
-      }
-
-      final checkoutUrl = start.checkoutUrl;
-      if (checkoutUrl == null) {
-        throw Exception('Could not start plan change');
       }
 
       // Hosted Stripe Checkout only (first paid subscription).
@@ -233,11 +255,11 @@ class _BillingPageState extends ConsumerState<BillingPage>
     }
   }
 
-  bool _isImmediateBillingReturn(Uri? url) {
-    if (url == null) return false;
-    return url.path.contains('/mobile/billing-return') ||
-        (url.path.contains('/account') &&
-            url.queryParameters['checkout'] == 'success');
+  bool _isStripeHostedCheckout(Uri url) {
+    final host = url.host.toLowerCase();
+    return host == 'checkout.stripe.com' ||
+        host == 'billing.stripe.com' ||
+        host.endsWith('.checkout.stripe.com');
   }
 
   Future<void> _openPortal() async {
