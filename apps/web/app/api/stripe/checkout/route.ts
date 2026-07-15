@@ -10,7 +10,11 @@ import {
 } from "@/lib/stripe/change-subscription";
 import { resolveStripePriceId } from "@/lib/stripe/plan-template";
 import { requireStripeAccountAdmin } from "@/lib/stripe/route-auth";
-import { fetchAuthEmail, getSupabaseAdminForStripe } from "@/lib/stripe/subscription-handlers";
+import {
+  fetchAuthEmail,
+  getSupabaseAdminForStripe,
+  syncSubscriptionForUser,
+} from "@/lib/stripe/subscription-handlers";
 
 export const runtime = "nodejs";
 
@@ -18,6 +22,15 @@ type CheckoutBody = {
   planTemplateId?: string;
   billingPeriod?: BillingPeriod;
 };
+
+function stripeErrorMessage(error: unknown): string {
+  if (!error || typeof error !== "object") {
+    return "Failed to create checkout session";
+  }
+  const maybe = error as { message?: string; raw?: { message?: string } };
+  const raw = maybe.raw?.message?.trim() || maybe.message?.trim();
+  return raw && raw.length <= 200 ? raw : "Failed to change subscription. Please try again.";
+}
 
 export async function POST(request: NextRequest) {
   const auth = await requireStripeAccountAdmin(request);
@@ -37,7 +50,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "planTemplateId is required" }, { status: 400 });
   }
 
-  const { data: plan, error: planError } = await auth.supabase
+  const accountOwnerId = auth.account.accountOwnerId;
+  const admin = getSupabaseAdminForStripe();
+  const stripe = getStripeClient();
+  const origin = getStripeAppOrigin();
+
+  // Use service-role for catalog — avoids RLS quirks on Bearer mobile sessions.
+  const { data: plan, error: planError } = await admin
     .from("plan_templates")
     .select("*")
     .eq("id", planTemplateId)
@@ -64,11 +83,6 @@ export async function POST(request: NextRequest) {
       { status: 503 },
     );
   }
-
-  const accountOwnerId = auth.account.accountOwnerId;
-  const admin = getSupabaseAdminForStripe();
-  const stripe = getStripeClient();
-  const origin = getStripeAppOrigin();
 
   const { data: profile, error: profileError } = await admin
     .from("profiles")
@@ -116,7 +130,6 @@ export async function POST(request: NextRequest) {
     : `/account?tab=billing&checkout=cancel`;
 
   try {
-    // Existing subscriber → update the live subscription in place (prorated).
     const live = await findLiveSubscription(
       stripe,
       customerId,
@@ -126,24 +139,31 @@ export async function POST(request: NextRequest) {
     if (live) {
       const updated = await changeSubscriptionPrice({
         stripe,
-        admin,
         userId: accountOwnerId,
-        customerId,
         subscription: live,
         priceId,
         planTemplateId,
       });
-      await cancelOtherActiveSubscriptions({
-        stripe,
-        customerId,
-        keepSubscriptionId: updated.id,
-        userId: accountOwnerId,
-      });
+
+      try {
+        await syncSubscriptionForUser(stripe, admin, accountOwnerId, customerId, updated);
+      } catch (error) {
+        console.error("[stripe/checkout] profile sync after plan change", error);
+      }
+
+      try {
+        await cancelOtherActiveSubscriptions({
+          stripe,
+          customerId,
+          keepSubscriptionId: updated.id,
+          userId: accountOwnerId,
+        });
+      } catch (error) {
+        console.warn("[stripe/checkout] cancel extras", error);
+      }
 
       return NextResponse.json({
         upgraded: true,
-        // Also provide `url` so older mobile builds still open the return page
-        // instead of failing with "Checkout URL missing".
         url: `${origin}${successPath}`,
         redirectUrl: `${origin}${successPath}`,
         subscriptionId: updated.id,
@@ -151,7 +171,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // First paid plan → Stripe Checkout.
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -179,8 +198,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create checkout session";
-    console.error("[stripe/checkout]", message);
+    const message = stripeErrorMessage(error);
+    console.error("[stripe/checkout]", message, error);
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

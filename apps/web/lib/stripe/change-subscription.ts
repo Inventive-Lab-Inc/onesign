@@ -1,6 +1,4 @@
 import type Stripe from "stripe";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { syncSubscriptionForUser } from "@/lib/stripe/subscription-handlers";
 
 const LIVE_STATUSES = new Set<Stripe.Subscription.Status>(["active", "trialing", "past_due"]);
 
@@ -47,59 +45,42 @@ export async function findLiveSubscription(
 }
 
 /**
- * Change an existing subscription to a new catalog price (prorated).
- * Preferred path for upgrades/downgrades — avoids a second Checkout subscription.
- *
- * Stripe is updated first. Profile sync is best-effort afterward so a transient
- * DB error does not leave the client thinking Checkout failed after Stripe already moved.
+ * Change an existing Stripe subscription to a new catalog price (prorated).
+ * Does not write Onesign profiles — caller applies via syncSubscriptionForUser.
  */
 export async function changeSubscriptionPrice(params: {
   stripe: Stripe;
-  admin: SupabaseClient;
   userId: string;
-  customerId: string;
   subscription: Stripe.Subscription;
   priceId: string;
   planTemplateId: string;
 }): Promise<Stripe.Subscription> {
-  const { stripe, admin, userId, customerId, subscription, priceId, planTemplateId } = params;
+  const { stripe, userId, subscription, priceId, planTemplateId } = params;
   const item = subscription.items.data[0];
   if (!item?.id) {
     throw new Error("Subscription has no billable item to update");
   }
 
   const currentPriceId = typeof item.price === "string" ? item.price : item.price?.id;
-  let updated = subscription;
+  const metadata = {
+    ...(subscription.metadata ?? {}),
+    onesign_user_id: userId,
+    plan_template_id: planTemplateId,
+  };
 
-  if (currentPriceId !== priceId) {
-    updated = await stripe.subscriptions.update(subscription.id, {
-      items: [{ id: item.id, price: priceId }],
-      proration_behavior: "create_prorations",
+  if (currentPriceId === priceId) {
+    return stripe.subscriptions.update(subscription.id, {
       cancel_at_period_end: false,
-      metadata: {
-        ...(subscription.metadata ?? {}),
-        onesign_user_id: userId,
-        plan_template_id: planTemplateId,
-      },
-    });
-  } else {
-    updated = await stripe.subscriptions.update(subscription.id, {
-      cancel_at_period_end: false,
-      metadata: {
-        ...(subscription.metadata ?? {}),
-        onesign_user_id: userId,
-        plan_template_id: planTemplateId,
-      },
+      metadata,
     });
   }
 
-  try {
-    await syncSubscriptionForUser(stripe, admin, userId, customerId, updated);
-  } catch (error) {
-    console.error("[stripe] profile sync after plan change", error);
-  }
-
-  return updated;
+  return stripe.subscriptions.update(subscription.id, {
+    items: [{ id: item.id, price: priceId }],
+    proration_behavior: "create_prorations",
+    cancel_at_period_end: false,
+    metadata,
+  });
 }
 
 /**

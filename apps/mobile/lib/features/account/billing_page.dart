@@ -57,16 +57,23 @@ class _BillingPageState extends ConsumerState<BillingPage>
     }
   }
 
-  Future<void> _syncAfterReturn({String? checkoutSessionId}) async {
+  Future<void> _syncAfterReturn({
+    String? checkoutSessionId,
+    bool showSuccessToast = false,
+  }) async {
     if (_syncing) return;
     _syncing = true;
     try {
-      // Refresh first so a customer created during checkout is visible.
-      await ref.read(sessionControllerProvider.notifier).refresh();
+      try {
+        await ref.read(sessionControllerProvider.notifier).refresh();
+      } catch (_) {
+        // Never fail the plan-change UX on a soft profile refresh.
+      }
       final session = ref.read(sessionControllerProvider).valueOrNull;
       final canManage = session != null && _canManageBilling(session);
       final shouldSync = canManage &&
           (checkoutSessionId != null ||
+              showSuccessToast ||
               widget.checkoutResult == 'success' ||
               widget.checkoutResult == 'portal' ||
               session.profile?.hasStripeCustomer == true);
@@ -77,16 +84,21 @@ class _BillingPageState extends ConsumerState<BillingPage>
                 checkoutSessionId: checkoutSessionId,
               );
           await ref.read(sessionControllerProvider.notifier).refresh();
-        } catch (e) {
-          // Surface sync failures after paid checkout; soft-fail otherwise.
-          if (mounted &&
-              (checkoutSessionId != null || widget.checkoutResult == 'success')) {
-            showErrorSnackBar(context, e);
-          }
+        } catch (_) {
+          // Webhook / delayed Stripe state; profile refresh below is enough.
         }
       }
       ref.invalidate(activePlansProvider);
-      _showCheckoutToastIfNeeded();
+      if (showSuccessToast && mounted) {
+        _handledCheckoutToast = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Subscription updated. Your plan limits are refreshed.'),
+          ),
+        );
+      } else {
+        _showCheckoutToastIfNeeded();
+      }
     } finally {
       _syncing = false;
     }
@@ -180,10 +192,7 @@ class _BillingPageState extends ConsumerState<BillingPage>
 
       // Existing subscriber: plan already changed server-side (prorated).
       if (start.upgraded || _isImmediateBillingReturn(start.checkoutUrl)) {
-        _handledCheckoutToast = false;
-        await _syncAfterReturn();
-        if (!mounted) return;
-        GoRouter.of(context).go('/billing?checkout=success');
+        await _syncAfterReturn(showSuccessToast: true);
         return;
       }
 
@@ -199,9 +208,10 @@ class _BillingPageState extends ConsumerState<BillingPage>
         return;
       }
       _handledCheckoutToast = false;
-      await _syncAfterReturn(checkoutSessionId: result.sessionId);
-      if (!mounted) return;
-      GoRouter.of(context).go('/billing?checkout=${result.checkout}');
+      await _syncAfterReturn(
+        checkoutSessionId: result.sessionId,
+        showSuccessToast: result.checkout == 'success',
+      );
     } catch (e) {
       if (mounted) showErrorSnackBar(context, e);
     } finally {
