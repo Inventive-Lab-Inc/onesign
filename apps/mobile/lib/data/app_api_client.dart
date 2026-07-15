@@ -134,24 +134,37 @@ class AppApiClient {
     required String planTemplateId,
     required String billingPeriod,
   }) async {
+    Object? lastError;
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
         return await _startCheckoutOnce(
           planTemplateId: planTemplateId,
           billingPeriod: billingPeriod,
         );
-      } on SocketException {
-        // retry
-      } on TimeoutException {
-        // retry
-      } on http.ClientException {
-        // retry
-      } on HandshakeException {
-        // retry
-      } on TlsException {
-        // retry
+      } on SocketException catch (error) {
+        lastError = error;
+      } on TimeoutException catch (error) {
+        lastError = error;
+      } on http.ClientException catch (error) {
+        lastError = error;
+      } on HandshakeException catch (error) {
+        lastError = error;
+      } on TlsException catch (error) {
+        lastError = error;
       }
       await Future<void>.delayed(const Duration(milliseconds: 450));
+    }
+    final detail = lastError?.toString().toLowerCase() ?? '';
+    if (detail.contains('handshake') ||
+        detail.contains('certificate') ||
+        detail.contains('tls') ||
+        detail.contains('ssl') ||
+        lastError is HandshakeException ||
+        lastError is TlsException) {
+      throw Exception(
+        'Secure connection to billing failed (TLS). '
+        'If you use a VPN or SSL proxy, turn it off or fully restart the debug app.',
+      );
     }
     throw Exception('Couldn’t reach the billing server. Please try again.');
   }

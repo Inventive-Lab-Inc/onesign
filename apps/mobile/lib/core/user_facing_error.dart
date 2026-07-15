@@ -111,10 +111,19 @@ String billingFacingError(Object error) {
       text.contains('software caused connection abort') ||
       text.contains('handshake') ||
       text.contains('certificate') ||
+      text.contains('secure connection to billing failed') ||
       text.contains('timed out') ||
       text.contains('timeout') ||
       text.contains('couldn’t reach the billing server') ||
       text.contains('could not reach the billing server')) {
+    if (text.contains('handshake') ||
+        text.contains('certificate') ||
+        text.contains('tls') ||
+        text.contains('ssl') ||
+        text.contains('secure connection to billing failed')) {
+      return 'Secure connection to billing failed (TLS). '
+          'Turn off VPN/SSL proxy, or fully restart the debug app.';
+    }
     return 'Couldn’t reach the billing server. Please try again.';
   }
 
