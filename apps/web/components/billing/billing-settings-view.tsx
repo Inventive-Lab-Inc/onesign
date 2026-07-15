@@ -196,7 +196,13 @@ export function BillingSettingsView({
 }
 
 function toPricingAction(action: PlanAction): PlanPricingCardAction {
-  if (action.kind === "checkout" && action.planId) {
+  const canCheckout =
+    (action.kind === "checkout" ||
+      action.kind === "upgrade" ||
+      action.kind === "downgrade") &&
+    Boolean(action.planId);
+
+  if (canCheckout && action.planId) {
     return {
       label: action.label,
       checkout: {

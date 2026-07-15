@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Check, Loader2 } from "lucide-react";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { cn } from "@/lib/utils";
 import {
   getPlanDisplayPricing,
@@ -21,6 +22,16 @@ export type PlanPricingCardAction = {
     planId: string;
     billingPeriod: BillingPeriod;
   };
+};
+
+type PreviewResponse = {
+  mode?: "new_checkout" | "plan_switch";
+  copy?: {
+    title: string;
+    bullets: string[];
+    confirmLabel: string;
+  };
+  error?: string;
 };
 
 export function PlanPricingCard({
@@ -124,7 +135,7 @@ export function PlanPricingCard({
         ))}
       </ul>
 
-      <PlanPricingCardActionButton popular={popular} action={action} />
+      <PlanPricingCardActionButton popular={popular} action={action} planName={plan.name} />
     </div>
   );
 }
@@ -132,11 +143,20 @@ export function PlanPricingCard({
 function PlanPricingCardActionButton({
   popular,
   action,
+  planName,
 }: {
   popular: boolean;
   action: PlanPricingCardAction;
+  planName: string;
 }) {
   const [loading, setLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState(`Change to ${planName}?`);
+  const [confirmBullets, setConfirmBullets] = useState<string[]>([
+    "We’ll show payment details before anything is charged.",
+  ]);
+  const [confirmLabel, setConfirmLabel] = useState(action.label);
 
   const className = cn(
     "mt-6 flex h-10 w-full items-center justify-center rounded-lg text-sm font-semibold transition-colors",
@@ -146,6 +166,45 @@ function PlanPricingCardActionButton({
         ? "plan-pricing-cta-popular"
         : "plan-pricing-cta-default",
   );
+
+  async function openConfirm() {
+    if (!action.checkout) return;
+    setConfirmOpen(true);
+    setPreviewLoading(true);
+    setConfirmTitle(`Change to ${planName}?`);
+    setConfirmBullets(["Checking what you’ll pay…"]);
+    setConfirmLabel(action.label);
+
+    try {
+      const response = await fetch("/api/stripe/preview-plan-change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planTemplateId: action.checkout.planId,
+          billingPeriod: action.checkout.billingPeriod,
+        }),
+      });
+      const payload = (await response.json()) as PreviewResponse;
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not preview plan change");
+      }
+      if (payload.copy) {
+        setConfirmTitle(payload.copy.title);
+        setConfirmBullets(payload.copy.bullets);
+        setConfirmLabel(payload.copy.confirmLabel);
+      }
+    } catch {
+      // Soft fallback — still explain before charging.
+      setConfirmTitle(`Change to ${planName}?`);
+      setConfirmBullets([
+        "If this is your first payment, you’ll go to the secure payment page.",
+        "If you already pay for a plan, we’ll update it on your saved card (charge or credit for days left this month).",
+      ]);
+      setConfirmLabel(action.label);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   async function startCheckout() {
     if (!action.checkout) return;
@@ -194,6 +253,7 @@ function PlanPricingCardActionButton({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Checkout failed");
       setLoading(false);
+      setConfirmOpen(false);
     }
   }
 
@@ -203,9 +263,37 @@ function PlanPricingCardActionButton({
 
   if (action.checkout) {
     return (
-      <button type="button" className={className} disabled={loading} onClick={() => void startCheckout()}>
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : action.label}
-      </button>
+      <>
+        <button
+          type="button"
+          className={className}
+          disabled={loading}
+          onClick={() => void openConfirm()}
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : action.label}
+        </button>
+        <ConfirmActionDialog
+          open={confirmOpen}
+          title={confirmTitle}
+          description={
+            <ul className="list-disc space-y-1.5 pl-4">
+              {confirmBullets.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          }
+          confirmLabel={previewLoading ? "Checking…" : confirmLabel}
+          confirmingLabel="Working…"
+          isConfirming={loading}
+          onClose={() => {
+            if (!loading) setConfirmOpen(false);
+          }}
+          onConfirm={() => {
+            if (previewLoading || loading) return;
+            void startCheckout();
+          }}
+        />
+      </>
     );
   }
 

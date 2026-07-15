@@ -56,7 +56,7 @@ describe("getPlanAction with Stripe checkout", () => {
     const action = getPlanAction(solo, growth, trialQuota, "monthly");
 
     expect(action).toEqual({
-      kind: "checkout",
+      kind: "upgrade",
       label: "Upgrade to Growth",
       planId: "growth-id",
       billingPeriod: "monthly",

@@ -37,7 +37,7 @@ function paidPlanAction(
 ): PlanAction {
   if (isStripeCheckoutEnabled() && !target.isFree) {
     return {
-      kind: "checkout",
+      kind,
       label,
       planId: target.id,
       billingPeriod,
@@ -134,7 +134,7 @@ export function getPlanAction(
   }
 
   if (!current) {
-    return paidPlanAction(target, billingPeriod, "contact", `Choose ${target.name}`);
+    return paidPlanAction(target, billingPeriod, "checkout", `Choose ${target.name}`);
   }
 
   if (target.deviceLimit > current.deviceLimit) {

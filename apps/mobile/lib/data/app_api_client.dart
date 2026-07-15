@@ -259,6 +259,52 @@ class AppApiClient {
     }
   }
 
+  /// Loads plain-language confirm copy before checkout / plan switch.
+  Future<PlanChangeConfirmCopy> previewPlanChange({
+    required String planTemplateId,
+    required String billingPeriod,
+  }) async {
+    final token = await _accessToken();
+    final response = await http
+        .post(
+          Uri.parse('${AppEnv.appUrl}/api/stripe/preview-plan-change'),
+          headers: _authHeaders(token),
+          body: jsonEncode({
+            'planTemplateId': planTemplateId,
+            'billingPeriod': billingPeriod,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+    final body = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        _stripeApiMessage(body, response.statusCode, 'Could not preview plan change'),
+      );
+    }
+    final copy = body['copy'];
+    if (copy is Map) {
+      final title = copy['title']?.toString().trim() ?? '';
+      final confirmLabel = copy['confirmLabel']?.toString().trim() ?? '';
+      final bulletsRaw = copy['bullets'];
+      final bullets = bulletsRaw is List
+          ? bulletsRaw
+              .map((e) => e.toString())
+              .where((e) => e.trim().isNotEmpty)
+              .toList()
+          : <String>[];
+      if (title.isNotEmpty && bullets.isNotEmpty) {
+        return PlanChangeConfirmCopy(
+          title: title,
+          bullets: bullets,
+          confirmLabel: confirmLabel.isEmpty ? 'Continue' : confirmLabel,
+        );
+      }
+    }
+    return PlanChangeConfirmCopy.fallback(
+      planName: body['targetPlanName']?.toString(),
+    );
+  }
+
   String _stripeApiMessage(
     Map<String, dynamic> body,
     int statusCode,
@@ -290,6 +336,32 @@ class AppApiClient {
       return {'error': raw};
     }
   }
+}
+
+/// Plain-language confirm sheet before paying or switching plans.
+class PlanChangeConfirmCopy {
+  const PlanChangeConfirmCopy({
+    required this.title,
+    required this.bullets,
+    required this.confirmLabel,
+  });
+
+  factory PlanChangeConfirmCopy.fallback({String? planName}) {
+    final raw = planName?.trim() ?? '';
+    final name = raw.isEmpty ? 'this plan' : raw;
+    return PlanChangeConfirmCopy(
+      title: 'Change to $name?',
+      bullets: const [
+        'If this is your first payment, you’ll go to the secure payment page.',
+        'If you already pay for a plan, we’ll update it on your saved card (charge or credit for days left this month).',
+      ],
+      confirmLabel: 'Continue',
+    );
+  }
+
+  final String title;
+  final List<String> bullets;
+  final String confirmLabel;
 }
 
 /// Result of POST /api/stripe/checkout.

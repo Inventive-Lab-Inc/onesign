@@ -6,6 +6,7 @@ import 'package:onesign_console/core/models/console_models.dart';
 import 'package:onesign_console/core/theme/brand.dart';
 import 'package:onesign_console/core/theme/responsive.dart';
 import 'package:onesign_console/core/user_facing_error.dart';
+import 'package:onesign_console/features/account/plan_change_confirm_sheet.dart';
 import 'package:onesign_console/state/providers.dart';
 import 'package:onesign_console/ui/common_widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -217,6 +218,15 @@ class _BillingPageState extends ConsumerState<BillingPage>
   }
 
   Future<void> _openCheckout(PlanTemplateInfo plan) async {
+    final confirmed = await showPlanChangeConfirmSheet(
+      context: context,
+      loadCopy: () => ref.read(appApiClientProvider).previewPlanChange(
+            planTemplateId: plan.id,
+            billingPeriod: _billingPeriod,
+          ),
+    );
+    if (!confirmed || !mounted) return;
+
     setState(() => _busyPlanId = plan.id);
     try {
       await _awaitSoftSyncIdle();
