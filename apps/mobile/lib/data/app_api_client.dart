@@ -134,27 +134,24 @@ class AppApiClient {
     required String planTemplateId,
     required String billingPeriod,
   }) async {
-    Object? lastNetworkError;
     for (var attempt = 0; attempt < 2; attempt++) {
       try {
         return await _startCheckoutOnce(
           planTemplateId: planTemplateId,
           billingPeriod: billingPeriod,
         );
-      } on SocketException catch (error) {
-        lastNetworkError = error;
-      } on TimeoutException catch (error) {
-        lastNetworkError = error;
-      } on http.ClientException catch (error) {
-        lastNetworkError = error;
-      } on HandshakeException catch (error) {
-        lastNetworkError = error;
-      } on TlsException catch (error) {
-        lastNetworkError = error;
+      } on SocketException {
+        // retry
+      } on TimeoutException {
+        // retry
+      } on http.ClientException {
+        // retry
+      } on HandshakeException {
+        // retry
+      } on TlsException {
+        // retry
       }
-      if (attempt == 0 && lastNetworkError != null) {
-        await Future<void>.delayed(const Duration(milliseconds: 450));
-      }
+      await Future<void>.delayed(const Duration(milliseconds: 450));
     }
     throw Exception('Couldn’t reach the billing server. Please try again.');
   }
