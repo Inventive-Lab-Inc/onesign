@@ -51,9 +51,7 @@ class AccountPage extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Plan'),
                   subtitle: ref.watch(activePlansProvider).when(
-                        loading: () => Text(
-                          profile?.isOnTrial == true ? '…' : '…',
-                        ),
+                        loading: () => const Text('…'),
                         error: (_, __) => Text(
                           displayAccountPlanLabel(
                             profile: profile,
