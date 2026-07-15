@@ -285,6 +285,7 @@ function PlanPricingCardActionButton({
           confirmLabel={previewLoading ? "Checking…" : confirmLabel}
           confirmingLabel="Working…"
           isConfirming={loading}
+          confirmDisabled={previewLoading}
           onClose={() => {
             if (!loading) setConfirmOpen(false);
           }}

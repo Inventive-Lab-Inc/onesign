@@ -98,12 +98,13 @@ export async function cancelOtherActiveSubscriptions(params: {
   const { stripe, customerId, keepSubscriptionId, userId } = params;
   const others = await stripe.subscriptions.list({
     customer: customerId,
-    status: "active",
+    status: "all",
     limit: 20,
   });
 
   for (const sub of others.data) {
     if (sub.id === keepSubscriptionId) continue;
+    if (!LIVE_STATUSES.has(sub.status)) continue;
     const owner = sub.metadata?.onesign_user_id?.trim();
     if (owner && owner !== userId) continue;
     try {

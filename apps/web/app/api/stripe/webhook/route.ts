@@ -11,6 +11,7 @@ import {
   findUserIdByStripeCustomerId,
   findUserIdByStripeSubscriptionId,
   getSupabaseAdminForStripe,
+  releaseWebhookEvent,
   revokeSubscriptionFromProfile,
   syncSubscriptionForUser,
 } from "@/lib/stripe/subscription-handlers";
@@ -154,6 +155,8 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("[stripe/webhook]", event.type, error);
+    // Allow Stripe retries — claim-before-process must not permanently drop failures.
+    await releaseWebhookEvent(admin, event.id);
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 

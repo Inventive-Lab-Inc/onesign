@@ -175,6 +175,17 @@ export async function claimWebhookEvent(
   return data === true;
 }
 
+/** Soft-delete claim so Stripe can retry a failed handler. */
+export async function releaseWebhookEvent(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<void> {
+  const { error } = await admin.from("stripe_webhook_events").delete().eq("event_id", eventId);
+  if (error) {
+    console.warn("[stripe] release webhook claim", eventId, error.message);
+  }
+}
+
 export async function fetchAuthEmail(admin: SupabaseClient, userId: string): Promise<string | null> {
   const { data, error } = await admin.auth.admin.getUserById(userId);
   if (error) {

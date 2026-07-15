@@ -26,8 +26,8 @@ String displayAccountPlanLabel({
     return matched.name;
   }
 
-  // Last resort: humanize plan_kind (standard → Standard), never show raw enum.
-  return _titleCase(profile.planKind ?? 'Active');
+  // Never show raw plan_kind ("standard").
+  return '—';
 }
 
 PlanTemplateInfo? matchPlanTemplate(
@@ -46,14 +46,4 @@ PlanTemplateInfo? matchPlanTemplate(
     if (plan.deviceLimit <= profile.deviceLimit) return plan;
   }
   return sorted.isEmpty ? null : sorted.first;
-}
-
-String _titleCase(String raw) {
-  final text = raw.trim();
-  if (text.isEmpty) return 'Active';
-  return text
-      .split(RegExp(r'[\s_]+'))
-      .where((part) => part.isNotEmpty)
-      .map((part) => '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}')
-      .join(' ');
 }

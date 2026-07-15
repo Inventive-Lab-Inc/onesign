@@ -162,6 +162,20 @@ export async function POST(request: NextRequest) {
         console.warn("[stripe/checkout] cancel extras", error);
       }
 
+      const okStatuses = new Set(["active", "trialing", "past_due"]);
+      if (!okStatuses.has(updated.status)) {
+        return NextResponse.json(
+          {
+            error:
+              "Your card needs attention to finish this plan change. Open Manage billing to update payment, then try again.",
+            subscriptionId: updated.id,
+            status: updated.status,
+            upgraded: false,
+          },
+          { status: 402 },
+        );
+      }
+
       return NextResponse.json({
         upgraded: true,
         url: `${origin}${successPath}`,

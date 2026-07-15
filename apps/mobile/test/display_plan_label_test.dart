@@ -65,13 +65,13 @@ void main() {
     );
   });
 
-  test('title-cases raw plan_kind only as last resort', () {
+  test('never shows Standard when catalog is missing', () {
     expect(
       displayAccountPlanLabel(
         profile: _profile(planKind: 'standard', deviceLimit: 99),
         plans: const [],
       ),
-      'Standard',
+      '—',
     );
   });
 }

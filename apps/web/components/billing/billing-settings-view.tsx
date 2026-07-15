@@ -71,22 +71,41 @@ export function BillingSettingsView({
           return;
         }
 
-        const response = await fetch("/api/stripe/sync-subscription", { method: "POST" });
-        const payload = (await response.json()) as { ok?: boolean; error?: string };
-
-        const toastKey = sessionId ? `onesign:checkout-toast:${sessionId}` : null;
-        const showSuccessToast = (message: string) => {
-          if (toastKey && sessionStorage.getItem(toastKey)) return;
-          if (toastKey) sessionStorage.setItem(toastKey, "1");
-          toast.success(message);
+        const response = await fetch("/api/stripe/sync-subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(sessionId ? { checkoutSessionId: sessionId } : {}),
+          }),
+        });
+        const payload = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+          subscriptionId?: string | null;
+          status?: string;
         };
 
-        if (response.ok && payload.ok) {
-          showSuccessToast("Subscription active. Your plan limits have been updated.");
-        } else if (response.ok) {
-          showSuccessToast("Payment received. Your plan limits may take a moment to refresh.");
+        const toastKey = sessionId ? `onesign:checkout-toast:${sessionId}` : null;
+        const showOnce = (kind: "success" | "message" | "error", message: string) => {
+          if (toastKey && sessionStorage.getItem(toastKey)) return;
+          if (toastKey) sessionStorage.setItem(toastKey, "1");
+          if (kind === "success") toast.success(message);
+          else if (kind === "message") toast.message(message);
+          else toast.error(message);
+        };
+
+        if (!response.ok) {
+          showOnce(
+            "error",
+            payload.error || "Payment received, but plan sync failed. Try again or contact support.",
+          );
+        } else if (payload.ok && payload.subscriptionId && payload.status !== "none") {
+          showOnce("success", "Subscription active. Your plan limits have been updated.");
         } else {
-          toast.error(payload.error || "Payment received, but plan sync failed. Try again or contact support.");
+          showOnce(
+            "message",
+            "Payment received. Your plan limits may take a moment to refresh — pull to refresh if needed.",
+          );
         }
       } catch {
         toast.error("Payment received, but plan sync failed. Refresh the page or contact support.");

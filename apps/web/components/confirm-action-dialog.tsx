@@ -13,6 +13,8 @@ interface ConfirmActionDialogProps {
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
   isConfirming?: boolean;
+  /** Soft-disable confirm (e.g. while preview loads) without treating as in-flight. */
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmActionDialog({
@@ -25,6 +27,7 @@ export function ConfirmActionDialog({
   onClose,
   onConfirm,
   isConfirming = false,
+  confirmDisabled = false,
 }: ConfirmActionDialogProps) {
   const titleId = useId();
   const descId = useId();
@@ -39,6 +42,8 @@ export function ConfirmActionDialog({
   }, [open, onClose, isConfirming]);
 
   if (!open) return null;
+
+  const confirmBlocked = isConfirming || confirmDisabled;
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -69,7 +74,7 @@ export function ConfirmActionDialog({
             type="button"
             variant={confirmVariant}
             onClick={() => void onConfirm()}
-            disabled={isConfirming}
+            disabled={confirmBlocked}
           >
             {isConfirming ? confirmingLabel : confirmLabel}
           </Button>
