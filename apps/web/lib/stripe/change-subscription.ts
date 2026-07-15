@@ -46,7 +46,7 @@ export async function findLiveSubscription(
 
 /**
  * Change an existing Stripe subscription to a new catalog price (prorated).
- * Does not write Onesign profiles — caller applies via syncSubscriptionForUser.
+ * Uses allow_incomplete so a proration charge issue doesn't hard-fail the request.
  */
 export async function changeSubscriptionPrice(params: {
   stripe: Stripe;
@@ -79,6 +79,8 @@ export async function changeSubscriptionPrice(params: {
     items: [{ id: item.id, price: priceId }],
     proration_behavior: "create_prorations",
     cancel_at_period_end: false,
+    // Don't fail the whole switch if the immediate proration charge needs a retry.
+    payment_behavior: "allow_incomplete",
     metadata,
   });
 }

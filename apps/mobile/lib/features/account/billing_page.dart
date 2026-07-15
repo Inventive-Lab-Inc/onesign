@@ -57,11 +57,23 @@ class _BillingPageState extends ConsumerState<BillingPage>
     }
   }
 
+  Future<void> _awaitSoftSyncIdle() async {
+    var attempts = 0;
+    while (_syncing && attempts < 40) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      attempts += 1;
+    }
+  }
+
   Future<void> _syncAfterReturn({
     String? checkoutSessionId,
     bool showSuccessToast = false,
   }) async {
-    if (_syncing) return;
+    if (_syncing) {
+      if (!showSuccessToast && checkoutSessionId == null) return;
+      await _awaitSoftSyncIdle();
+      if (_syncing) return;
+    }
     _syncing = true;
     try {
       try {
@@ -85,7 +97,7 @@ class _BillingPageState extends ConsumerState<BillingPage>
               );
           await ref.read(sessionControllerProvider.notifier).refresh();
         } catch (_) {
-          // Webhook / delayed Stripe state; profile refresh below is enough.
+          // Webhook / delayed Stripe state; soft refresh is enough.
         }
       }
       ref.invalidate(activePlansProvider);
@@ -184,6 +196,7 @@ class _BillingPageState extends ConsumerState<BillingPage>
   Future<void> _openCheckout(PlanTemplateInfo plan) async {
     setState(() => _busyPlanId = plan.id);
     try {
+      await _awaitSoftSyncIdle();
       final start = await ref.read(appApiClientProvider).startCheckout(
             planTemplateId: plan.id,
             billingPeriod: _billingPeriod,
@@ -191,6 +204,7 @@ class _BillingPageState extends ConsumerState<BillingPage>
       if (!mounted) return;
 
       // Existing subscriber: plan already changed server-side (prorated).
+      // Also treat our own return URL as success (never open it in a WebView).
       if (start.upgraded || _isImmediateBillingReturn(start.checkoutUrl)) {
         await _syncAfterReturn(showSuccessToast: true);
         return;
@@ -201,19 +215,19 @@ class _BillingPageState extends ConsumerState<BillingPage>
         throw Exception('Could not start plan change');
       }
 
+      // Hosted Stripe Checkout only (first paid subscription).
       final result = await openBillingSession(context, checkoutUrl);
       if (!mounted) return;
       if (result == null) {
         await _syncAfterReturn();
         return;
       }
-      _handledCheckoutToast = false;
       await _syncAfterReturn(
         checkoutSessionId: result.sessionId,
-        showSuccessToast: result.checkout == 'success',
+        showSuccessToast: result.checkout == 'success' || result.checkout == 'portal',
       );
     } catch (e) {
-      if (mounted) showErrorSnackBar(context, e);
+      if (mounted) showBillingErrorSnackBar(context, e);
     } finally {
       if (mounted) setState(() => _busyPlanId = '');
     }
@@ -242,7 +256,7 @@ class _BillingPageState extends ConsumerState<BillingPage>
       if (!mounted) return;
       GoRouter.of(context).go('/billing?checkout=${result.checkout}');
     } catch (e) {
-      if (mounted) showErrorSnackBar(context, e);
+      if (mounted) showBillingErrorSnackBar(context, e);
     } finally {
       if (mounted) setState(() => _portalBusy = false);
     }

@@ -147,22 +147,29 @@ class AppApiClient {
     }
 
     final upgraded = body['upgraded'] == true || body['upgraded']?.toString() == 'true';
+    final urlRaw = (body['url'] ?? body['redirectUrl'])?.toString().trim() ?? '';
+    final url = urlRaw.isEmpty ? null : Uri.tryParse(urlRaw);
+
+    // In-place switch (existing subscriber) — never open a WebView for this.
     if (upgraded) {
       return const CheckoutStartResult.upgraded();
     }
+    if (url != null && _isOnesignBillingReturn(url)) {
+      return const CheckoutStartResult.upgraded();
+    }
 
-    final url = body['url']?.toString();
-    if (url == null || url.isEmpty) {
-      // In-place upgrade responses may only include redirectUrl.
-      final redirect = body['redirectUrl']?.toString();
-      if (redirect != null && redirect.isNotEmpty) {
-        return const CheckoutStartResult.upgraded();
-      }
+    if (url == null || !url.hasScheme) {
       throw Exception(
         _stripeApiMessage(body, response.statusCode, 'Could not start plan change'),
       );
     }
-    return CheckoutStartResult.checkout(Uri.parse(url));
+    return CheckoutStartResult.checkout(url);
+  }
+
+  bool _isOnesignBillingReturn(Uri url) {
+    final path = url.path;
+    return path.contains('/mobile/billing-return') ||
+        (path.contains('/account') && url.queryParameters['checkout'] == 'success');
   }
 
   Future<Uri> createBillingPortalUrl() async {

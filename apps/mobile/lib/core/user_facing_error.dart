@@ -78,6 +78,16 @@ void showErrorSnackBar(BuildContext context, Object error) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
+/// Billing / plan-change UI — never collapse to the generic "Something went wrong".
+void showBillingErrorSnackBar(BuildContext context, Object error) {
+  if (isUserCanceledAction(error) || !context.mounted) return;
+  final message = userFacingError(
+    error,
+    fallback: 'Couldn’t change your plan. Please try again.',
+  );
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+
 String _authMessage(AuthException error) {
   final status = error.statusCode;
   final msg = error.message.toLowerCase();

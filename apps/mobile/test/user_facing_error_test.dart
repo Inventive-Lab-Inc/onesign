@@ -52,4 +52,13 @@ void main() {
       'Error creating checkout session',
     );
   });
+
+  test('billing fallback is used instead of Something went wrong', () {
+    final message = userFacingError(
+      Exception('HttpException: Connection closed before full header was received'),
+      fallback: 'Couldn’t change your plan. Please try again.',
+    );
+    expect(message, 'Couldn’t change your plan. Please try again.');
+    expect(message.contains('Something went wrong'), isFalse);
+  });
 }
