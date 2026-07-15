@@ -19,43 +19,43 @@ const toneStyles: Record<
   {
     fill: string;
     label: string;
-    badge: string;
     ring: string;
     track: string;
     iconSurface: string;
     iconColor: string;
     barTrack: string;
+    caption: string;
   }
 > = {
   ok: {
-    fill: "bg-brand",
-    label: "text-brand-strong",
-    badge: "bg-brand-soft text-brand-strong",
-    ring: "stroke-brand",
-    track: "stroke-brand-faint25",
-    iconSurface: "bg-brand-soft",
-    iconColor: "text-brand-strong",
-    barTrack: "bg-brand-soft",
+    fill: "bg-[var(--dashboard-brand)]",
+    label: "text-[var(--dashboard-brand)]",
+    ring: "stroke-[var(--dashboard-brand)]",
+    track: "stroke-[var(--dashboard-brand)]/20",
+    iconSurface: "bg-[var(--dashboard-brand-soft)]",
+    iconColor: "text-[var(--dashboard-brand)]",
+    barTrack: "bg-[var(--dashboard-brand-muted)]",
+    caption: "text-muted-foreground",
   },
   warn: {
     fill: "dashboard-usage-bar--warn",
     label: "text-amber-800 dark:text-amber-200",
-    badge: "bg-amber-500/15 text-amber-900 dark:text-amber-100",
     ring: "dashboard-usage-ring--warn",
     track: "stroke-amber-500/20",
     iconSurface: "bg-amber-500/12",
     iconColor: "text-amber-700 dark:text-amber-300",
     barTrack: "bg-amber-500/15",
+    caption: "text-amber-800 dark:text-amber-200",
   },
   full: {
     fill: "dashboard-usage-bar--full",
     label: "text-orange-800 dark:text-orange-200",
-    badge: "bg-orange-500/15 text-orange-900 dark:text-orange-100",
     ring: "dashboard-usage-ring--full",
     track: "stroke-orange-500/20",
     iconSurface: "bg-orange-500/12",
     iconColor: "text-orange-700 dark:text-orange-300",
     barTrack: "bg-orange-500/15",
+    caption: "text-orange-800 dark:text-orange-200",
   },
 };
 
@@ -74,16 +74,9 @@ function CircularProgress({
   const offset = circumference - (pct / 100) * circumference;
 
   return (
-    <div className="relative h-[5rem] w-[5rem] shrink-0" aria-hidden>
+    <div className="relative h-[4.75rem] w-[4.75rem] shrink-0" aria-hidden>
       <svg viewBox="0 0 80 80" className="h-full w-full -rotate-90">
-        <circle
-          cx="40"
-          cy="40"
-          r={radius}
-          fill="none"
-          strokeWidth="5"
-          className={styles.track}
-        />
+        <circle cx="40" cy="40" r={radius} fill="none" strokeWidth="5" className={styles.track} />
         <circle
           cx="40"
           cy="40"
@@ -97,7 +90,7 @@ function CircularProgress({
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className={cn("text-lg font-bold tabular-nums tracking-tight", styles.label)}>
+        <span className={cn("text-base font-bold tabular-nums tracking-tight", styles.label)}>
           {pct}%
         </span>
         <span className="sr-only">{label}</span>
@@ -148,57 +141,47 @@ function UsageCard({
 
   return (
     <motion.article
-      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.06, ease: [0.22, 1, 0.36, 1] }}
-      className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm"
+      transition={{ duration: 0.35, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
+      className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm sm:p-6"
       aria-label={`${title} usage ${valueLabel}`}
     >
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 space-y-3.5">
-          <div className="flex items-center gap-3.5">
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex items-center gap-3">
             <div
               className={cn(
-                "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
                 styles.iconSurface,
               )}
             >
-              <Icon className={cn("h-6 w-6", styles.iconColor)} strokeWidth={2} />
+              <Icon className={cn("h-5 w-5", styles.iconColor)} strokeWidth={2} />
             </div>
             <div className="min-w-0">
-              <p className="text-[0.625rem] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+              <p className={cn("text-[0.625rem] font-bold uppercase tracking-[0.14em]", styles.label)}>
                 {title}
               </p>
-              <p
-                className={cn(
-                  "text-[1.375rem] font-bold tabular-nums leading-tight tracking-tight sm:text-2xl",
-                  styles.label,
-                )}
-              >
+              <p className="text-xl font-bold tabular-nums leading-tight tracking-tight text-foreground sm:text-[1.375rem]">
                 {valueLabel}
               </p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <div className={cn("h-2.5 overflow-hidden rounded-full", styles.barTrack)}>
+            <div className={cn("h-1.5 overflow-hidden rounded-full", styles.barTrack)}>
               <motion.div
                 className={cn("h-full rounded-full", styles.fill)}
                 initial={reduceMotion ? false : { width: 0 }}
-                animate={{ width: `${Math.max(pct, pct > 0 ? 4 : 0)}%` }}
-                transition={{ duration: 0.8, delay: 0.12 + index * 0.06, ease: [0.22, 1, 0.36, 1] }}
+                animate={{ width: `${Math.max(pct, pct > 0 ? 3 : 0)}%` }}
+                transition={{ duration: 0.75, delay: 0.1 + index * 0.05, ease: [0.22, 1, 0.36, 1] }}
                 role="progressbar"
                 aria-valuenow={used}
                 aria-valuemin={0}
                 aria-valuemax={limit}
               />
             </div>
-            <p
-              className={cn(
-                "text-[0.6875rem] leading-relaxed",
-                warning ? cn("font-medium", styles.label) : "text-muted-foreground",
-              )}
-            >
+            <p className={cn("text-xs leading-relaxed", warning ? cn("font-medium", styles.caption) : styles.caption)}>
               {warning ?? description}
             </p>
           </div>
@@ -240,36 +223,6 @@ const countCards = [
   },
 ] as const;
 
-const countCardStyles = {
-  primary: {
-    surface: "dashboard-online-card--live",
-    iconSurface: "bg-white text-[var(--dashboard-brand)]",
-    label: "text-white",
-    description: "text-white/65",
-    count: "text-white",
-    liveBadge: "bg-emerald-400 text-[var(--dashboard-brand)] font-bold shadow-sm",
-    liveDot: "bg-[var(--dashboard-brand)]",
-  },
-  primaryMuted: {
-    surface: "dashboard-online-card--muted",
-    iconSurface: "bg-red-500/10 text-red-600 dark:bg-red-500/15 dark:text-red-400",
-    label: "text-foreground",
-    description: "text-muted-foreground",
-    count: "text-red-600 dark:text-red-400",
-    liveBadge: "border border-border/70 bg-muted/50 text-muted-foreground",
-    liveDot: "bg-muted-foreground/50",
-  },
-  soft: {
-    surface: "border-border/80 bg-card",
-    iconSurface: "bg-[var(--dashboard-brand)] text-white",
-    label: "text-foreground",
-    description: "text-muted-foreground",
-    count: "text-[var(--dashboard-brand)]",
-    liveBadge: "bg-brand-soft text-brand-strong",
-    liveDot: "bg-brand",
-  },
-} as const;
-
 function CountCard({
   href,
   label,
@@ -286,72 +239,90 @@ function CountCard({
   description: string;
   count: number;
   icon: typeof Globe;
-  variant: keyof typeof countCardStyles | "primary";
+  variant: "primary" | "soft";
   live: boolean;
   index: number;
   reduceMotion: boolean;
 }) {
+  const isLiveOnline = variant === "primary" && live && count > 0;
   const isMutedOnline = variant === "primary" && live && count === 0;
-  const styleKey = isMutedOnline ? "primaryMuted" : variant === "primary" ? "primary" : "soft";
-  const styles = countCardStyles[styleKey];
 
   return (
     <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: 0.15 + index * 0.06, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.35, delay: 0.08 + index * 0.05, ease: [0.22, 1, 0.36, 1] }}
       className="h-full"
     >
       <Link
         href={href}
         className={cn(
-          "group flex h-full min-h-[8rem] items-center gap-4 rounded-2xl border p-6 shadow-sm transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-faint30 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:gap-5",
-          styles.surface,
+          "group flex h-full min-h-[4.75rem] items-center gap-3.5 rounded-2xl border p-4 shadow-sm transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dashboard-brand)]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:gap-4 sm:p-5",
+          isLiveOnline && "dashboard-online-card--live border-transparent",
+          isMutedOnline && "dashboard-online-card--muted",
+          variant === "soft" && "border-border/80 bg-card",
         )}
       >
         <div
           className={cn(
-            "flex h-14 w-14 shrink-0 items-center justify-center rounded-full sm:h-16 sm:w-16",
-            styles.iconSurface,
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+            isLiveOnline && "bg-white text-[var(--dashboard-brand)]",
+            isMutedOnline && "bg-red-500/10 text-red-600 dark:bg-red-500/15 dark:text-red-400",
+            variant === "soft" && "bg-[var(--dashboard-brand-soft)] text-[var(--dashboard-brand)]",
           )}
         >
-          <Icon className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={2} />
+          <Icon className="h-5 w-5" strokeWidth={2} />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className={cn("text-xl font-bold leading-tight tracking-tight sm:text-[1.375rem]", styles.label)}>
+            <p
+              className={cn(
+                "text-base font-bold leading-tight tracking-tight",
+                isLiveOnline ? "text-white" : "text-foreground",
+              )}
+            >
               {label}
             </p>
             {live ? (
               <span
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold tracking-wide",
-                  styles.liveBadge,
+                  "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[0.6875rem] font-bold tracking-wide",
+                  isLiveOnline && "bg-white/90 text-[var(--dashboard-brand)]",
+                  isMutedOnline && "border border-border/70 bg-muted/50 text-muted-foreground",
                 )}
               >
-                <span className="relative flex h-2 w-2">
-                  {!isMutedOnline ? (
-                    <span
-                      className={cn(
-                        "absolute inline-flex h-full w-full animate-ping rounded-full opacity-50",
-                        styles.liveDot,
-                      )}
-                    />
+                <span className="relative flex h-1.5 w-1.5">
+                  {isLiveOnline ? (
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--dashboard-brand)] opacity-45" />
                   ) : null}
-                  <span className={cn("relative inline-flex h-2 w-2 rounded-full", styles.liveDot)} />
+                  <span
+                    className={cn(
+                      "relative inline-flex h-1.5 w-1.5 rounded-full",
+                      isLiveOnline ? "bg-[var(--dashboard-brand)]" : "bg-muted-foreground/50",
+                    )}
+                  />
                 </span>
                 Live
               </span>
             ) : null}
           </div>
-          <p className={cn("mt-1.5 text-[0.6875rem] leading-snug", styles.description)}>{description}</p>
+          <p
+            className={cn(
+              "mt-0.5 text-xs leading-snug",
+              isLiveOnline ? "text-white/70" : "text-muted-foreground",
+            )}
+          >
+            {description}
+          </p>
         </div>
 
         <p
           className={cn(
-            "shrink-0 self-center text-5xl font-bold tabular-nums leading-none tracking-tight sm:text-6xl",
-            styles.count,
+            "shrink-0 self-center text-4xl font-bold tabular-nums leading-none tracking-tight",
+            isLiveOnline && "text-white",
+            isMutedOnline && "text-red-600 dark:text-red-400",
+            variant === "soft" && "text-foreground",
           )}
         >
           {count}
@@ -387,16 +358,22 @@ export function DashboardStatsSection({
   };
 
   return (
-    <section className="space-y-6" aria-label="Dashboard overview">
-      {showPlanUsage ? (
-        <div className="space-y-3">
-          <div>
-            <p className="text-[0.625rem] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-              Your plan
-            </p>
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">Usage & limits</h2>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2">
+    <section className="space-y-4" aria-label="Usage and limits">
+      <div>
+        <p className="text-[0.625rem] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+          Your plan
+        </p>
+        <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Usage & limits</h2>
+      </div>
+
+      <div
+        className={cn(
+          "grid gap-4",
+          showPlanUsage ? "lg:grid-cols-2 lg:items-stretch lg:gap-5" : "grid-cols-1",
+        )}
+      >
+        {showPlanUsage ? (
+          <div className="flex flex-col gap-4">
             <UsageCard
               variant="screens"
               used={deviceCount}
@@ -412,24 +389,24 @@ export function DashboardStatsSection({
               reduceMotion={!!reduceMotion}
             />
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {countCards.map((card, index) => (
-          <CountCard
-            key={card.key}
-            href={card.href}
-            label={card.label}
-            description={card.description}
-            count={counts[card.key as keyof typeof counts]}
-            icon={card.icon}
-            variant={card.variant}
-            live={card.live}
-            index={index}
-            reduceMotion={!!reduceMotion}
-          />
-        ))}
+        <div className={cn("flex flex-col gap-3", !showPlanUsage && "sm:grid sm:grid-cols-3 sm:gap-4")}>
+          {countCards.map((card, index) => (
+            <CountCard
+              key={card.key}
+              href={card.href}
+              label={card.label}
+              description={card.description}
+              count={counts[card.key as keyof typeof counts]}
+              icon={card.icon}
+              variant={card.variant}
+              live={card.live}
+              index={index}
+              reduceMotion={!!reduceMotion}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );

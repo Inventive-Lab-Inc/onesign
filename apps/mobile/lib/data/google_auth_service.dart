@@ -1,7 +1,9 @@
+import 'dart:io' show Platform;
+
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:onesign_console/core/config/app_env.dart';
 import 'package:onesign_console/core/supabase/supabase_bootstrap.dart';
 import 'package:onesign_console/data/app_api_client.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 class GoogleAuthService {
   GoogleAuthService({AppApiClient? api}) : _api = api ?? AppApiClient();
@@ -13,11 +15,12 @@ class GoogleAuthService {
     if (_initialized) return;
     final serverClientId = AppEnv.googleServerClientId;
     if (serverClientId.isEmpty) {
-      throw StateError(
-        'GOOGLE_SERVER_CLIENT_ID is missing. Add the web Google OAuth client ID to apps/mobile/.env',
-      );
+      throw StateError('Google Sign-In isn’t available right now.');
     }
     final iosClientId = AppEnv.googleIosClientId;
+    if (Platform.isIOS && iosClientId.isEmpty) {
+      throw StateError('Google Sign-In isn’t available right now.');
+    }
     await GoogleSignIn.instance.initialize(
       serverClientId: serverClientId,
       clientId: iosClientId.isEmpty ? null : iosClientId,
@@ -28,7 +31,7 @@ class GoogleAuthService {
   Future<void> signIn() async {
     await _ensureInitialized();
     if (!GoogleSignIn.instance.supportsAuthenticate()) {
-      throw StateError('Google Sign-In is not supported on this platform.');
+      throw StateError('Google Sign-In isn’t available on this device.');
     }
     final account = await GoogleSignIn.instance.authenticate(
       scopeHint: const ['email', 'profile'],
@@ -36,14 +39,16 @@ class GoogleAuthService {
     final idToken = account.authentication.idToken;
     if (idToken == null || idToken.isEmpty) {
       throw StateError(
-        'Google did not return an ID token. Check OAuth client setup (SHA-1 / iOS client).',
+        "Couldn't finish signing in with Google. Please try again.",
       );
     }
     final session = await _api.signInWithGoogleIdToken(idToken);
     final access = session['access_token']?.toString();
     final refresh = session['refresh_token']?.toString();
     if (access == null || refresh == null) {
-      throw StateError('Server did not return a Supabase session.');
+      throw StateError(
+        "Couldn't finish signing in with Google. Please try again.",
+      );
     }
     await supabase.auth.setSession(refresh, accessToken: access);
   }

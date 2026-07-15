@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:onesign_console/core/user_facing_error.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:onesign_console/core/models/console_models.dart';
+import 'package:onesign_console/core/theme/responsive.dart';
 import 'package:onesign_console/state/providers.dart';
 import 'package:onesign_console/ui/common_widgets.dart';
 
@@ -12,54 +14,60 @@ class ScreensPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final console = ref.watch(consoleControllerProvider);
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showPairDialog(context, ref),
-        icon: const Icon(Icons.link),
-        label: const Text('Pair screen'),
-      ),
-      body: console.when(
-        loading: () => const LoadingBody(),
-        error: (e, _) => ErrorBody(
-          message: e.toString(),
+    return console.when(
+      loading: () => const Scaffold(body: LoadingBody()),
+      error: (e, _) => Scaffold(
+        body: ErrorBody(
+          error: e,
           onRetry: () => ref.read(consoleControllerProvider.notifier).reload(),
         ),
-        data: (snap) {
-          if (snap.devices.isEmpty) {
-            return EmptyState(
-              title: 'No screens yet',
-              subtitle: 'Open the OneSign TV app and enter the pairing code here.',
-              action: FilledButton(
-                onPressed: () => _showPairDialog(context, ref),
-                child: const Text('Pair screen'),
-              ),
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () =>
-                ref.read(consoleControllerProvider.notifier).reload(),
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-              itemCount: snap.devices.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final device = snap.devices[index];
-                final status = effectiveDeviceStatus(device);
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(device.name),
-                  subtitle: Text(
-                    '${device.platform} · ${playlistNameForDevice(device, snap)}\n${formatDeviceLastSeen(device.lastSeen)}',
-                  ),
-                  isThreeLine: true,
-                  trailing: StatusChip(status: status),
-                  onTap: () => context.push('/screens/${device.id}'),
-                );
-              },
-            ),
-          );
-        },
       ),
+      data: (snap) {
+        final isEmpty = snap.devices.isEmpty;
+        return Scaffold(
+          floatingActionButton: isEmpty
+              ? null
+              : FloatingActionButton.extended(
+                  heroTag: 'fab-screens-pair',
+                  onPressed: () => _showPairDialog(context, ref),
+                  icon: const Icon(Icons.link),
+                  label: const Text('Pair screen'),
+                ),
+          body: isEmpty
+              ? EmptyState(
+                  title: 'No screens yet',
+                  subtitle:
+                      'Open the OneSign TV app and enter the pairing code here.',
+                  action: FilledButton(
+                    onPressed: () => _showPairDialog(context, ref),
+                    child: const Text('Pair screen'),
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: () =>
+                      ref.read(consoleControllerProvider.notifier).reload(),
+                  child: ListView.separated(
+                    padding: Responsive.listPadding(context, fab: true),
+                    itemCount: snap.devices.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final device = snap.devices[index];
+                      final status = effectiveDeviceStatus(device);
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(device.name),
+                        subtitle: Text(
+                          '${device.platform} · ${playlistNameForDevice(device, snap)}\n${formatDeviceLastSeen(device.lastSeen)}',
+                        ),
+                        isThreeLine: true,
+                        trailing: StatusChip(status: status),
+                        onTap: () => context.push('/screens/${device.id}'),
+                      );
+                    },
+                  ),
+                ),
+        );
+      },
     );
   }
 }
@@ -134,7 +142,7 @@ Future<void> _showPairDialog(BuildContext context, WidgetRef ref) async {
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(userFacingError(e))),
       );
     }
   }
@@ -153,7 +161,7 @@ class ScreenDetailPage extends ConsumerWidget {
       error: (e, _) => Scaffold(
         appBar: AppBar(),
         body: ErrorBody(
-          message: e.toString(),
+          error: e,
           onRetry: () => ref.read(consoleControllerProvider.notifier).reload(),
         ),
       ),
@@ -195,7 +203,7 @@ class ScreenDetailPage extends ConsumerWidget {
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('$e')),
+                          SnackBar(content: Text(userFacingError(e))),
                         );
                       }
                     }
@@ -215,8 +223,9 @@ class ScreenDetailPage extends ConsumerWidget {
               ),
             ],
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
+          body: ResponsiveBody(
+            child: ListView(
+            padding: Responsive.pagePadding(context),
             children: [
               Row(
                 children: [
@@ -272,7 +281,7 @@ class ScreenDetailPage extends ConsumerWidget {
                   } catch (e) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('$e')),
+                        SnackBar(content: Text(userFacingError(e))),
                       );
                     }
                   }
@@ -285,6 +294,7 @@ class ScreenDetailPage extends ConsumerWidget {
                   subtitle: Text(device.description!),
                 ),
             ],
+          ),
           ),
         );
       },
@@ -404,8 +414,8 @@ Future<void> _rePair(
       );
     }
   } catch (e) {
-    final message = e.toString();
-    if (message.toLowerCase().contains('platform') && context.mounted) {
+    final raw = e.toString().toLowerCase();
+    if (raw.contains('platform') && context.mounted) {
       final allow = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -426,18 +436,22 @@ Future<void> _rePair(
         ),
       );
       if (allow == true) {
-        await ref.read(consoleRepositoryProvider).rebindDevice(
-              deviceId: device.id,
-              code: codeController.text,
-              ownerId: session.ownerId,
-              allowPlatformChange: true,
-            );
-        await ref.read(consoleControllerProvider.notifier).reload();
+        try {
+          await ref.read(consoleRepositoryProvider).rebindDevice(
+                deviceId: device.id,
+                code: codeController.text,
+                ownerId: session.ownerId,
+                allowPlatformChange: true,
+              );
+          await ref.read(consoleControllerProvider.notifier).reload();
+        } catch (retryError) {
+          if (context.mounted) showErrorSnackBar(context, retryError);
+        }
       }
       return;
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      showErrorSnackBar(context, e);
     }
   }
 }

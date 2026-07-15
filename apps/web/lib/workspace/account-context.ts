@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { WorkspacePermission, WorkspaceRole } from "@signage/types";
-import { workspaceRoleHasPermission } from "@signage/types";
+import { displayWorkspaceName, workspaceRoleHasPermission } from "@signage/types";
 
 export type WorkspaceSummary = {
   id: string;
@@ -47,7 +47,7 @@ export async function fetchMyWorkspaces(supabase: SupabaseClient): Promise<Works
   return ((data as WorkspaceRow[] | null) ?? []).map((row) => ({
     id: row.id,
     account_id: row.account_id,
-    name: row.name,
+    name: displayWorkspaceName(row.name),
     is_default: row.is_default,
     role: row.role,
     permissions: row.permissions ?? [],

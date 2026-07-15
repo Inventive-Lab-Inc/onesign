@@ -15,6 +15,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import { ListPageHeader } from "@/components/console/list-page-header";
+import { ContentViewTabs } from "@/components/content/content-view-tabs";
 import { Button } from "@/components/ui/button";
 import { ItemActionMenu, type ActionMenuItem } from "@/components/console/item-action-menu";
 import { usePlanQuota } from "@/components/console/plan-quota-context";
@@ -264,7 +265,8 @@ export function MediaLibrary({ userId, embedded = false }: MediaLibraryProps) {
   };
 
   return (
-    <div className={cn("flex flex-col", embedded ? "min-h-0" : "min-h-[min(70vh,720px)]")}>
+    <div className={cn("flex flex-col gap-4", embedded ? "min-h-0" : "min-h-[min(70vh,720px)]")}>
+      {!embedded ? <ContentViewTabs activeView="library" /> : null}
       <div {...getRootProps()} className="flex min-h-full flex-1 flex-col">
         <input {...getInputProps()} />
         <div

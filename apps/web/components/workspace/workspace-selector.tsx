@@ -72,6 +72,18 @@ export function WorkspaceSelector() {
             zIndex: 1000,
           }}
         >
+          <li
+            role="presentation"
+            style={{
+              padding: "0.375rem 0.75rem 0.25rem",
+              fontSize: "0.6875rem",
+              fontWeight: 600,
+              letterSpacing: "0.02em",
+              color: "#6B7280",
+            }}
+          >
+            Workspace
+          </li>
           {workspaces.map((workspace) => {
             const selected = workspace.id === activeWorkspaceId;
             return (

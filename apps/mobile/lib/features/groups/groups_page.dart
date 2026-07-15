@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:onesign_console/core/models/console_models.dart';
+import 'package:onesign_console/core/theme/responsive.dart';
 import 'package:onesign_console/state/providers.dart';
 import 'package:onesign_console/ui/common_widgets.dart';
 
@@ -10,58 +11,67 @@ class GroupsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final console = ref.watch(consoleControllerProvider);
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _createGroup(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('Group'),
-      ),
-      body: console.when(
-        loading: () => const LoadingBody(),
-        error: (e, _) => ErrorBody(
-          message: e.toString(),
+    return console.when(
+      loading: () => const Scaffold(body: LoadingBody()),
+      error: (e, _) => Scaffold(
+        body: ErrorBody(
+          error: e,
           onRetry: () => ref.read(consoleControllerProvider.notifier).reload(),
         ),
-        data: (snap) {
-          if (snap.deviceGroups.isEmpty) {
-            return EmptyState(
-              title: 'No groups',
-              subtitle: 'Group screens to manage them together.',
-              action: FilledButton(
-                onPressed: () => _createGroup(context, ref),
-                child: const Text('Create group'),
-              ),
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () =>
-                ref.read(consoleControllerProvider.notifier).reload(),
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-              itemCount: snap.deviceGroups.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final group = snap.deviceGroups[index];
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(group.name),
-                  subtitle: Text('${group.memberDeviceIds.length} screens'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    onPressed: () => _editMembers(context, ref, snap, group),
-                  ),
-                  onLongPress: () async {
-                    await ref
-                        .read(consoleRepositoryProvider)
-                        .deleteDeviceGroup(group.id);
-                    await ref.read(consoleControllerProvider.notifier).reload();
-                  },
-                );
-              },
-            ),
-          );
-        },
       ),
+      data: (snap) {
+        final isEmpty = snap.deviceGroups.isEmpty;
+        return Scaffold(
+          floatingActionButton: isEmpty
+              ? null
+              : FloatingActionButton.extended(
+                  heroTag: 'fab-groups-create',
+                  onPressed: () => _createGroup(context, ref),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Group'),
+                ),
+          body: isEmpty
+              ? EmptyState(
+                  title: 'No groups',
+                  subtitle: 'Group screens to manage them together.',
+                  action: FilledButton(
+                    onPressed: () => _createGroup(context, ref),
+                    child: const Text('Create group'),
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: () =>
+                      ref.read(consoleControllerProvider.notifier).reload(),
+                  child: ListView.separated(
+                    padding: Responsive.listPadding(context, fab: true),
+                    itemCount: snap.deviceGroups.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final group = snap.deviceGroups[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(group.name),
+                        subtitle:
+                            Text('${group.memberDeviceIds.length} screens'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () =>
+                              _editMembers(context, ref, snap, group),
+                        ),
+                        onLongPress: () async {
+                          await ref
+                              .read(consoleRepositoryProvider)
+                              .deleteDeviceGroup(group.id);
+                          await ref
+                              .read(consoleControllerProvider.notifier)
+                              .reload();
+                        },
+                      );
+                    },
+                  ),
+                ),
+        );
+      },
     );
   }
 }
@@ -122,7 +132,8 @@ Future<void> _editMembers(
         builder: (context, setState) {
           return SafeArea(
             child: SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.7,
+              height: MediaQuery.sizeOf(context).height *
+                  Responsive.sheetHeightFactor(context),
               child: Column(
                 children: [
                   ListTile(

@@ -1,7 +1,7 @@
 "use client";
 
 import type { AccountUser, WorkspaceRole } from "@signage/types";
-import { WORKSPACE_ROLE_OPTIONS } from "@signage/types";
+import { displayWorkspaceName, WORKSPACE_ROLE_OPTIONS } from "@signage/types";
 import { Boxes, Loader2, Search, Settings, Settings2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -51,7 +51,12 @@ export function AccountWorkspacesPanel() {
       setLoading(false);
       return;
     }
-    setWorkspaces((data as WorkspaceStats[]) ?? []);
+    setWorkspaces(
+      ((data as WorkspaceStats[]) ?? []).map((workspace) => ({
+        ...workspace,
+        name: displayWorkspaceName(workspace.name),
+      })),
+    );
     setLoading(false);
   }, [supabase]);
 
@@ -143,7 +148,7 @@ export function AccountWorkspacesPanel() {
               </button>
               {workspace.is_default ? (
                 <span className="rounded-md bg-brand px-2.5 py-0.5 text-xs font-semibold text-white">
-                  Default
+                  Primary
                 </span>
               ) : null}
               <Tooltip label={isAccountOwner ? "Workspace settings" : "View users"}>

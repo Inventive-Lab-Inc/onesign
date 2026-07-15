@@ -31,6 +31,7 @@ export function getPageTitle(pathname: string): string {
   if (titles[pathname]) return titles[pathname];
   if (pathname.startsWith("/groups/")) return "Group";
   if (pathname.startsWith("/screens/")) return "Screen";
+  if (pathname.startsWith("/content/calendar")) return "Schedule calendar";
   if (pathname.startsWith("/content/")) return "Content";
   if (pathname.startsWith("/websites/")) return "Website";
   return "App";

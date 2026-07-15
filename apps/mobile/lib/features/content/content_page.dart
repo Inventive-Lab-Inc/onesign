@@ -1,9 +1,11 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:onesign_console/core/user_facing_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:onesign_console/core/config/app_env.dart';
 import 'package:onesign_console/core/models/console_models.dart';
+import 'package:onesign_console/core/theme/responsive.dart';
 import 'package:onesign_console/state/providers.dart';
 import 'package:onesign_console/ui/common_widgets.dart';
 import 'dart:io';
@@ -14,21 +16,22 @@ class ContentPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final console = ref.watch(consoleControllerProvider);
+    final short = Responsive.isShortHeight(context);
     return DefaultTabController(
       length: 2,
       child: Column(
         children: [
-          const TabBar(
+          TabBar(
             tabs: [
-              Tab(text: 'Media'),
-              Tab(text: 'Playlists'),
+              Tab(height: short ? 40 : 46, text: 'Media'),
+              Tab(height: short ? 40 : 46, text: 'Playlists'),
             ],
           ),
           Expanded(
             child: console.when(
               loading: () => const LoadingBody(),
               error: (e, _) => ErrorBody(
-                message: e.toString(),
+                error: e,
                 onRetry: () =>
                     ref.read(consoleControllerProvider.notifier).reload(),
               ),
@@ -53,13 +56,17 @@ class _MediaTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isEmpty = snapshot.media.isEmpty;
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _upload(context, ref),
-        icon: const Icon(Icons.upload),
-        label: const Text('Upload'),
-      ),
-      body: snapshot.media.isEmpty
+      floatingActionButton: isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              heroTag: 'fab-content-upload',
+              onPressed: () => _upload(context, ref),
+              icon: const Icon(Icons.upload),
+              label: const Text('Upload'),
+            ),
+      body: isEmpty
           ? EmptyState(
               title: 'No media yet',
               subtitle: 'Upload images or videos to use in playlists.',
@@ -72,7 +79,7 @@ class _MediaTab extends ConsumerWidget {
               onRefresh: () =>
                   ref.read(consoleControllerProvider.notifier).reload(),
               child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+                padding: Responsive.listPadding(context, fab: true),
                 itemCount: snapshot.media.length,
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
@@ -156,7 +163,7 @@ Future<void> _upload(BuildContext context, WidgetRef ref) async {
     }
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      showErrorSnackBar(context, e);
     }
   }
 }
@@ -168,13 +175,17 @@ class _PlaylistsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isEmpty = snapshot.playlists.isEmpty;
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _createPlaylist(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('Playlist'),
-      ),
-      body: snapshot.playlists.isEmpty
+      floatingActionButton: isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              heroTag: 'fab-content-playlist',
+              onPressed: () => _createPlaylist(context, ref),
+              icon: const Icon(Icons.add),
+              label: const Text('Playlist'),
+            ),
+      body: isEmpty
           ? EmptyState(
               title: 'No playlists',
               subtitle: 'Create a playlist, then add media or websites.',
@@ -187,7 +198,7 @@ class _PlaylistsTab extends ConsumerWidget {
               onRefresh: () =>
                   ref.read(consoleControllerProvider.notifier).reload(),
               child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+                padding: Responsive.listPadding(context, fab: true),
                 itemCount: snapshot.playlists.length,
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
@@ -261,7 +272,7 @@ class PlaylistDetailPage extends ConsumerWidget {
       error: (e, _) => Scaffold(
         appBar: AppBar(),
         body: ErrorBody(
-          message: e.toString(),
+          error: e,
           onRetry: () => ref.read(consoleControllerProvider.notifier).reload(),
         ),
       ),
@@ -298,6 +309,7 @@ class PlaylistDetailPage extends ConsumerWidget {
             ],
           ),
           floatingActionButton: FloatingActionButton.extended(
+            heroTag: 'fab-content-add-item',
             onPressed: () => _addItem(context, ref, snap, playlist),
             icon: const Icon(Icons.add),
             label: const Text('Add item'),
@@ -308,7 +320,7 @@ class PlaylistDetailPage extends ConsumerWidget {
                   subtitle: 'Add media or websites to play on screens.',
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+                  padding: Responsive.listPadding(context, fab: true),
                   itemCount: items.length,
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {

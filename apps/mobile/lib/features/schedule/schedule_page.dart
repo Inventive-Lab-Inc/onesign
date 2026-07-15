@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:onesign_console/core/models/console_models.dart';
+import 'package:onesign_console/core/theme/responsive.dart';
 import 'package:onesign_console/state/providers.dart';
 import 'package:onesign_console/ui/common_widgets.dart';
 
@@ -16,7 +17,7 @@ class SchedulePage extends ConsumerWidget {
       body: console.when(
         loading: () => const LoadingBody(),
         error: (e, _) => ErrorBody(
-          message: e.toString(),
+          error: e,
           onRetry: () => ref.read(consoleControllerProvider.notifier).reload(),
         ),
         data: (snap) {
@@ -40,8 +41,9 @@ class SchedulePage extends ConsumerWidget {
             );
           }
           rows.sort((a, b) => a.item.title.compareTo(b.item.title));
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
+          return ResponsiveBody(
+            child: ListView.separated(
+            padding: Responsive.pagePadding(context),
             itemCount: rows.length,
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
@@ -61,6 +63,7 @@ class SchedulePage extends ConsumerWidget {
                 ),
               );
             },
+          ),
           );
         },
       ),

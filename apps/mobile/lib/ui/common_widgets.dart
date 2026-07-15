@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:onesign_console/core/models/console_models.dart';
+import 'package:onesign_console/core/theme/brand.dart';
+import 'package:onesign_console/core/theme/responsive.dart';
+import 'package:onesign_console/core/user_facing_error.dart';
 
 class StatusChip extends StatelessWidget {
   const StatusChip({super.key, required this.status});
@@ -9,9 +12,9 @@ class StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      'online' => ('Online', Colors.green.shade700),
+      'online' => ('Online', Brand.theme),
       'pending_pairing' => ('Pairing', Colors.orange.shade800),
-      _ => ('Offline', Colors.grey.shade700),
+      _ => ('Offline', Brand.neutral500),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -45,20 +48,54 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final subtitleStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final titleWidget = Text(title, style: theme.textTheme.titleMedium);
+    final subtitleWidget = Text(subtitle, style: subtitleStyle);
+
+    // Use width for copy + CTA instead of a tall centered stack.
+    if (action != null && Responsive.useWideEmptyState(context)) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      titleWidget,
+                      const SizedBox(height: 6),
+                      subtitleWidget,
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 24),
+                action!,
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            titleWidget,
             const SizedBox(height: 8),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+              style: subtitleStyle,
             ),
             if (action != null) ...[
               const SizedBox(height: 16),
@@ -72,16 +109,19 @@ class EmptyState extends StatelessWidget {
 }
 
 class ErrorBody extends StatelessWidget {
-  const ErrorBody({super.key, required this.message, required this.onRetry});
+  const ErrorBody({super.key, required this.error, required this.onRetry});
 
-  final String message;
+  final Object error;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     return EmptyState(
       title: 'Something went wrong',
-      subtitle: message,
+      subtitle: userFacingError(
+        error,
+        fallback: 'We couldn’t load this screen. Please try again.',
+      ),
       action: FilledButton(onPressed: onRetry, child: const Text('Retry')),
     );
   }

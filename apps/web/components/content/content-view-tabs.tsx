@@ -1,8 +1,9 @@
 "use client";
 
-import { ImageIcon, ListVideo } from "lucide-react";
+import { CalendarDays, ImageIcon, ListVideo } from "lucide-react";
 import Link from "next/link";
 import {
+  contentCalendarPath,
   contentLibraryPath,
   contentPlaylistsPath,
   type ContentView,
@@ -20,10 +21,12 @@ export function ContentViewTabs({ activeView, groupId, className }: ContentViewT
   const adminRoutes = useAdminClientRoutes();
   const libraryHref = contentLibraryPath(adminRoutes);
   const playlistsHref = contentPlaylistsPath(adminRoutes, groupId);
+  const calendarHref = contentCalendarPath(adminRoutes);
 
   const tabs = [
     { id: "library" as const, label: "Library", hint: "Upload & manage files", icon: ImageIcon, href: libraryHref },
     { id: "playlists" as const, label: "Playlists", hint: "Build loops for screens", icon: ListVideo, href: playlistsHref },
+    { id: "calendar" as const, label: "Calendar", hint: "See what plays when", icon: CalendarDays, href: calendarHref },
   ];
 
   return (
@@ -47,7 +50,7 @@ export function ContentViewTabs({ activeView, groupId, className }: ContentViewT
           >
             <Icon className="h-4 w-4 shrink-0" strokeWidth={active ? 2.25 : 1.75} />
             <span className="text-sm font-semibold">{label}</span>
-            <span className="hidden text-xs font-normal text-muted-foreground sm:inline">· {hint}</span>
+            <span className="hidden text-xs font-normal text-muted-foreground lg:inline">· {hint}</span>
           </Link>
         );
       })}

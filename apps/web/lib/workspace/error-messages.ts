@@ -13,7 +13,7 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   invalid_workspace: "That workspace isn't valid for this account.",
   entity_not_found: "That item no longer exists or isn't part of this account.",
   invalid_entity_type: "That item can't be moved between workspaces.",
-  cannot_delete_default_workspace: "The default workspace can't be deleted.",
+  cannot_delete_default_workspace: "The Primary workspace can't be deleted.",
   workspace_not_empty: "Move or delete the content in this workspace first.",
   cannot_modify_owner: "The account owner's access can't be changed.",
   cannot_remove_owner: "The account owner can't be removed.",

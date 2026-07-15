@@ -36,6 +36,14 @@ export interface Workspace {
   created_at: string;
 }
 
+/** Legacy auto-created label → current product name. */
+export function displayWorkspaceName(name: string | null | undefined): string {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return "Workspace";
+  if (trimmed.toLowerCase() === "default workspace") return "Primary";
+  return trimmed;
+}
+
 export interface AccountMember {
   id: string;
   account_id: string;

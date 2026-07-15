@@ -19,6 +19,7 @@ export function getAdminPageTitle(pathname: string): string {
   if (pathname === "/admin/staff") return "Admins";
   if (pathname.startsWith("/admin/clients/") && pathname.includes("/groups/")) return "Group";
   if (pathname.startsWith("/admin/clients/") && pathname.includes("/screens/")) return "Screen";
+  if (pathname.startsWith("/admin/clients/") && pathname.includes("/content/calendar")) return "Schedule calendar";
   if (pathname.startsWith("/admin/clients/") && pathname.includes("/content/")) return "Content";
   if (pathname.startsWith("/admin/clients/") && pathname.includes("/websites/")) return "Website";
   if (pathname.startsWith("/admin/clients/") && pathname.includes("/playlists/")) return "Playlist";
@@ -28,6 +29,8 @@ export function getAdminPageTitle(pathname: string): string {
   if (pathname.startsWith("/admin/clients/") && pathname.endsWith("/websites")) return "Websites";
   if (pathname.startsWith("/admin/clients/") && pathname.endsWith("/playlists")) return "Content";
   if (pathname.startsWith("/admin/clients/") && pathname.endsWith("/audit")) return "Audit log";
+  if (pathname.startsWith("/admin/clients/") && pathname.endsWith("/users")) return "Users";
+  if (pathname.startsWith("/admin/clients/") && pathname.endsWith("/plan")) return "Plan";
   if (pathname.startsWith("/admin/clients/")) return "Client";
   return "Admin";
 }
@@ -45,6 +48,8 @@ export function getAdminPageIcon(pathname: string): LucideIcon | undefined {
       return Layers;
     }
     if (pathname.includes("/audit")) return ScrollText;
+    if (pathname.includes("/users")) return Users;
+    if (pathname.includes("/plan")) return CreditCard;
     return UserRound;
   }
   return undefined;

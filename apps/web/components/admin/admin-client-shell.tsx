@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, HardDrive, Layers, LayoutGrid, Monitor, ScrollText, Tv, UserRound } from "lucide-react";
+import { CreditCard, HardDrive, Layers, LayoutGrid, Monitor, ScrollText, Tv, UserRound, Users } from "lucide-react";
 import type { AdminUserDirectoryEntry, PlanTemplate } from "@signage/types";
 import { useAdminClientRoutes } from "@/components/admin/admin-client-route-context";
 import { AdminAccountActions } from "@/components/admin/admin-account-actions";
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { segment: "screens", label: "Screens", icon: Monitor, match: (path: string, base: string) => path.startsWith(`${base}/screens`) },
   { segment: "groups", label: "Groups", icon: Tv, match: (path: string, base: string) => path.startsWith(`${base}/groups`) },
   { segment: "content", label: "Content", icon: Layers, match: (path: string, base: string) => path.startsWith(`${base}/content`) || path.startsWith(`${base}/playlists`) || path.startsWith(`${base}/media`) },
+  { segment: "users", label: "Users", icon: Users, match: (path: string, base: string) => path.startsWith(`${base}/users`) },
   { segment: "audit", label: "Audit log", icon: ScrollText, match: (path: string, base: string) => path.startsWith(`${base}/audit`) },
   { segment: "plan", label: "Plan", icon: CreditCard, match: (path: string, base: string) => path.startsWith(`${base}/plan`) },
 ] as const;

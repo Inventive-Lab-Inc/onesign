@@ -50,24 +50,39 @@ function buildInviteRoles(
   }));
 }
 
+function inviteUserEndpoint(asStaff: boolean) {
+  return asStaff ? "/api/admin/invite-account-user" : "/api/account/invite-user";
+}
+
+function resendInviteEndpoint(asStaff: boolean) {
+  return asStaff ? "/api/admin/resend-account-invite" : "/api/account/resend-invite";
+}
+
 /** Sets a single user's role in a single workspace. Throws a friendly error on failure. */
 export async function persistWorkspaceAccess({
   accountOwnerId,
   user,
   workspaceId,
   role,
+  asStaff = false,
 }: {
   accountOwnerId: string;
   user: AccountUser;
   workspaceId: string;
   role: WorkspaceRoleOrNone;
+  /** When true, use admin invite APIs for the given account owner. */
+  asStaff?: boolean;
 }): Promise<void> {
   if (user.invitation_pending) {
-    const response = await fetch("/api/account/invite-user", {
+    const response = await fetch(inviteUserEndpoint(asStaff), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({ email: user.email, roles: buildInviteRoles(user, workspaceId, role) }),
+      body: JSON.stringify({
+        ...(asStaff ? { accountId: accountOwnerId } : {}),
+        email: user.email,
+        roles: buildInviteRoles(user, workspaceId, role),
+      }),
     });
     const payload = (await response.json()) as { error?: string };
     if (!response.ok) {
@@ -130,7 +145,17 @@ export function AccessCell({
   );
 }
 
-export function ResendInviteButton({ email, displayName }: { email: string; displayName?: string }) {
+export function ResendInviteButton({
+  email,
+  displayName,
+  accountId,
+  asStaff = false,
+}: {
+  email: string;
+  displayName?: string;
+  accountId?: string;
+  asStaff?: boolean;
+}) {
   const [loading, setLoading] = useState(false);
 
   return (
@@ -146,11 +171,15 @@ export function ResendInviteButton({ email, displayName }: { email: string; disp
           setLoading(true);
           void (async () => {
             try {
-              const response = await fetch("/api/account/resend-invite", {
+              const response = await fetch(resendInviteEndpoint(asStaff), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "same-origin",
-                body: JSON.stringify({ email, displayName }),
+                body: JSON.stringify({
+                  ...(asStaff ? { accountId } : {}),
+                  email,
+                  displayName,
+                }),
               });
               const payload = (await response.json()) as { error?: string; message?: string };
               if (!response.ok) {
@@ -179,10 +208,12 @@ export function RemoveUserButton({
   user,
   accountOwnerId,
   onRemoved,
+  asStaff = false,
 }: {
   user: AccountUser;
   accountOwnerId: string;
   onRemoved: () => void | Promise<void>;
+  asStaff?: boolean;
 }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [loading, setLoading] = useState(false);
@@ -211,7 +242,12 @@ export function RemoveUserButton({
           void (async () => {
             try {
               if (user.invitation_pending) {
-                const { error } = await supabase.rpc("revoke_account_invitation", { p_email: user.email });
+                const { error } = asStaff
+                  ? await supabase.rpc("admin_revoke_account_invitation", {
+                      p_account_id: accountOwnerId,
+                      p_email: user.email,
+                    })
+                  : await supabase.rpc("revoke_account_invitation", { p_email: user.email });
                 if (error) throw new Error(friendlyWorkspaceError(error.message));
                 toast.success("Invitation cancelled");
               } else if (user.user_id) {
@@ -245,10 +281,14 @@ export function InviteUserDialog({
   workspaces,
   onClose,
   onInvited,
+  accountId,
+  asStaff = false,
 }: {
   workspaces: Array<{ id: string; name: string }>;
   onClose: () => void;
   onInvited: () => void | Promise<void>;
+  accountId?: string;
+  asStaff?: boolean;
 }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -262,11 +302,12 @@ export function InviteUserDialog({
     setSubmitting(true);
     try {
       const roles = rolesFromWorkspaceEntries(rolesByWorkspace, workspaces);
-      const response = await fetch("/api/account/invite-user", {
+      const response = await fetch(inviteUserEndpoint(asStaff), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
+          ...(asStaff ? { accountId } : {}),
           email: email.trim(),
           firstName: firstName.trim() || undefined,
           lastName: lastName.trim() || undefined,
@@ -330,12 +371,14 @@ export function EditUserPermissionsDialog({
   accountOwnerId,
   onClose,
   onSaved,
+  asStaff = false,
 }: {
   user: AccountUser;
   workspaces: Array<{ id: string; name: string }>;
   accountOwnerId: string;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
+  asStaff?: boolean;
 }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [rolesByWorkspace, setRolesByWorkspace] = useState<Record<string, WorkspaceRoleEntry>>(() =>
@@ -349,11 +392,15 @@ export function EditUserPermissionsDialog({
       const roles = rolesFromWorkspaceEntries(rolesByWorkspace, workspaces);
 
       if (user.invitation_pending) {
-        const response = await fetch("/api/account/invite-user", {
+        const response = await fetch(inviteUserEndpoint(asStaff), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ email: user.email, roles }),
+          body: JSON.stringify({
+            ...(asStaff ? { accountId: accountOwnerId } : {}),
+            email: user.email,
+            roles,
+          }),
         });
         const payload = (await response.json()) as { error?: string; message?: string };
         if (!response.ok) {

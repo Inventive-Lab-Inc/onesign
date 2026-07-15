@@ -14,11 +14,13 @@ type AdminClientRoutes = {
   playlistPath: (playlistId: string) => string;
   contentPath: string;
   fileManagementPath: string;
+  calendarPath: string;
   mediaPath: (mediaId: string) => string;
   websitesPath: string;
   websitePath: (websiteId: string) => string;
   auditPath: string;
   planPath: string;
+  usersPath: string;
 };
 
 const AdminClientRouteContext = createContext<AdminClientRoutes | null>(null);
@@ -44,11 +46,13 @@ export function AdminClientRouteProvider({
       playlistPath: (playlistId: string) => `${basePath}/playlists/${playlistId}`,
       contentPath: `${basePath}/content`,
       fileManagementPath: `${basePath}/content/file-management`,
+      calendarPath: `${basePath}/content/calendar`,
       mediaPath: (mediaId: string) => `${basePath}/content/${mediaId}`,
       websitesPath: `${basePath}/websites`,
       websitePath: (websiteId: string) => `${basePath}/websites/${websiteId}`,
       auditPath: `${basePath}/audit`,
       planPath: `${basePath}/plan`,
+      usersPath: `${basePath}/users`,
     };
   }, [clientId]);
 
@@ -99,7 +103,7 @@ export function playlistDetailPath(
   return `${base}?group=${encodeURIComponent(groupId)}`;
 }
 
-export type ContentView = "library" | "playlists";
+export type ContentView = "library" | "playlists" | "calendar";
 
 export function contentLibraryPath(adminRoutes: AdminClientRoutes | null, groupId?: string | null): string {
   const base = adminRoutes?.contentPath ?? "/content";
@@ -109,6 +113,10 @@ export function contentLibraryPath(adminRoutes: AdminClientRoutes | null, groupI
 
 export function contentFileManagementPath(adminRoutes: AdminClientRoutes | null): string {
   return adminRoutes?.fileManagementPath ?? "/content/file-management";
+}
+
+export function contentCalendarPath(adminRoutes: AdminClientRoutes | null): string {
+  return adminRoutes?.calendarPath ?? "/content/calendar";
 }
 
 export function mediaDetailPath(
@@ -135,7 +143,10 @@ export function contentPlaylistsPath(
 }
 
 export function parseContentView(searchParams: URLSearchParams): ContentView {
-  return searchParams.get("view") === "library" ? "library" : "playlists";
+  const view = searchParams.get("view");
+  if (view === "library") return "library";
+  if (view === "calendar") return "calendar";
+  return "playlists";
 }
 
 export function websitesListPath(adminRoutes: AdminClientRoutes | null): string {
