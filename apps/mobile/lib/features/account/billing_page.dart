@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:onesign_console/core/display_plan_label.dart';
 import 'package:onesign_console/core/launch_billing_url.dart';
 import 'package:onesign_console/core/models/console_models.dart';
 import 'package:onesign_console/core/theme/brand.dart';
@@ -166,17 +167,8 @@ class _BillingPageState extends ConsumerState<BillingPage>
     List<PlanTemplateInfo> plans,
     AccountProfile? profile,
   ) {
-    if (profile == null || plans.isEmpty) return null;
-    if (profile.planTemplateId != null) {
-      for (final plan in plans) {
-        if (plan.id == profile.planTemplateId) return plan;
-      }
-    }
-    final sorted = [...plans]..sort((a, b) => a.deviceLimit.compareTo(b.deviceLimit));
-    for (final plan in sorted.reversed) {
-      if (plan.deviceLimit <= profile.deviceLimit) return plan;
-    }
-    return sorted.first;
+    if (profile == null) return null;
+    return matchPlanTemplate(plans, profile);
   }
 
   String _planStatusLabel(AccountProfile? profile, PlanTemplateInfo? matched) {
@@ -184,7 +176,9 @@ class _BillingPageState extends ConsumerState<BillingPage>
     if (profile?.isOnTrial == true) return 'Trial';
     if (profile?.subscriptionStatus == 'past_due') return 'Past due';
     if (matched != null) return 'Active';
-    return profile?.planKind ?? 'Active';
+    if (profile?.planKind == 'free') return 'Free';
+    if (profile?.planKind == 'standard') return 'Active';
+    return 'Active';
   }
 
   String _actionLabel({
@@ -347,11 +341,10 @@ class _BillingPageState extends ConsumerState<BillingPage>
                     data: (plans) {
                       final matched = _matchPlan(plans, profile);
                       final status = _planStatusLabel(profile, matched);
-                      final title = profile?.planKind == 'custom'
-                          ? 'Custom'
-                          : profile?.isOnTrial == true
-                              ? '${matched?.name ?? 'Solo'} trial'
-                              : matched?.name ?? 'Standard';
+                      final title = displayAccountPlanLabel(
+                        profile: profile,
+                        plans: plans,
+                      );
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,

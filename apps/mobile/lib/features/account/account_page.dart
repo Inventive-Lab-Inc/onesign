@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:onesign_console/core/display_plan_label.dart';
 import 'package:onesign_console/core/user_facing_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -49,7 +50,23 @@ class AccountPage extends ConsumerWidget {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Plan'),
-                  subtitle: Text(profile?.planKind ?? '—'),
+                  subtitle: ref.watch(activePlansProvider).when(
+                        loading: () => Text(
+                          profile?.isOnTrial == true ? '…' : '…',
+                        ),
+                        error: (_, __) => Text(
+                          displayAccountPlanLabel(
+                            profile: profile,
+                            plans: const [],
+                          ),
+                        ),
+                        data: (plans) => Text(
+                          displayAccountPlanLabel(
+                            profile: profile,
+                            plans: plans,
+                          ),
+                        ),
+                      ),
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
