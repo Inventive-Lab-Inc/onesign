@@ -714,6 +714,26 @@
   letter-spacing: -0.01em;
 }
 
+.landing-slideshow-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.landing-slideshow-link:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
 @media (min-width: 640px) {
   .landing-slideshow-caption {
     left: 1.75rem;
@@ -723,6 +743,10 @@
 
   .landing-slideshow-title {
     font-size: 1.25rem;
+  }
+
+  .landing-slideshow-link {
+    font-size: 0.8125rem;
   }
 }
 

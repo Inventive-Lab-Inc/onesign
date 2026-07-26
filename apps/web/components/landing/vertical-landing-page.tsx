@@ -1,17 +1,14 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   CalendarClock,
   Globe,
-  Image as ImageIcon,
   Layers,
   LayoutGrid,
-  Lock,
   Monitor,
   Rocket,
   ShieldCheck,
-  Smartphone,
-  Star,
   Wifi,
   Zap,
 } from "lucide-react";
@@ -27,52 +24,17 @@ import { LandingPricingSection } from "@/components/landing/landing-pricing-sect
 import { DEFAULT_TRIAL_DAYS } from "@/lib/plan-quota";
 import { LandingLiveChat } from "./landing-live-chat";
 import { LandingDownloadButton } from "./landing-download-button";
-import { LandingMockupSlideshow, type MockupSlide } from "./landing-mockup-slideshow";
-import { LandingStructuredData } from "./landing-structured-data";
 import "./landing.css";
 
-const showcaseSlides: MockupSlide[] = [
-  {
-    src: "/images/landing/mockup-v2-restaurant-menu.webp",
-    alt: "Digital menu board above the counter in a fast-casual burger restaurant",
-    tag: "Restaurants",
-    title: "Menus that sell — updated in seconds",
-    href: "/restaurants",
-  },
-  {
-    src: "/images/landing/mockup-v2-cafe-menu.webp",
-    alt: "Digital drinks menu above the counter in a minimalist specialty coffee shop",
-    tag: "Cafés",
-    title: "Menu boards that update themselves",
-    href: "/cafes",
-  },
-  {
-    src: "/images/landing/mockup-v2-retail-window.webp",
-    alt: "Storefront window display showing a storewide discount at golden hour",
-    tag: "Retail",
-    title: "Window displays that sell for you",
-    href: "/retail",
-  },
-  {
-    src: "/images/landing/mockup-v2-wellness-lobby.webp",
-    alt: "Welcome screen in a wellness studio lobby with natural light and plants",
-    tag: "Gyms & Wellness",
-    title: "Brand every arrival",
-    href: "/gyms",
-  },
-  {
-    src: "/images/landing/mockup-v2-grocery-store.webp",
-    alt: "Grocery store end-cap screen showing weekly specials across produce, meat and dairy",
-    tag: "Grocery",
-    title: "Complex promos, one publish",
-  },
-  {
-    src: "/images/landing/mockup-v2-multiscreen-venue.webp",
-    alt: "Hotel lobby with welcome, menu and promo screens across the venue",
-    tag: "Multi-location",
-    title: "One console, every screen",
-  },
-];
+export interface VerticalConfig {
+  slug: string;
+  heroTitle: string;
+  heroAccent: string;
+  heroDescription: string;
+  introParagraph: string;
+  heroImageSrc: string;
+  heroImageAlt: string;
+}
 
 const features = [
   {
@@ -122,17 +84,12 @@ const steps = [
   },
 ];
 
-const stats = [
-  { value: "1,000+", label: "Screens powered" },
-  { value: "99.9%", label: "Player uptime" },
-  { value: "<5s", label: "To publish live" },
-  { value: "24/7", label: "Always-on displays" },
-];
-
-export function LandingPage({
+export function VerticalLandingPage({
+  vertical,
   plans,
   currency: _currency = "USD",
 }: {
+  vertical: VerticalConfig;
   plans?: PlanViewModel[];
   currency?: PlanCurrency;
 }) {
@@ -141,14 +98,10 @@ export function LandingPage({
 
   return (
     <div className="landing">
-      <LandingStructuredData plans={pricingPlans} />
-      <LandingNav name={name} />
-      <Hero name={name} />
-      <TrustStrip />
-      <ProductShowcase />
+      <VerticalNav name={name} />
+      <VerticalHero vertical={vertical} name={name} />
       <Features />
       <HowItWorks />
-      <StatsBand />
       <LandingPricingSection plans={pricingPlans} />
       <FinalCta />
       <Footer name={name} />
@@ -157,7 +110,7 @@ export function LandingPage({
   );
 }
 
-function LandingNav({ name }: { name: string }) {
+function VerticalNav({ name }: { name: string }) {
   return (
     <header className="landing-nav">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5">
@@ -196,7 +149,7 @@ function LandingNav({ name }: { name: string }) {
   );
 }
 
-function Hero({ name }: { name: string }) {
+function VerticalHero({ vertical, name }: { vertical: VerticalConfig; name: string }) {
   return (
     <section className="landing-hero landing-hero-grid relative px-5 pt-16 pb-20 sm:pt-24">
       <div className="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
@@ -206,13 +159,15 @@ function Hero({ name }: { name: string }) {
             Digital signage, simplified
           </span>
           <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-foreground sm:text-5xl lg:text-[3.5rem]">
-            Run every screen
+            {vertical.heroTitle}
             <br />
-            from <span className="landing-title-accent">one console</span>
+            <span className="landing-title-accent">{vertical.heroAccent}</span>
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted-foreground lg:mx-0">
-            {name} turns any TV into a remote-controlled display. Upload content, build playlists, and
-            publish to all your screens in seconds — no technical setup required.
+            {vertical.heroDescription}
+          </p>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground lg:mx-0">
+            {vertical.introParagraph}
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
             <LandingDownloadButton className="landing-btn-primary flex h-12 items-center gap-2 rounded-xl px-7 text-sm font-semibold" />
@@ -230,167 +185,17 @@ function Hero({ name }: { name: string }) {
           </p>
         </div>
 
-        <HeroMockup />
-      </div>
-    </section>
-  );
-}
-
-/** Hero showpiece: the OneSign console dashboard in a browser window. */
-function HeroMockup() {
-  return (
-    <div className="landing-reveal relative mx-auto w-full max-w-sm sm:max-w-md lg:max-w-none">
-      <div className="landing-stage relative">
-        <div className="landing-tilt relative">
-          <div className="landing-window">
-            <div className="landing-window-bar">
-              <span className="landing-window-dot" />
-              <span className="landing-window-dot" />
-              <span className="landing-window-dot" />
-              <span className="landing-url">
-                <Lock size={9} strokeWidth={2.5} />
-                app.onesigntv.com/dashboard
-              </span>
-            </div>
-
-            <div className="bg-muted/20 p-3 sm:p-3.5">
-              <div className="grid grid-cols-3 gap-2">
-                <StatTile variant="live" label="Online" value="12" />
-                <StatTile variant="soft" label="Screens" value="18" icon={Monitor} />
-                <StatTile variant="soft" label="Content" value="240" icon={ImageIcon} />
-              </div>
-
-              <div className="mt-2.5 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-                <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-2">
-                  <span className="text-[0.5rem] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                    Fleet monitor
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[0.5625rem] font-bold tabular-nums text-brand-strong">
-                    <span className="landing-dot-live text-brand" />
-                    12 online
-                  </span>
-                </div>
-                <FleetRow name="Lobby Display" detail="HQ · Reception" creative="welcome" health="playing" />
-                <FleetRow name="Drive-Thru Menu" detail="Store 04" creative="menu" health="playing" />
-                <FleetRow name="Window Promo" detail="Flagship" creative="promo" health="idle" />
-              </div>
-            </div>
+        <div className="landing-reveal relative mx-auto w-full max-w-sm sm:max-w-md lg:max-w-none">
+          <div className="landing-showcase-stage relative aspect-[3/2] overflow-hidden rounded-2xl">
+            <Image
+              src={vertical.heroImageSrc}
+              alt={vertical.heroImageAlt}
+              fill
+              sizes="(min-width: 1152px) 560px, (min-width: 640px) 448px, 384px"
+              priority
+              className="object-cover"
+            />
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatTile({
-  variant,
-  label,
-  value,
-  icon: Icon,
-}: {
-  variant: "live" | "soft";
-  label: string;
-  value: string;
-  icon?: typeof Monitor;
-}) {
-  if (variant === "live") {
-    return (
-      <div className="landing-stat-live rounded-lg p-2.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[0.5rem] font-bold uppercase tracking-[0.12em] text-white/70">{label}</span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400 px-1.5 py-0.5 text-[0.4375rem] font-extrabold uppercase tracking-wide text-emerald-950">
-            <span className="landing-dot-live text-emerald-900" style={{ height: "0.3rem", width: "0.3rem" }} />
-            Live
-          </span>
-        </div>
-        <p className="mt-1.5 text-xl font-bold leading-none tabular-nums sm:text-2xl">{value}</p>
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-lg border border-border bg-card p-2.5">
-      <div className="flex items-center justify-between text-muted-foreground">
-        <span className="text-[0.5rem] font-bold uppercase tracking-[0.12em]">{label}</span>
-        {Icon ? <Icon size={11} strokeWidth={2.25} /> : null}
-      </div>
-      <p className="mt-1.5 text-xl font-bold leading-none tabular-nums text-foreground sm:text-2xl">{value}</p>
-    </div>
-  );
-}
-
-const fleetHealth = {
-  playing: { label: "Playing", chip: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700", dot: "text-emerald-500" },
-  idle: { label: "Idle", chip: "border-sky-500/25 bg-sky-500/10 text-sky-700", dot: "text-sky-500" },
-  offline: { label: "Offline", chip: "border-red-500/30 bg-red-500/10 text-red-600", dot: "text-red-500" },
-} as const;
-
-function FleetRow({
-  name,
-  detail,
-  creative,
-  health,
-}: {
-  name: string;
-  detail: string;
-  creative: CreativeVariant;
-  health: keyof typeof fleetHealth;
-}) {
-  const h = fleetHealth[health];
-  return (
-    <div className="flex items-center gap-2.5 border-b border-border px-3 py-2 last:border-b-0">
-      <div className="relative h-7 w-11 shrink-0 overflow-hidden rounded-md border border-border">
-        <span className={`absolute inset-0 landing-creative--${creative}`} />
-        <span className="absolute left-1 top-1 rounded-sm bg-black/55 px-1 text-[0.4375rem] font-bold uppercase tracking-wide text-white">
-          Live
-        </span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[0.6875rem] font-bold leading-tight text-foreground">{name}</p>
-        <p className="truncate text-[0.5625rem] leading-tight text-muted-foreground">{detail}</p>
-      </div>
-      <span
-        className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[0.5625rem] font-semibold ${h.chip}`}
-      >
-        <span className={`landing-dot-live ${h.dot}`} style={{ height: "0.3rem", width: "0.3rem" }} />
-        {h.label}
-      </span>
-    </div>
-  );
-}
-
-type CreativeVariant = "welcome" | "promo" | "menu" | "fresh";
-
-
-function TrustStrip() {
-  return (
-    <section className="border-y border-border bg-muted/30 px-5 py-5">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-        <span className="flex items-center gap-0.5 text-amber-400">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star key={i} size={15} className="fill-current" />
-          ))}
-        </span>
-        <span className="font-medium">Loved by retailers, cafés, gyms and agencies — trusted on 1,000+ screens worldwide.</span>
-      </div>
-    </section>
-  );
-}
-
-/** "Every venue" showcase: a rotating set of real-world signage scenes —
- *  café menus, retail windows, lobbies and more — the multi-use story of
- *  digital signage, told through the screens themselves rather than UI chrome. */
-function ProductShowcase() {
-  return (
-    <section className="px-5 py-16 sm:py-20">
-      <div className="mx-auto w-full max-w-6xl">
-        <SectionHeading
-          eyebrow="See it in action"
-          title="Built for cafés, retail, grocery and more"
-          subtitle="The same console powers menu boards, window promos, lobby welcomes and weekly specials — swap the scene, keep the workflow."
-        />
-
-        <div className="landing-rise mt-12">
-          <LandingMockupSlideshow slides={showcaseSlides} />
         </div>
       </div>
     </section>
@@ -441,23 +246,6 @@ function HowItWorks() {
                 <h3 className="text-lg font-bold text-foreground">{step.title}</h3>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function StatsBand() {
-  return (
-    <section className="px-5 py-16">
-      <div className="landing-band-dark mx-auto w-full max-w-6xl rounded-3xl px-8 py-12">
-        <div className="relative z-10 grid grid-cols-2 gap-8 text-center md:grid-cols-4">
-          {stats.map((stat) => (
-            <div key={stat.label}>
-              <p className="text-3xl font-bold tracking-tight sm:text-4xl">{stat.value}</p>
-              <p className="mt-1 text-sm text-white/65">{stat.label}</p>
             </div>
           ))}
         </div>

@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Pause, Play } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Pause, Play } from "lucide-react";
 
 export interface MockupSlide {
   src: string;
   alt: string;
   tag: string;
   title: string;
+  href?: string;
 }
 
 const SLIDE_DURATION_MS = 1800;
@@ -71,6 +73,15 @@ export function LandingMockupSlideshow({ slides }: { slides: MockupSlide[] }) {
         <div className="landing-slideshow-caption">
           <span className="landing-slideshow-tag">{active.tag}</span>
           <p className="landing-slideshow-title">{active.title}</p>
+          {active.href ? (
+            <Link
+              href={active.href}
+              className="landing-slideshow-link"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Learn more <ArrowRight size={12} strokeWidth={2.5} />
+            </Link>
+          ) : null}
         </div>
       </button>
 
