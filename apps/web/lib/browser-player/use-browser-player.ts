@@ -27,6 +27,9 @@ import {
   type PlaybackRevision,
 } from "./playback-types";
 
+/** Smart TV browsers often hang on auth/network; fail into a retryable error instead of spinning forever. */
+const BOOT_TIMEOUT_MS = 25_000;
+
 export type BrowserPlayerState = {
   phase: BrowserPlayerPhase;
   pairingCode: string | null;
@@ -272,7 +275,12 @@ export function useBrowserPlayer(): BrowserPlayerState {
 
       try {
         getSupabasePublicEnvCheck();
-        const result = await registerOrRestoreDevice();
+        const result = await withTimeout(
+          registerOrRestoreDevice(),
+          BOOT_TIMEOUT_MS,
+          "Player startup timed out",
+          controller.signal,
+        );
         setPairingCode(result.pairing_code);
         deviceIdRef.current = result.device_id;
 
@@ -374,6 +382,44 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
         reject(new DOMException("Aborted", "AbortError"));
       },
       { once: true },
+    );
+  });
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string,
+  signal: AbortSignal,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      reject(new Error(message));
+    }, ms);
+
+    const onAbort = () => {
+      window.clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+
+    signal.addEventListener("abort", onAbort, { once: true });
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
     );
   });
 }

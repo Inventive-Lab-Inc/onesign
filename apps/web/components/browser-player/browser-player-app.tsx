@@ -25,6 +25,25 @@ export function BrowserPlayerApp() {
   const showPlayback = phase === "playing" && manifest && manifest.slides.length > 0;
 
   useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlBg = html.style.backgroundColor;
+    const prevBodyBg = body.style.backgroundColor;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    html.style.backgroundColor = TV_PLAYER_BG;
+    body.style.backgroundColor = TV_PLAYER_BG;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      html.style.backgroundColor = prevHtmlBg;
+      body.style.backgroundColor = prevBodyBg;
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
     void requestWakeLock();
   }, [requestWakeLock]);
 
@@ -43,10 +62,13 @@ export function BrowserPlayerApp() {
     void lockBrowserScreenOrientation(manifest.screenOrientation);
   }, [showPlayback, manifest?.screenOrientation]);
 
+  // Use fixed inset-0 (not 100dvh): many Smart TV browsers ignore/misreport dvh,
+  // which collapses the player into a short strip over the light body background
+  // and clips the pairing code. inset-0 sizes against the viewport without vh units.
   return (
     <div
       ref={captureRef}
-      className="relative h-[100dvh] w-full overflow-hidden"
+      className="fixed inset-0 z-0 overflow-hidden text-white"
       style={{ backgroundColor: TV_PLAYER_BG }}
     >
       {showPlayback ? (

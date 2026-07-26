@@ -23,6 +23,18 @@ export function browserFingerprintSignals(): string[] {
   ];
 }
 
+/** 32-bit imul with a fallback for older Smart TV browsers. */
+function imul32(a: number, b: number): number {
+  if (typeof Math.imul === "function") {
+    return Math.imul(a, b);
+  }
+  const aLo = a & 0xffff;
+  const aHi = (a >>> 16) & 0xffff;
+  const bLo = b & 0xffff;
+  const bHi = (b >>> 16) & 0xffff;
+  return ((aLo * bLo + (((aHi * bLo + aLo * bHi) << 16) >>> 0)) | 0);
+}
+
 /** Deterministic hash for register_or_restore_device (android_id). */
 export function hashBrowserFingerprint(signals: string[]): string {
   const input = signals.join("\u0000");
@@ -31,7 +43,7 @@ export function hashBrowserFingerprint(signals: string[]): string {
   for (let i = 0; i < input.length; i += 1) {
     const code = input.charCodeAt(i);
     h1 ^= code;
-    h1 = Math.imul(h1, 0x01000193);
+    h1 = imul32(h1, 0x01000193);
     h2 = (h2 + code * (i + 1)) | 0;
   }
   return `${(h1 >>> 0).toString(16)}${(h2 >>> 0).toString(16)}`;

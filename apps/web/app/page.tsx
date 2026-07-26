@@ -11,11 +11,14 @@ import { appUrl, isMarketingHost, isPlayerHost, normalizeHost } from "@/lib/site
 
 export default async function HomePage() {
   const host = headers().get("host");
-  const { user } = await getServerAuth();
 
+  // Player host must not depend on dashboard auth SSR — keep the boot path minimal
+  // for constrained Smart TV browsers.
   if (isPlayerHost(host)) {
     return <BrowserPlayerApp />;
   }
+
+  const { user } = await getServerAuth();
 
   const showLanding =
     isMarketingHost(host) ||
