@@ -243,7 +243,7 @@ abstract final class Brand {
         selectedColor: theme,
         iconColor: neutral500,
       ),
-      tabBarTheme: TabBarThemeData(
+      tabBarTheme: const TabBarThemeData(
         labelColor: theme,
         unselectedLabelColor: neutral500,
         indicatorColor: theme,
