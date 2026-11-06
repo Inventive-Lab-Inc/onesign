@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { Media } from "@signage/types";
-import { MAX_UPLOAD_FILE_BYTES } from "@/lib/plan-quota";
 import { inferMediaFileType, isAcceptedSignageMime, readVideoFileDurationSeconds } from "@/lib/media";
 import { deleteMediaObject, putMediaObject } from "@/lib/object-storage/server";
 import { getRouteHandlerClientAuth } from "@/lib/auth/route-handler-client";
@@ -70,13 +69,6 @@ export async function POST(request: NextRequest) {
 
   if (!isAcceptedSignageMime(file.type)) {
     return NextResponse.json({ error: `${file.name} is not a supported image/video type.` }, { status: 400 });
-  }
-
-  if (file.size > MAX_UPLOAD_FILE_BYTES) {
-    return NextResponse.json(
-      { error: `Each file must be ${Math.round(MAX_UPLOAD_FILE_BYTES / 1024 / 1024)} MB or smaller.` },
-      { status: 400 },
-    );
   }
 
   const { supabase } = ctx;
