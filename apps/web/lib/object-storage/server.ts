@@ -24,6 +24,9 @@ function getClient(): S3Client {
       secretAccessKey: config.secretKey,
     },
     forcePathStyle: config.forcePathStyle,
+    // MinIO rejects the extra checksum headers newer AWS SDK builds add by default.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
   });
 
   return cachedClient;
