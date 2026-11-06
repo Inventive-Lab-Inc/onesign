@@ -1,5 +1,5 @@
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
-import { DeleteObjectCommand, ListObjectsV2Command, PutBucketCorsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getObjectStorageServerConfig, type ObjectStorageServerConfig } from "./env";
 
@@ -48,38 +48,6 @@ export function assertOwnerStoragePath(ownerId: string, storagePath: string): vo
   if (!normalized.startsWith(prefix) || normalized.includes("..")) {
     throw new Error("Invalid storage path for this user.");
   }
-}
-
-let mediaCorsReady: Promise<void> | null = null;
-
-/** Lets the browser PUT a file straight to the bucket. The upload URL is still signed. */
-export function ensureMediaBucketCors(): Promise<void> {
-  if (!mediaCorsReady) {
-    mediaCorsReady = (async () => {
-      const config = requireConfig();
-      const client = getClient();
-      await client.send(
-        new PutBucketCorsCommand({
-          Bucket: config.mediaBucket,
-          CORSConfiguration: {
-            CORSRules: [
-              {
-                AllowedOrigins: ["*"],
-                AllowedMethods: ["GET", "PUT", "HEAD"],
-                AllowedHeaders: ["*"],
-                ExposeHeaders: ["ETag"],
-                MaxAgeSeconds: 3600,
-              },
-            ],
-          },
-        }),
-      );
-    })().catch((error) => {
-      mediaCorsReady = null;
-      throw error;
-    });
-  }
-  return mediaCorsReady;
 }
 
 /** Short-lived URL so the browser can upload without sending the file through the app server. */

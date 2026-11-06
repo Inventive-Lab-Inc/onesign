@@ -6,7 +6,7 @@ import {
   resolveUploadOwner,
   storageQuotaMessage,
 } from "@/lib/media-direct-upload";
-import { ensureMediaBucketCors, presignMediaPut } from "@/lib/object-storage/server";
+import { presignMediaPut } from "@/lib/object-storage/server";
 
 export const runtime = "nodejs";
 
@@ -64,7 +64,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await ensureMediaBucketCors();
     const uploadUrl = await presignMediaPut(owner.ownerId, storagePath, meta.contentType);
     return NextResponse.json({ uploadUrl, storagePath, contentType: meta.contentType });
   } catch (err) {
