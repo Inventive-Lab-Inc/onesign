@@ -1,5 +1,6 @@
 import type { Media } from "@signage/types";
-import { inferMediaFileType, isAcceptedSignageMime } from "@/lib/media";
+import { inferMediaFileType, isAcceptedSignageMime, readVideoFileDurationSeconds } from "@/lib/media";
+import { durationSecondsForStorage } from "@/lib/video-duration-probe";
 
 export const MEDIA_UPLOAD_ACCEPT = {
   "image/jpeg": [],
@@ -27,35 +28,83 @@ export function computeOverallUploadPercent(
   return Math.min(100, Math.max(0, Math.round(overall)));
 }
 
-function uploadFormDataWithProgress(
+function putFileWithProgress(
   url: string,
-  formData: FormData,
+  file: File,
+  contentType: string,
   onProgress?: (loaded: number, total: number) => void,
-): Promise<{ ok: boolean; payload: { media?: Media; error?: string } }> {
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", url);
-    xhr.responseType = "text";
-
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", contentType);
     xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress?.(event.loaded, event.total);
-      }
+      if (event.lengthComputable) onProgress?.(event.loaded, event.total);
     };
-
     xhr.onload = () => {
-      let payload: { media?: Media; error?: string };
-      try {
-        payload = JSON.parse(xhr.responseText) as { media?: Media; error?: string };
-      } catch {
-        resolve({ ok: false, payload: { error: "Invalid server response." } });
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
         return;
       }
-      resolve({ ok: xhr.status >= 200 && xhr.status < 300, payload });
+      reject(new Error(`Storage rejected the file (${xhr.status}).`));
     };
-
     xhr.onerror = () => reject(new Error("Network error during upload."));
-    xhr.send(formData);
+    xhr.send(file);
+  });
+}
+
+async function postJson<T>(url: string, body: Record<string, unknown>): Promise<{ ok: boolean; payload: T & { error?: string } }> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  let payload: T & { error?: string };
+  try {
+    payload = (await response.json()) as T & { error?: string };
+  } catch {
+    return { ok: false, payload: { error: "Invalid server response." } as T & { error?: string } };
+  }
+  return { ok: response.ok, payload };
+}
+
+async function uploadFileDirect(
+  file: File,
+  prepareUrl: string,
+  finishUrl: string,
+  extra: Record<string, unknown>,
+  onProgress?: (loaded: number, total: number) => void,
+): Promise<{ ok: boolean; payload: { media?: Media; error?: string } }> {
+  const durationSeconds =
+    inferMediaFileType(file.type) === "video"
+      ? durationSecondsForStorage(await readVideoFileDurationSeconds(file))
+      : null;
+
+  const prepared = await postJson<{ uploadUrl?: string; storagePath?: string; contentType?: string }>(prepareUrl, {
+    filename: file.name,
+    contentType: file.type,
+    sizeBytes: file.size,
+    durationSeconds,
+    ...extra,
+  });
+  if (!prepared.ok || !prepared.payload.uploadUrl || !prepared.payload.storagePath) {
+    return { ok: false, payload: { error: prepared.payload.error ?? "Could not start upload." } };
+  }
+
+  await putFileWithProgress(
+    prepared.payload.uploadUrl,
+    file,
+    prepared.payload.contentType ?? file.type,
+    onProgress,
+  );
+
+  return postJson<{ media?: Media }>(finishUrl, {
+    filename: file.name,
+    contentType: file.type,
+    sizeBytes: file.size,
+    durationSeconds,
+    storagePath: prepared.payload.storagePath,
+    ...extra,
   });
 }
 
@@ -93,20 +142,20 @@ export async function uploadMediaFiles(
 
     reportProgress(0);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("ownerId", ownerId);
-    if (workspaceId) {
-      formData.append("workspaceId", workspaceId);
-    }
-
     let result: { ok: boolean; payload: { media?: Media; error?: string } };
     try {
-      result = await uploadFormDataWithProgress("/api/media/upload", formData, (loaded, total) => {
-        reportProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
-      });
-    } catch {
-      errors.push(`${file.name}: network error during upload.`);
+      result = await uploadFileDirect(
+        file,
+        "/api/media/upload/prepare",
+        "/api/media/upload/finish",
+        { ownerId, ...(workspaceId ? { workspaceId } : {}) },
+        (loaded, total) => {
+          reportProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
+        },
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "network error during upload.";
+      errors.push(`${file.name}: ${message}`);
       completedFiles++;
       continue;
     }
@@ -147,18 +196,20 @@ export async function replaceMediaFile(
 
   reportProgress(0);
 
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("mediaId", mediaId);
-  formData.append("ownerId", ownerId);
-
   let result: { ok: boolean; payload: { media?: Media; error?: string } };
   try {
-    result = await uploadFormDataWithProgress("/api/media/replace", formData, (loaded, total) => {
-      reportProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
-    });
-  } catch {
-    return { media: null, error: "Network error during replace." };
+    result = await uploadFileDirect(
+      file,
+      "/api/media/replace/prepare",
+      "/api/media/replace/finish",
+      { mediaId, ownerId },
+      (loaded, total) => {
+        reportProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
+      },
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Network error during replace.";
+    return { media: null, error: message };
   }
 
   if (!result.ok || !result.payload.media) {

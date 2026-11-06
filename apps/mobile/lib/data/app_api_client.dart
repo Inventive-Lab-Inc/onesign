@@ -33,22 +33,64 @@ class AppApiClient {
     required String workspaceId,
   }) async {
     final token = await _accessToken();
-    final uri = Uri.parse('${AppEnv.appUrl}/api/media/upload');
-    final req = http.MultipartRequest('POST', uri)
-      ..headers['Authorization'] = 'Bearer $token'
-      ..fields['ownerId'] = ownerId
-      ..fields['workspaceId'] = workspaceId
-      ..files.add(await http.MultipartFile.fromPath('file', file.path));
+    final filename = file.uri.pathSegments.last;
+    final contentType = _mediaContentType(filename);
+    final sizeBytes = await file.length();
+    final authHeaders = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+    final meta = {
+      'filename': filename,
+      'contentType': contentType,
+      'sizeBytes': sizeBytes,
+      'ownerId': ownerId,
+      'workspaceId': workspaceId,
+    };
 
-    final streamed = await req.send();
-    final responseBody = await streamed.stream.bytesToString();
-    if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
-      final decoded = _decode(responseBody);
-      throw Exception(
-        decoded['error']?.toString() ??
-            'Upload failed (${streamed.statusCode})',
-      );
+    final prepared = await http.post(
+      Uri.parse('${AppEnv.appUrl}/api/media/upload/prepare'),
+      headers: authHeaders,
+      body: jsonEncode(meta),
+    );
+    final preparedBody = _decode(prepared.body);
+    if (prepared.statusCode < 200 || prepared.statusCode >= 300) {
+      throw Exception(preparedBody['error']?.toString() ?? 'Could not start upload');
     }
+
+    final uploadUrl = preparedBody['uploadUrl']?.toString();
+    final storagePath = preparedBody['storagePath']?.toString();
+    if (uploadUrl == null || storagePath == null) {
+      throw Exception('Could not start upload');
+    }
+
+    final put = await http.put(
+      Uri.parse(uploadUrl),
+      headers: {'Content-Type': contentType},
+      body: await file.readAsBytes(),
+    );
+    if (put.statusCode < 200 || put.statusCode >= 300) {
+      throw Exception('Storage rejected the file (${put.statusCode})');
+    }
+
+    final finished = await http.post(
+      Uri.parse('${AppEnv.appUrl}/api/media/upload/finish'),
+      headers: authHeaders,
+      body: jsonEncode({...meta, 'storagePath': storagePath}),
+    );
+    final finishedBody = _decode(finished.body);
+    if (finished.statusCode < 200 || finished.statusCode >= 300) {
+      throw Exception(finishedBody['error']?.toString() ?? 'Upload failed');
+    }
+  }
+
+  String _mediaContentType(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.mp4')) return 'video/mp4';
+    if (lower.endsWith('.webm')) return 'video/webm';
+    return 'image/jpeg';
   }
 
   Future<void> createWebsiteUrl({
