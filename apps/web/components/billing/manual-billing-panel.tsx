@@ -31,8 +31,16 @@ type SummaryResponse = {
 
 const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS) as BillingPaymentMethod[];
 
-function statusLabel(status: BillingInvoice["status"]): string {
-  switch (status) {
+function invoiceIsPastDue(invoice: Pick<BillingInvoice, "status" | "due_at">): boolean {
+  if (invoice.status !== "open" && invoice.status !== "payment_submitted") return false;
+  if (!invoice.due_at) return false;
+  const dueAt = new Date(invoice.due_at);
+  return Number.isFinite(dueAt.getTime()) && dueAt.getTime() < Date.now();
+}
+
+function statusLabel(invoice: Pick<BillingInvoice, "status" | "due_at">): string {
+  if (invoiceIsPastDue(invoice)) return "Overdue";
+  switch (invoice.status) {
     case "open":
       return "Due";
     case "payment_submitted":
@@ -44,12 +52,15 @@ function statusLabel(status: BillingInvoice["status"]): string {
     case "canceled":
       return "Canceled";
     default:
-      return status;
+      return invoice.status;
   }
 }
 
-function statusTone(status: BillingInvoice["status"]): string {
-  switch (status) {
+function statusTone(invoice: Pick<BillingInvoice, "status" | "due_at">): string {
+  if (invoiceIsPastDue(invoice)) {
+    return "bg-amber-50 text-amber-800 ring-amber-600/30 dark:bg-amber-500/10 dark:text-amber-300";
+  }
+  switch (invoice.status) {
     case "paid":
       return "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300";
     case "payment_submitted":
@@ -228,10 +239,10 @@ export function ManualBillingPanel() {
                   <span
                     className={cn(
                       "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset",
-                      statusTone(invoice.status),
+                      statusTone(invoice),
                     )}
                   >
-                    {statusLabel(invoice.status)}
+                    {statusLabel(invoice)}
                   </span>
                 </div>
 

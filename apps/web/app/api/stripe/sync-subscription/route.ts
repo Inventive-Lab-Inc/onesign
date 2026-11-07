@@ -6,6 +6,7 @@ import { getStripeClient } from "@/lib/stripe/client";
 import { requireStripeAccountAdmin } from "@/lib/stripe/route-auth";
 import {
   getSupabaseAdminForStripe,
+  revokeSubscriptionFromProfile,
   syncSubscriptionForUser,
 } from "@/lib/stripe/subscription-handlers";
 
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("stripe_customer_id, stripe_subscription_id")
+      .select("stripe_customer_id, stripe_subscription_id, subscription_status")
       .eq("id", accountOwnerId)
       .maybeSingle();
 
@@ -127,6 +128,10 @@ export async function POST(request: NextRequest) {
     );
 
     if (!active) {
+      // Profile may still claim active after cancel/delete in Stripe — clear it.
+      if (profile?.stripe_subscription_id || profile?.subscription_status) {
+        await revokeSubscriptionFromProfile(admin, accountOwnerId);
+      }
       return NextResponse.json({ ok: true, subscriptionId: null, status: "none" });
     }
 

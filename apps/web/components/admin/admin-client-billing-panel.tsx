@@ -187,7 +187,15 @@ export function AdminClientBillingPanel({ userId }: { userId: string }) {
           <p className="text-sm text-muted-foreground">None</p>
         ) : (
           <ul className="space-y-2">
-            {summary.invoices.map((invoice) => (
+            {summary.invoices.map((invoice) => {
+              const dueAt = invoice.due_at ? new Date(invoice.due_at) : null;
+              const isPastDue =
+                (invoice.status === "open" || invoice.status === "payment_submitted") &&
+                dueAt != null &&
+                Number.isFinite(dueAt.getTime()) &&
+                dueAt.getTime() < Date.now();
+              const statusLabel = isPastDue ? `overdue (${invoice.status})` : invoice.status;
+              return (
               <li
                 key={invoice.id}
                 className="rounded-lg border border-border/70 px-3 py-2 text-sm"
@@ -195,9 +203,10 @@ export function AdminClientBillingPanel({ userId }: { userId: string }) {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="font-medium text-foreground">{invoice.invoice_number}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {invoice.status} ·{" "}
+                    <p className={cn("text-xs", isPastDue ? "font-medium text-amber-700" : "text-muted-foreground")}>
+                      {statusLabel} ·{" "}
                       {formatPlanMinorUnits(invoice.total_cents, invoice.currency as PlanCurrency)}
+                      {dueAt ? ` · due ${dueAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}
                     </p>
                   </div>
                   {canWrite &&
@@ -223,7 +232,8 @@ export function AdminClientBillingPanel({ userId }: { userId: string }) {
                   </p>
                 ) : null}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>

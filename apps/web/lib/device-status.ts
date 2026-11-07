@@ -2,8 +2,8 @@ import type { Device, DeviceStatus } from "@signage/types";
 
 /**
  * Max age of `last_seen` while we still show Online (TV heartbeats every ~30s).
- * Allow two missed heartbeats plus network margin — do not tie this to sync-side
- * `mark_stale_devices_offline` (removed from console pull; that RPC uses 45s in DB).
+ * Allow two missed heartbeats plus network margin. Matches
+ * `mark_stale_devices_offline` (90s) which console pull invokes best-effort.
  */
 export const STALE_ONLINE_MS = 90_000;
 

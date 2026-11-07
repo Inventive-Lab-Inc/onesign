@@ -108,6 +108,12 @@ export async function pullConsoleData(
   accountOwnerId: string,
   workspaceId: string | null = null,
 ): Promise<ConsoleSnapshot> {
+  // Best-effort: keep DB status in sync with the 90s UI freshness window.
+  void supabase.rpc("mark_stale_devices_offline", { p_owner_id: accountOwnerId }).then(
+    () => undefined,
+    () => undefined,
+  );
+
   let devicesBuilder = supabase
     .from("devices")
     .select("*, device_playlists(playlist_id,is_active,updated_at)")
