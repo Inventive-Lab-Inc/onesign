@@ -5,6 +5,8 @@ import {
   isMarketingHost,
   isPlayerHost,
   playerUrl,
+  publicOriginFromRequest,
+  publicUrl,
 } from "./site-hosts";
 
 describe("isMarketingHost", () => {
@@ -59,5 +61,35 @@ describe("playerUrl", () => {
   it("builds absolute player URLs from env", () => {
     vi.stubEnv("NEXT_PUBLIC_PLAYER_URL", "https://player.onesigntv.com");
     expect(playerUrl()).toBe("https://player.onesigntv.com/");
+  });
+});
+
+describe("publicOriginFromRequest", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("prefers forwarded host over loopback request.url", () => {
+    const request = {
+      headers: new Headers({
+        host: "127.0.0.1:3005",
+        "x-forwarded-host": "app.onesigntv.com",
+        "x-forwarded-proto": "https",
+      }),
+      url: "https://localhost:3005/dashboard",
+    };
+    expect(publicOriginFromRequest(request)).toBe("https://app.onesigntv.com");
+    expect(publicUrl(request, "/login").toString()).toBe(
+      "https://app.onesigntv.com/login",
+    );
+  });
+
+  it("falls back to AUTH_URL when host is loopback", () => {
+    vi.stubEnv("AUTH_URL", "https://app.onesigntv.com");
+    const request = {
+      headers: new Headers({ host: "localhost:3005" }),
+      url: "https://localhost:3005/login",
+    };
+    expect(publicOriginFromRequest(request)).toBe("https://app.onesigntv.com");
   });
 });

@@ -1,5 +1,6 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { publicUrl } from "@/lib/site-hosts";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
@@ -8,13 +9,10 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/reset-password";
+  const safeNext =
+    next.startsWith("/") && !next.startsWith("//") ? next : "/reset-password";
 
-  const redirectTo = request.nextUrl.clone();
-  redirectTo.pathname = next;
-  redirectTo.searchParams.delete("token_hash");
-  redirectTo.searchParams.delete("type");
-  redirectTo.searchParams.delete("code");
-  redirectTo.searchParams.delete("next");
+  const redirectTo = publicUrl(request, safeNext);
 
   const supabase = getSupabaseServerClient();
 
@@ -32,8 +30,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const loginUrl = request.nextUrl.clone();
-  loginUrl.pathname = "/login";
+  const loginUrl = publicUrl(request, "/login");
   loginUrl.searchParams.set("error", "auth_confirm_failed");
   return NextResponse.redirect(loginUrl);
 }

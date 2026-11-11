@@ -1,6 +1,6 @@
 ---
 name: deploy-onesign
-description: Deploy OneSign digital-signage to production — GitHub push, Vercel web (onesign-tv), Supabase migrations/OTA, VPS MinIO APK hosting. Use when the user asks to release, deploy, ship to production, publish OTA, bump Android version, or push live.
+description: Deploy OneSign digital-signage to production — GitHub push, VPS web (onesign-web), Supabase migrations/OTA, VPS MinIO APK hosting. Use when the user asks to release, deploy, ship to production, publish OTA, bump Android version, or push live.
 ---
 
 # Deploy OneSign
@@ -9,12 +9,12 @@ Production stack for this monorepo:
 
 | System | Role |
 |--------|------|
-| **GitHub** | Source of truth; push `main` triggers Vercel |
-| **Vercel** | Web dashboard (`apps/web`, project **onesign-tv**) |
+| **GitHub** | Source of truth |
+| **VPS web** | Dashboard + marketing + player (`apps/web`, systemd **onesign-web** `:3005`) |
 | **Supabase** | Postgres, RLS, TV RPCs, `app_releases` OTA metadata |
 | **VPS MinIO** | Public APK + media at `https://storage.onesigntv.com` |
 
-Repo: `https://github.com/Inventive-Lab-Technologies/onesign.git`
+Repo: `https://github.com/Inventive-Lab-Inc/onesign.git`
 
 ---
 
@@ -25,7 +25,7 @@ Repo: `https://github.com/Inventive-Lab-Technologies/onesign.git`
 1. Read `.cursor/deploy.local.env` (create from `.cursor/deploy.local.env.example` if missing).
 2. Fallback: `apps/web/.env.local` — same `ONESIGN_VPS_*` and `S3_*` vars if the deploy file is absent.
 
-Required for Android OTA upload via SSH:
+Required for VPS SSH (web deploy + Android OTA upload):
 
 | Variable | Purpose |
 |----------|---------|
@@ -58,12 +58,12 @@ Inspect `git diff` / changed paths:
 
 | Changes | Do |
 |---------|-----|
-| **`apps/web/`**, `packages/types/`, docs only | **Web release** — GitHub + Vercel only |
+| **`apps/web/`**, `packages/types/`, docs only | **Web release** — GitHub + `./scripts/deploy-onesign-web-vps.sh` |
 | **`apps/android/`** (or Gradle config affecting the APK) | **Android OTA** — full TV path below |
 | **`packages/database/migrations/`** | Apply Supabase migrations **before** code that depends on them |
-| Web + Android | Migrations (if any) → preflight → Android build → GitHub → VPS + Supabase OTA → Vercel check |
+| Web + Android | Migrations (if any) → preflight → Android build → GitHub → VPS web + MinIO OTA → Supabase |
 
-**Do not release an APK if nothing under `apps/android/` changed.** Web-only = push GitHub and verify Vercel.
+**Do not release an APK if nothing under `apps/android/` changed.** Web-only = push GitHub and run the VPS web deploy script.
 
 ---
 
@@ -78,9 +78,9 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew :app:testDebugUnitTest :app:assembleRelease
 ```
 
-Fix failures **before** pushing. Local `pnpm run build` catches most Vercel TypeScript errors.
+Fix failures **before** pushing. Local `pnpm run build` catches most production TypeScript errors.
 
-> Local builds write to `apps/web/.next-local` (set by `next.config.mjs` based on build phase), so the preflight build is safe to run while a `next dev` server is up — it will **not** wipe the dev server's `.next`. On Vercel (`VERCEL` is set) the build still uses `.next` as the platform expects. Never `rm -rf apps/web/.next` while a dev server is running.
+> Local builds write to `apps/web/.next-local` (set by `next.config.mjs` based on build phase), so the preflight build is safe to run while a `next dev` server is up — it will **not** wipe the dev server's `.next`. On the VPS (`ONESIGN_VPS=1`) the build uses `.next`. Never `rm -rf apps/web/.next` while a dev server is running.
 
 ---
 
@@ -94,20 +94,23 @@ Only create commits when the user explicitly asks.
 
 ---
 
-## Step 3 — Vercel (web)
+## Step 3 — VPS web
 
-Push to `main` auto-deploys **onesign-tv**.
+After push (and for any web-facing change):
 
-Use **Vercel MCP** (`plugin-vercel-vercel`):
+```bash
+./scripts/deploy-onesign-web-vps.sh
+```
 
-1. `list_teams` → get team id
-2. `list_deployments` with project id for **onesign-tv**
-3. Confirm latest production deployment state is **READY**
-4. If **ERROR**: `get_deployment_build_logs` → fix web/TS issue → commit → push again
+First-time host setup (systemd + Caddy for `onesigntv.com` / `www` / `app` / `player`):
 
-**Vercel failure does not require redoing Android OTA** unless Android code also changed in that fix.
+```bash
+./scripts/deploy-onesign-web-vps.sh --setup
+```
 
-Smoke-test production: login, devices, playlists, Settings → TV app updates (OTA) read-only view.
+Confirm `systemctl is-active onesign-web` on the VPS. Smoke-test: login, devices, playlists, Settings → TV app updates (OTA) read-only view.
+
+**Web deploy failure does not require redoing Android OTA** unless Android code also changed in that fix.
 
 ---
 
@@ -231,12 +234,12 @@ User wants production deploy
 ├─ Any packages/database/migrations/* changed?
 │  └─ YES → Apply migrations in Supabase first
 ├─ Any apps/android/* changed?
-│  ├─ NO  → Push GitHub → Check Vercel READY → done
+│  ├─ NO  → Push GitHub → ./scripts/deploy-onesign-web-vps.sh → done
 │  └─ YES → Bump version → Build APK → Push GitHub
 │           → Upload MinIO → Supabase app_releases + activate
-│           → Check Vercel READY → verify OTA RPC + optional TV install
-└─ Vercel ERROR?
-   └─ Fix web build → Push again (skip APK/VPS/Supabase unless Android also changed)
+│           → Deploy web VPS if web also changed → verify OTA RPC
+└─ Web VPS ERROR?
+   └─ Fix web build → Redeploy VPS (skip APK/MinIO/Supabase unless Android also changed)
 ```
 
 ---
@@ -254,8 +257,8 @@ Deploy OneSign — [web | android | full]
 - [ ] versionCode/versionName bumped (android only)
 - [ ] Release APK built + SHA-256 recorded (android only)
 - [ ] GitHub: pushed to main (+ optional GitHub Release)
-- [ ] Vercel: production READY
-- [ ] Credentials: `.cursor/deploy.local.env` exists and sourced (android VPS steps)
+- [ ] VPS web: ./scripts/deploy-onesign-web-vps.sh
+- [ ] Credentials: `.cursor/deploy.local.env` exists and sourced (VPS steps)
 - [ ] Supabase: app_releases row + activated (android only)
 - [ ] tv_check_app_update verified (android only)
 - [ ] Production smoke test
@@ -265,8 +268,9 @@ Deploy OneSign — [web | android | full]
 
 ## Additional resources
 
+- Web VPS: `scripts/deploy-onesign-web-vps.sh`, `scripts/vps-setup-onesign-web.sh`
 - VPS/MinIO setup scripts: `scripts/vps-setup-minio.sh`, `scripts/init-onesign-minio-buckets.sh`
 - Android OTA docs: `apps/android/README.md`
-- Web/Vercel env vars: `apps/web/.env.example`, `apps/web/README.md`
+- Web env vars: `apps/web/.env.example`, `apps/web/README.md`
 - DB migrations: `packages/database/README.md`
 - Detailed commands and rollback: [reference.md](reference.md)

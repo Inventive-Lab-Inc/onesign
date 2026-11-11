@@ -4,8 +4,10 @@
 
 | Resource | Value |
 |----------|--------|
-| GitHub repo | `Inventive-Lab-Technologies/onesign` |
-| Vercel project | `onesign-tv` |
+| GitHub repo | `Inventive-Lab-Inc/onesign` |
+| VPS web service | `onesign-web` (Next.js on `127.0.0.1:3005`) |
+| VPS web root | `/var/www/onesign` |
+| Public hosts | `onesigntv.com`, `www`, `app.onesigntv.com`, `player.onesigntv.com` |
 | Supabase project ref | `nlkjbfwhzzpebsunmzrw` |
 | Supabase project name | `tv-sign` |
 | MinIO public base (releases) | `https://storage.onesigntv.com/onesign-releases` |
@@ -20,6 +22,7 @@
 | `.cursor/deploy.local.env.example` | Yes | Template |
 | `.cursor/deploy.local.env` | **No** (gitignored) | VPS SSH + MinIO deploy vars (primary) |
 | `apps/web/.env.local` | **No** (gitignored) | Same `ONESIGN_VPS_*` + `S3_*` (fallback for deploy skill) |
+| VPS `apps/web/.env.production.local` | **No** | Written by `deploy-onesign-web-vps.sh` from local env |
 
 Setup once:
 
@@ -30,31 +33,50 @@ cp .cursor/deploy.local.env.example .cursor/deploy.local.env
 
 Agent must `source .cursor/deploy.local.env` before any SSH/scp/mc deploy commands.
 
-## VPS architecture (OneSign-only)
+## VPS architecture
 
-The VPS (`194.164.91.252`) is **dedicated to OneSign**. Its only job is hosting object
-storage (media + APK releases).
+The VPS (`194.164.91.252`) hosts OneSign **web** + **object storage** (shared box also runs other Inventive Lab apps).
 
 | Layer | Detail |
 |-------|--------|
+| Web | Host **systemd** `onesign-web` → Next.js `127.0.0.1:3005`. Deploy with `scripts/deploy-onesign-web-vps.sh`. First-time: `--setup` or `scripts/vps-setup-onesign-web.sh`. |
+| Caddy web | `/etc/caddy/conf.d/onesign-web.caddy` — `onesigntv.com` / `www` / `app` / `player` → `:3005` |
 | MinIO | Host **systemd** service (`minio`), data in `/data/minio`, listens on `:9000` (S3 API) + `:9001` (console). Root user is admin-only. |
-| App creds | The app uses the least-privilege MinIO user `onesign-app` (policy `onesign-app-policy`, scoped to `onesign-media` + `onesign-releases`). Never the root key. Set as `S3_ACCESS_KEY`/`S3_SECRET_KEY` in Vercel + `apps/web/.env.local`. |
-| Edge | Host **systemd** Caddy (`caddy`, `/etc/caddy/Caddyfile`) owns `:80/:443`, terminates TLS, and reverse-proxies `storage.onesigntv.com` → `127.0.0.1:9000` (signed/presigned/object paths) and `127.0.0.1:9001` (console root). Reinstall/repair with `scripts/vps-add-s3-storage-host.sh`. |
+| App creds | The app uses the least-privilege MinIO user `onesign-app` (policy `onesign-app-policy`, scoped to `onesign-media` + `onesign-releases`). Never the root key. Set as `S3_ACCESS_KEY`/`S3_SECRET_KEY` in VPS env + `apps/web/.env.local`. |
+| Edge storage | Host **systemd** Caddy (`caddy`, `/etc/caddy/Caddyfile`) owns `:80/:443`, terminates TLS, and reverse-proxies `storage.onesigntv.com` → `127.0.0.1:9000` (signed/presigned/object paths) and `127.0.0.1:9001` (console root). Reinstall/repair with `scripts/vps-add-s3-storage-host.sh`. |
 | Public ports | Only `22`, `80`, `443`. MinIO `:9000/:9001` are not publicly reachable (firewalled). |
-| OOM safety | 2 GB swap (`vm.swappiness=10`). |
-| Postgres | None on the box — OneSign uses Supabase cloud. |
+| Memory | Soft caps on Next units (`MemoryMax` ~450M for OneSign). Prefer upgrading RAM if swap is hot. |
+| Postgres | None for OneSign — uses Supabase cloud. |
 
-If `storage.onesigntv.com` is down: `systemctl status caddy minio` and `journalctl -u caddy -n 50`.
+If `storage.onesigntv.com` is down: `systemctl status caddy minio` and `journalctl -u caddy -n 50`.  
+If web is down: `systemctl status onesign-web` and `journalctl -u onesign-web -n 50`.
 
-## Vercel MCP workflow
+## DNS (BigRock / mywhiteserver)
 
+Point these **A** records to `194.164.91.252` (leave `storage` as-is if already on the VPS):
+
+| Host | Type | Value |
+|------|------|-------|
+| `onesigntv.com` | A | `194.164.91.252` |
+| `www` | A or CNAME | `194.164.91.252` or apex |
+| `app` | A | `194.164.91.252` |
+| `player` | A | `194.164.91.252` |
+
+Caddy issues TLS after DNS propagates.
+
+## Web deploy workflow
+
+```bash
+./scripts/deploy-onesign-web-vps.sh          # sync + install + build + restart
+./scripts/deploy-onesign-web-vps.sh --setup  # also write systemd + Caddy
 ```
-list_teams
-list_deployments(projectId=<onesign-tv project id>, teamId=<team id>)
-get_deployment_build_logs(idOrUrl=<failed deployment>, teamId=<team id>, limit=100)
-```
 
-Project root for Vercel is `apps/web` (`vercel.json` sets monorepo install/build from repo root).
+Pre-DNS smoke on the box:
+
+```bash
+curl -sI -H 'Host: app.onesigntv.com' http://127.0.0.1:3005/
+curl -sI -H 'Host: onesigntv.com' http://127.0.0.1:3005/
+```
 
 ## Signing note
 
@@ -64,15 +86,15 @@ Release builds currently use the debug keystore at `~/.android/debug.keystore`. 
 
 | Layer | Action |
 |-------|--------|
-| Web | Promote previous deployment in Vercel dashboard |
+| Web | Redeploy previous git revision with `deploy-onesign-web-vps.sh`, or keep a prior `/var/www/onesign` backup |
 | Android OTA | Re-activate previous `app_releases` row (APK remains on MinIO) |
 | Database | Avoid rolling back applied migrations in prod without a planned down migration |
 
-## Common Vercel build failures
+## Common web build failures
 
 - TypeScript strict errors in `apps/web` (e.g. nullable fields in new dashboard code)
-- Missing env vars in Vercel project settings (compare to `apps/web/.env.example`)
-- Fix locally with `pnpm run build`, commit, push — do not redo OTA unless Android changed
+- Missing env vars in VPS `.env.production.local` (compare to `apps/web/.env.example`)
+- Fix locally with `pnpm run build`, then redeploy VPS — do not redo OTA unless Android changed
 
 ## `app_releases` column reference
 

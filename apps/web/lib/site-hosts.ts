@@ -49,9 +49,47 @@ export function isAppOnlyPath(pathname: string): boolean {
 }
 
 export function getAppOrigin(): string {
-  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const fromEnv =
+    process.env.AUTH_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, "");
   return "https://app.onesigntv.com";
+}
+
+function isLoopbackHost(host: string | null | undefined): boolean {
+  const hostname = normalizeHost(host);
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+/**
+ * Absolute origin for redirects behind a reverse proxy.
+ * Next.js `request.url` becomes `https://localhost:PORT` when the process binds
+ * to 127.0.0.1 — never use that for Location headers.
+ */
+export function publicOriginFromRequest(request: {
+  headers: Headers;
+  url: string;
+}): string {
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const hostHeader = request.headers.get("host")?.split(",")[0]?.trim();
+  const host = forwardedHost || hostHeader;
+
+  if (host && !isLoopbackHost(host)) {
+    const proto =
+      request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+      (host.includes("localhost") ? "http" : "https");
+    return `${proto}://${host}`;
+  }
+
+  return getAppOrigin();
+}
+
+/** Build an absolute URL on the public origin (never loopback). */
+export function publicUrl(
+  request: { headers: Headers; url: string },
+  path: string,
+): URL {
+  const origin = publicOriginFromRequest(request);
+  return new URL(path, origin.endsWith("/") ? origin : `${origin}/`);
 }
 
 export function getMarketingOrigin(): string {

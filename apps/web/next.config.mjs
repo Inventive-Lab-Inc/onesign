@@ -104,13 +104,16 @@ const nextConfig = {
 // Keep local production builds out of the dev server's working directory.
 // `next dev` always serves from `.next`. A local `next build`/`next start` (preflight,
 // manual verification) writes to `.next-local` instead, so it can never wipe the chunks
-// a running dev server depends on. On Vercel (`VERCEL` is set) we always use `.next`,
-// which is what the platform expects.
+// a running dev server depends on. On Vercel (`VERCEL`) or the OneSign VPS (`ONESIGN_VPS`)
+// we always use `.next`, which is what those hosts expect.
 export default (phase) => {
-  const isVercel = Boolean(process.env.VERCEL);
+  const usePlatformDistDir =
+    Boolean(process.env.VERCEL) ||
+    process.env.ONESIGN_VPS === "1" ||
+    process.env.ONESIGN_VPS === "true";
   const isProductionPhase =
     phase === PHASE_PRODUCTION_BUILD || phase === PHASE_PRODUCTION_SERVER;
-  const distDir = !isVercel && isProductionPhase ? ".next-local" : ".next";
+  const distDir = !usePlatformDistDir && isProductionPhase ? ".next-local" : ".next";
 
   return { ...nextConfig, distDir };
 };

@@ -4,6 +4,7 @@ import {
   bridgeGoogleUserToSupabase,
 } from "@/lib/auth/google-supabase-bridge";
 import { establishSupabaseSessionOnResponse } from "@/lib/auth/supabase-session-from-email";
+import { publicUrl } from "@/lib/site-hosts";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
@@ -12,13 +13,15 @@ export async function GET(request: NextRequest) {
   const email = session?.user?.email;
 
   if (!googleSub || !email) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = publicUrl(request, "/login");
     loginUrl.searchParams.set("error", "google_auth_failed");
     return NextResponse.redirect(loginUrl);
   }
 
   const nextPath = request.nextUrl.searchParams.get("next") ?? "/dashboard";
-  const redirectUrl = new URL(nextPath, request.url);
+  const safeNext =
+    nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
+  const redirectUrl = publicUrl(request, safeNext);
 
   try {
     const userId = await bridgeGoogleUserToSupabase({
@@ -41,7 +44,7 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Google Supabase bridge failed", error);
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = publicUrl(request, "/login");
     loginUrl.searchParams.set("error", "google_bridge_failed");
     return NextResponse.redirect(loginUrl);
   }

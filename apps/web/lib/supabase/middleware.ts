@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtAppMetadataFlag } from "@/lib/auth/jwt-app-metadata";
+import { publicUrl } from "@/lib/site-hosts";
 import { isTrialExpired } from "@/lib/trial";
 import { getSupabaseConnectEnv } from "./env";
 
@@ -78,7 +79,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   if (!hasSupabaseAuthCookie(request)) {
     if (isProtectedPath(pathname)) {
-      const redirectUrl = new URL("/login", request.url);
+      const redirectUrl = publicUrl(request, "/login");
       redirectUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(redirectUrl);
     }
@@ -88,7 +89,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const connect = getSupabaseConnectEnv();
   if (!connect) {
     if (isProtectedPath(pathname)) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return NextResponse.redirect(publicUrl(request, "/login"));
     }
     return NextResponse.next({ request: { headers: request.headers } });
   }
@@ -124,7 +125,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   }
 
   if (isProtectedPath(pathname) && !userId) {
-    const redirectUrl = new URL("/login", request.url);
+    const redirectUrl = publicUrl(request, "/login");
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
   }
@@ -145,17 +146,17 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
           .maybeSingle();
 
         if (!staffRow) {
-          return NextResponse.redirect(new URL("/dashboard", request.url));
+          return NextResponse.redirect(publicUrl(request, "/dashboard"));
         }
       }
     } else if (isProtectedPath(pathname) && pathname !== "/account-suspended" && pathname !== "/trial-expired") {
       const cached = readProfileGateCache(request, userId);
       if (cached) {
         if (cached.disabled) {
-          return NextResponse.redirect(new URL("/account-suspended", request.url));
+          return NextResponse.redirect(publicUrl(request, "/account-suspended"));
         }
         if (cached.trialExpired) {
-          return NextResponse.redirect(new URL("/trial-expired", request.url));
+          return NextResponse.redirect(publicUrl(request, "/trial-expired"));
         }
       } else {
         const { data: profile } = await supabase
@@ -168,11 +169,11 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
         const trialExpired = isTrialExpired(profile?.trial_ends_at);
 
         if (disabled) {
-          return NextResponse.redirect(new URL("/account-suspended", request.url));
+          return NextResponse.redirect(publicUrl(request, "/account-suspended"));
         }
 
         if (trialExpired) {
-          return NextResponse.redirect(new URL("/trial-expired", request.url));
+          return NextResponse.redirect(publicUrl(request, "/trial-expired"));
         }
 
         writeProfileGateCookie(response, userId, disabled, trialExpired);
@@ -184,7 +185,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     const next = request.nextUrl.searchParams.get("next");
     const safeNext =
       next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
-    return NextResponse.redirect(new URL(safeNext, request.url));
+    return NextResponse.redirect(publicUrl(request, safeNext));
   }
 
   return response;
